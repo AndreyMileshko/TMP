@@ -1,6 +1,7 @@
 package com.tmp.order.api;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Objects;
 
 /**
@@ -8,6 +9,7 @@ import java.util.Objects;
  *
  * <p>{@code itemQuantity} is the historical ordered quantity of all items (not only ACTIVE).
  * {@code customerName} / {@code customerRef} may be {@code null} for incomplete DRAFT orders.
+ * {@code readyDate} is the optional planned manufacturing date (UI: «Дата изготовления»).
  */
 public final class OrderWorklistRowDto {
 
@@ -17,6 +19,7 @@ public final class OrderWorklistRowDto {
     private final String customerRef;
     private final String customerName;
     private final Instant createdAt;
+    private final LocalDate readyDate;
     private final long itemQuantity;
 
     private OrderWorklistRowDto(
@@ -26,6 +29,7 @@ public final class OrderWorklistRowDto {
             String customerRef,
             String customerName,
             Instant createdAt,
+            LocalDate readyDate,
             long itemQuantity) {
         this.orderId = orderId;
         this.orderNumber = orderNumber;
@@ -33,6 +37,7 @@ public final class OrderWorklistRowDto {
         this.customerRef = customerRef;
         this.customerName = customerName;
         this.createdAt = createdAt;
+        this.readyDate = readyDate;
         this.itemQuantity = itemQuantity;
     }
 
@@ -44,6 +49,18 @@ public final class OrderWorklistRowDto {
             String customerName,
             Instant createdAt,
             long itemQuantity) {
+        return of(orderId, orderNumber, status, customerRef, customerName, createdAt, null, itemQuantity);
+    }
+
+    public static OrderWorklistRowDto of(
+            OrderId orderId,
+            String orderNumber,
+            OrderStatus status,
+            String customerRef,
+            String customerName,
+            Instant createdAt,
+            LocalDate readyDate,
+            long itemQuantity) {
         Objects.requireNonNull(orderId, "orderId");
         Objects.requireNonNull(orderNumber, "orderNumber");
         Objects.requireNonNull(status, "status");
@@ -52,7 +69,14 @@ public final class OrderWorklistRowDto {
             throw new IllegalArgumentException("itemQuantity must be >= 0: " + itemQuantity);
         }
         return new OrderWorklistRowDto(
-                orderId, orderNumber, status, customerRef, customerName, createdAt, itemQuantity);
+                orderId,
+                orderNumber,
+                status,
+                customerRef,
+                customerName,
+                createdAt,
+                readyDate,
+                itemQuantity);
     }
 
     public OrderId orderId() {
@@ -77,6 +101,11 @@ public final class OrderWorklistRowDto {
 
     public Instant createdAt() {
         return createdAt;
+    }
+
+    /** Optional planned ready date; {@code null} when absent. */
+    public LocalDate readyDate() {
+        return readyDate;
     }
 
     public long itemQuantity() {

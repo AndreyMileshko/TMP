@@ -12486,15 +12486,14 @@ Stage 3.5.12 = COMPLETE.
 
 ---
 
-## B3-MA-13-02-FIX1 — Display Manufacturing Date and Creation Date Correctly
+## B3-MA-13-02-FIX1 — Persist and Display Order Manufacturing Date
 
-**Status:** BLOCKED
-**Date:** 2026-10-19
-**Base HEAD:** `6a603cda1f620ad7d9d0dbf586f61722dc609dae`
-**Blocker:** `BLK-B3-MA-13-02-FIX1-MANUFACTURING-DATE-PERSISTENCE`
-**Goal:** Show «Дата изготовления» (STXT «Дата готовности») and «Дата создания» (`createdAt`) independently in Order List + Order Details.
-**Persistence check:** Case **B** — `readyDate` parsed into `OrderImportBatch` then discarded before persistence; no DB/domain/API field.
-**Stop reason:** Migration required; must not silently migrate or overwrite pilot records. UI implementation deferred until migration + import wiring + backfill policy approved.
+**Status:** PARTIAL (DB deploy DONE; manual Order List/Details GUI PENDING)
+**Date:** 2026-10-20
+**Base HEAD:** `88ba6700a20ba84db5cf7ee6bf96679b4afa0035`
+**Goal:** Persist STXT «Дата готовности» as `ready_date`; display as «Дата изготовления» independently of «Дата создания».
+**Done:** Implementation; focused tests; package; backups; V54 on `tmp_gui_stage5` + `tmp_pilot`; pilot backfill 26106009/066/063; normal pilot startup (Flyway off).
+**Not done:** Manual GUI acceptance of list/details date columns.
 **Commit:** NONE
 **Push:** NONE
 

@@ -49,11 +49,12 @@
                visible="false" managed="false"/>
         <TableView fx:id="ordersTable" VBox.vgrow="ALWAYS">
             <columns>
-                <TableColumn fx:id="orderNumberColumn" text="Номер заказа" prefWidth="160" minWidth="120"/>
-                <TableColumn fx:id="customerNameColumn" text="Заказчик" prefWidth="220" minWidth="140"/>
-                <TableColumn fx:id="createdAtColumn" text="Дата создания" prefWidth="150" minWidth="130"/>
+                <TableColumn fx:id="orderNumberColumn" text="Номер заказа" prefWidth="150" minWidth="120"/>
+                <TableColumn fx:id="customerNameColumn" text="Заказчик" prefWidth="200" minWidth="140"/>
+                <TableColumn fx:id="readyDateColumn" text="Дата изготовления" prefWidth="140" minWidth="120"/>
                 <TableColumn fx:id="itemCountColumn" text="Изделий" prefWidth="90" minWidth="80"/>
-                <TableColumn fx:id="statusColumn" text="Статус" prefWidth="200" minWidth="160"/>
+                <TableColumn fx:id="statusColumn" text="Статус" prefWidth="180" minWidth="150"/>
+                <TableColumn fx:id="createdAtColumn" text="Дата создания" prefWidth="150" minWidth="130"/>
             </columns>
         </TableView>
     </VBox>

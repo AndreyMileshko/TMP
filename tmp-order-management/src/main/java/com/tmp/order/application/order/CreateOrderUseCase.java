@@ -33,6 +33,7 @@ public final class CreateOrderUseCase {
                         OrderId.generate(),
                         command.orderNumber(),
                         command.commercialData(),
+                        command.readyDate(),
                         clock);
         return customerOrderRepository.save(order);
     }

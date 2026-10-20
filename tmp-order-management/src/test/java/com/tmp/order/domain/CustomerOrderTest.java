@@ -1,6 +1,7 @@
 package com.tmp.order.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -8,6 +9,7 @@ import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderStatus;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
 
@@ -21,7 +23,28 @@ class CustomerOrderTest {
         CustomerOrder order = sampleOrder();
         assertEquals(OrderStatus.DRAFT, order.status());
         assertEquals(0L, order.version());
+        assertNull(order.readyDate());
         assertTrue(order.isDraft());
+    }
+
+    @Test
+    void readyDateIsIndependentOfCreatedAtAndPreservedThroughLifecycle() {
+        LocalDate ready = LocalDate.of(2026, 11, 3);
+        Instant created = CLOCK.instant();
+        CustomerOrder draft =
+                CustomerOrder.create(
+                        OrderId.generate(),
+                        OrderNumber.of("ORD-RD-1"),
+                        sampleCommercialData(),
+                        ready,
+                        CLOCK);
+        assertEquals(ready, draft.readyDate());
+        assertEquals(created, draft.createdAt());
+
+        CustomerOrder active = draft.approve(CLOCK).activate(CLOCK);
+        assertEquals(ready, active.readyDate());
+        assertEquals(created, active.createdAt());
+        assertEquals(OrderStatus.ACTIVE, active.status());
     }
 
     @Test
@@ -148,6 +171,7 @@ class CustomerOrderTest {
                         base.commercialData(),
                         OrderStatus.DRAFT,
                         7L,
+                        null,
                         CLOCK.instant(),
                         CLOCK.instant());
         assertEquals(7L, rehydrated.version());

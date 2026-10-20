@@ -77,11 +77,13 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
     @FXML
     private TableColumn<OrderOperationalSummary, String> customerNameColumn;
     @FXML
-    private TableColumn<OrderOperationalSummary, String> createdAtColumn;
+    private TableColumn<OrderOperationalSummary, String> readyDateColumn;
     @FXML
     private TableColumn<OrderOperationalSummary, String> itemCountColumn;
     @FXML
     private TableColumn<OrderOperationalSummary, OrderOperationalSummary> statusColumn;
+    @FXML
+    private TableColumn<OrderOperationalSummary, String> createdAtColumn;
     @FXML
     private Button previousPageButton;
     @FXML
@@ -112,15 +114,18 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
         customerNameColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
                         DateTimePresentation.customerDisplay(cell.getValue().customerName())));
-        createdAtColumn.setCellValueFactory(cell ->
+        readyDateColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
-                        DateTimePresentation.format(cell.getValue().createdAt())));
+                        DateTimePresentation.formatDate(cell.getValue().readyDate())));
         itemCountColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
                         Long.toString(cell.getValue().itemQuantity())));
         statusColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleObjectProperty<>(cell.getValue()));
         statusColumn.setCellFactory(column -> new StatusTableCell());
+        createdAtColumn.setCellValueFactory(cell ->
+                new javafx.beans.property.SimpleStringProperty(
+                        DateTimePresentation.format(cell.getValue().createdAt())));
 
         configureServerSideSorting();
 

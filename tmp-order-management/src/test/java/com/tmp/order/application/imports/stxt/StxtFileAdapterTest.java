@@ -239,6 +239,53 @@ class StxtFileAdapterTest {
     }
 
     @Test
+    void multiOrderFileAssociatesDistinctReadyDatesPerOrder() {
+        String content =
+                """
+                Номер заказа: 26106009
+                Дата заказа: 19.10.2026
+                Дата готовности: 03.11.2026
+                Клиент: Клиент А
+                Изделие: 1
+                Код изделия: A-1
+                Наименование изделия: Изделие А
+                Кол-во изд.: 1
+                Артикул / Наименование / Цвет / Размер / Единица измерения / Кол-во позиции на 1 изделие
+                101 / Рама / Белый / 1000,0мм. / м. / 2
+
+                Номер заказа: 26106066
+                Дата заказа: 19.10.2026
+                Дата готовности: 09.11.2026
+                Клиент: Клиент Б
+                Изделие: 1
+                Код изделия: B-1
+                Наименование изделия: Изделие Б
+                Кол-во изд.: 1
+                Артикул / Наименование / Цвет / Размер / Единица измерения / Кол-во позиции на 1 изделие
+                202 / Створка / Белый / 800,0мм. / м. / 1
+                """;
+        StxtParseResult result =
+                adapter.parse(content.getBytes(StandardCharsets.UTF_8), "26106009 26106066.stxt");
+
+        assertTrue(result.isSuccessful(), () -> result.errors().toString());
+        assertEquals(2, result.batches().size());
+        OrderImportBatch first =
+                result.batches().stream()
+                        .filter(b -> "26106009".equals(b.orderNumber()))
+                        .findFirst()
+                        .orElseThrow();
+        OrderImportBatch second =
+                result.batches().stream()
+                        .filter(b -> "26106066".equals(b.orderNumber()))
+                        .findFirst()
+                        .orElseThrow();
+        assertEquals(LocalDate.of(2026, 11, 3), first.readyDate());
+        assertEquals(LocalDate.of(2026, 11, 9), second.readyDate());
+        assertEquals(LocalDate.of(2026, 10, 19), first.orderDate());
+        assertEquals(LocalDate.of(2026, 10, 19), second.orderDate());
+    }
+
+    @Test
     void repeatedOrderHeaderMergesItemsIntoOneBatch() {
         String content =
                 """

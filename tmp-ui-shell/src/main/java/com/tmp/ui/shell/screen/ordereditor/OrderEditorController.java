@@ -30,6 +30,10 @@ public final class OrderEditorController implements ViewModelAware<OrderEditorVi
     @FXML
     private TextField customerNameField;
     @FXML
+    private Label readyDateLabel;
+    @FXML
+    private Label createdAtLabel;
+    @FXML
     private TextField customerRefField;
     @FXML
     private TextField contractRefField;
@@ -64,6 +68,8 @@ public final class OrderEditorController implements ViewModelAware<OrderEditorVi
 
         orderNumberField.textProperty().bindBidirectional(viewModel.orderNumberProperty());
         customerNameField.textProperty().bindBidirectional(viewModel.customerNameProperty());
+        readyDateLabel.textProperty().bind(viewModel.readyDateTextProperty());
+        createdAtLabel.textProperty().bind(viewModel.createdAtTextProperty());
         customerRefField.textProperty().bindBidirectional(viewModel.customerRefProperty());
         contractRefField.textProperty().bindBidirectional(viewModel.contractRefProperty());
         siteRefField.textProperty().bindBidirectional(viewModel.siteRefProperty());

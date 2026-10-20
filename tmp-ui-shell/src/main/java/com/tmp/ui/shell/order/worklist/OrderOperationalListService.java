@@ -74,6 +74,7 @@ public final class OrderOperationalListService {
                             row.customerRef(),
                             row.customerName(),
                             row.createdAt(),
+                            row.readyDate(),
                             row.itemQuantity(),
                             row.status(),
                             status));

@@ -2,26 +2,36 @@
 
 ## Latest result
 
-**Date:** 2026-10-19
-**Scope:** B3-MA-13-02-FIX1 — Display Manufacturing Date and Creation Date Correctly
-**Overall:** BLOCKER (persistence missing; implementation stopped before code/migration)
-**Migration:** NONE applied; proposed V54 not created
-**Base HEAD:** `6a603cda1f620ad7d9d0dbf586f61722dc609dae`
-**Working tree:** control-doc updates only (BLOCKERS/STATUS/WORK-QUEUE/logs); **no commit / no push**
+**Date:** 2026-10-20
+**Scope:** B3-MA-13-02-FIX1 — Controlled V54 deployment + pilot ready_date backfill
+**Overall:** PARTIAL (checkpoints A–E PASS; manual GUI Order List/Details PENDING)
+**Migration:** V54 applied to **tmp_gui_stage5** and **tmp_pilot**
+**Base HEAD:** `88ba6700a20ba84db5cf7ee6bf96679b4afa0035`
+**Working tree:** dirty (prior implementation + control docs); **no commit / no push**
 
-### Checks (2026-10-19 B3-MA-13-02-FIX1)
+### Checks (2026-10-20 B3-MA-13-02-FIX1 deploy)
 
 | Check | Result |
 |-------|--------|
-| Baseline HEAD exact | PASS (`6a603cda…`) |
-| Working tree before | PASS (clean) |
-| STXT «Дата готовности» parsed | PASS (`OrderImportBatch.readyDate`) |
-| Persisted on CustomerOrder / orders table | FAIL — field absent |
-| Import service maps readyDate | FAIL — discarded |
-| Worklist/API exposes manufacturing date | FAIL — `createdAt` only |
-| Stage DB modified | NO |
-| Pilot DB modified | NO |
-| Focused tests / package build | NOT RUN (stopped at persistence gate) |
+| Baseline HEAD + implementation present | PASS |
+| No user TMP running before migrate | PASS |
+| Stage backup + TOC + isolated restore-check | PASS |
+| Pilot backup + TOC + restore-verify script | PASS |
+| Stage V54 via `run-tmp-package.ps1` | PASS |
+| Stage data counts preserved; ready_date all NULL | PASS |
+| Pilot V54 via `run-tmp-pilot.ps1 -ApplyMigrations` | PASS |
+| Pilot ready_date NULL immediately after V54 | PASS |
+| Pilot backfill script (3 rows) | PASS |
+| ready dates 03/09/12.11.2026; created_at unchanged | PASS |
+| Stage no backfill (ready_nonnull=0) | PASS |
+| Normal pilot start (Flyway off) → tmp_pilot | PASS |
+| Spring Boot + JavaFX launcher | PASS |
+| Manual Order List/Details GUI | PENDING (user) |
+
+### Backups
+
+- Stage: `%LOCALAPPDATA%\TMP-Stage\backups\tmp_gui_stage5_20261020_100821.dump`
+- Pilot: `%LOCALAPPDATA%\TMP-Pilot\backups\tmp_pilot_20261020_100758.dump`
 
 ---
 ## Previous result

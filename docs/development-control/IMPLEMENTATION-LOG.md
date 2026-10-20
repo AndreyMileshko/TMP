@@ -1,28 +1,45 @@
-﻿## B3-MA-13-02-FIX1 — Manufacturing / Creation dates — BLOCKED — 2026-10-19
+﻿## B3-MA-13-02-FIX1 — Controlled V54 + pilot backfill — 2026-10-20
+
+**Date:** 2026-10-20
+**Base HEAD:** `88ba6700a20ba84db5cf7ee6bf96679b4afa0035`
+**Status:** PARTIAL — V54 on stage+pilot; pilot backfill DONE; manual GUI PENDING; no commit / no push
+
+### Deployment
+
+- Backups verified (stage + pilot; outside Git)
+- Stage: `run-tmp-package.ps1` → Flyway V54; data counts unchanged; no backfill
+- Pilot: `run-tmp-pilot.ps1 -ApplyMigrations` → V54; then prepared backfill SQL once
+- Pilot orders: 26106009→2026-11-03, 26106066→2026-11-09, 26106063→2026-11-12; created_at preserved
+- Normal pilot launch without `-ApplyMigrations` PASS (connects as `tmp_pilot_app`)
+
+---
+
+## B3-MA-13-02-FIX1 — Persist and Display Order Manufacturing Date — 2026-10-19
 
 **Date:** 2026-10-19
 **Stage:** Post-closure Order Management / Pilot UX corrective
-**Base HEAD:** `6a603cda1f620ad7d9d0dbf586f61722dc609dae`
-**Status:** BLOCKED — persistence check only; no production code; no migration; no commit / no push
+**Base HEAD:** `88ba6700a20ba84db5cf7ee6bf96679b4afa0035`
+**Status:** PARTIAL — code/tests/package DONE; shared DBs NOT modified; no commit / no push
 
-### Persistence check result
+### Implemented
 
-- STXT «Дата готовности» → `StxtBlockParser` → `OrderImportBatch.readyDate` (**parsed**)
-- `DefaultOrderImportService` does not use `readyDate` when creating/activating orders (**discarded**)
-- `CustomerOrder` / `order_management.orders` / `OrderWorklistRowDto` have no manufacturing/ready date field
-- Spec §27.3 documents MVP: parsed, not persisted
+- Flyway **V54**: `orders.ready_date DATE NULL` + `order_create_payload.ready_date DATE NULL`
+- Domain `CustomerOrder.readyDate`; `OrderCreatePayload` / import confirm per-order mapping
+- API: `OrderDto` / `OrderWorklistRowDto` expose `readyDate` independently of `createdAt`
+- UI Order List column order + Order Details read-only dates; NULL → «—»
+- Pilot backfill script prepared (not executed): `scripts/reconciliation/B3-MA-13-02-FIX1-pilot-ready-date-backfill.sql`
+- Blocker `BLK-B3-MA-13-02-FIX1-MANUFACTURING-DATE-PERSISTENCE` RESOLVED (ops deployment remains)
 
-### Actions taken
+### Multi-order STXT
 
-- Recorded `BLK-B3-MA-13-02-FIX1-MANUFACTURING-DATE-PERSISTENCE` in BLOCKERS.md
-- Proposed minimal V54 nullable `manufacturing_date DATE` (not applied)
-- Noted pilot historical dates require separate approved backfill from original STXT (reimport forbidden for existing ACTIVE orders)
+Parser already associated `readyDate` per order block → one `OrderImportBatch` per order; import now persists each batch’s own date. Regression: two orders / distinct dates.
 
-### Out of scope until approval
+### Out of scope this task
 
-- Flyway migration, domain/API/UI changes, package rebuild, pilot/stage data correction
+- Applying V54 to stage/pilot; executing backfill; reimport; commit/push
 
 ---
+
 
 ## B3-MA-13-01 — Isolated Pilot Database, Backup and Safe Packaged Launch — 2026-10-16
 

@@ -64,6 +64,8 @@ public final class OrderEditorViewModel {
     private final StringProperty orderNumber = new SimpleStringProperty("");
     private final StringProperty customerRef = new SimpleStringProperty("");
     private final StringProperty customerName = new SimpleStringProperty("");
+    private final StringProperty readyDateText = new SimpleStringProperty("—");
+    private final StringProperty createdAtText = new SimpleStringProperty("—");
     private final StringProperty contractRef = new SimpleStringProperty("");
     private final StringProperty siteRef = new SimpleStringProperty("");
     private final StringProperty responsibleManager = new SimpleStringProperty("");
@@ -115,6 +117,8 @@ public final class OrderEditorViewModel {
         orderNumber.set("");
         customerRef.set("");
         customerName.set("");
+        readyDateText.set("—");
+        createdAtText.set("—");
         contractRef.set("");
         siteRef.set("");
         responsibleManager.set("");
@@ -275,6 +279,14 @@ public final class OrderEditorViewModel {
         return customerName;
     }
 
+    public StringProperty readyDateTextProperty() {
+        return readyDateText;
+    }
+
+    public StringProperty createdAtTextProperty() {
+        return createdAtText;
+    }
+
     public StringProperty contractRefProperty() {
         return contractRef;
     }
@@ -330,6 +342,8 @@ public final class OrderEditorViewModel {
         orderNumber.set(dto.orderNumber());
         customerRef.set(nullToEmpty(dto.customerRef()));
         customerName.set(dto.customerName());
+        readyDateText.set(DateTimePresentation.formatDate(dto.readyDate()));
+        createdAtText.set(DateTimePresentation.format(dto.createdAt()));
         contractRef.set(nullToEmpty(dto.contractRef()));
         siteRef.set(nullToEmpty(dto.siteRef()));
         responsibleManager.set(nullToEmpty(dto.responsibleManager()));

@@ -4,6 +4,7 @@ import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderStatus;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Objects;
 
 /**
@@ -14,6 +15,9 @@ import java.util.Objects;
  * {@code APPROVED → CANCELLED}, {@code ACTIVE → CANCELLED}, and re-approval are forbidden.
  * Commercial fields may change only while {@code DRAFT}. State is immutable from outside; all
  * changes go through aggregate methods that return a new instance.
+ *
+ * <p>{@code readyDate} is the optional planned manufacturing/completion date from SuperOkna
+ * «Дата готовности» (UI: «Дата изготовления»). It is independent of {@code createdAt}.
  *
  * <p>The application / document-processor layer is responsible for the document precondition
  * «≥ 1 active item» before calling {@link #approve(Clock)}; the order aggregate boundary does not
@@ -26,6 +30,7 @@ public final class CustomerOrder {
     private final OrderCommercialData commercialData;
     private final OrderStatus status;
     private final long version;
+    private final LocalDate readyDate;
     private final Instant createdAt;
     private final Instant updatedAt;
 
@@ -35,6 +40,7 @@ public final class CustomerOrder {
             OrderCommercialData commercialData,
             OrderStatus status,
             long version,
+            LocalDate readyDate,
             Instant createdAt,
             Instant updatedAt) {
         this.id = Objects.requireNonNull(id, "id");
@@ -42,21 +48,37 @@ public final class CustomerOrder {
         this.commercialData = Objects.requireNonNull(commercialData, "commercialData");
         this.status = Objects.requireNonNull(status, "status");
         this.version = version;
+        this.readyDate = readyDate;
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
         this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
     }
 
     /**
-     * Creates a new customer order in {@link OrderStatus#DRAFT}.
+     * Creates a new customer order in {@link OrderStatus#DRAFT} without a ready date.
      */
     public static CustomerOrder create(
             OrderId id,
             OrderNumber orderNumber,
             OrderCommercialData commercialData,
             Clock clock) {
+        return create(id, orderNumber, commercialData, null, clock);
+    }
+
+    /**
+     * Creates a new customer order in {@link OrderStatus#DRAFT}.
+     *
+     * @param readyDate optional planned ready date from import; {@code null} for manual create
+     */
+    public static CustomerOrder create(
+            OrderId id,
+            OrderNumber orderNumber,
+            OrderCommercialData commercialData,
+            LocalDate readyDate,
+            Clock clock) {
         Objects.requireNonNull(clock, "clock");
         Instant now = clock.instant();
-        return new CustomerOrder(id, orderNumber, commercialData, OrderStatus.DRAFT, 0L, now, now);
+        return new CustomerOrder(
+                id, orderNumber, commercialData, OrderStatus.DRAFT, 0L, readyDate, now, now);
     }
 
     /**
@@ -68,21 +90,23 @@ public final class CustomerOrder {
             OrderCommercialData commercialData,
             OrderStatus status,
             long version,
+            LocalDate readyDate,
             Instant createdAt,
             Instant updatedAt) {
         return new CustomerOrder(
-                id, orderNumber, commercialData, status, version, createdAt, updatedAt);
+                id, orderNumber, commercialData, status, version, readyDate, createdAt, updatedAt);
     }
 
     /**
      * Updates commercial header fields. Allowed only in {@link OrderStatus#DRAFT}.
+     * Ready date is preserved (not editable via commercial update).
      */
     public CustomerOrder updateCommercialData(OrderCommercialData newData, Clock clock) {
         Objects.requireNonNull(newData, "newData");
         Objects.requireNonNull(clock, "clock");
         requireDraft("update commercial data");
         return new CustomerOrder(
-                id, orderNumber, newData, status, version, createdAt, clock.instant());
+                id, orderNumber, newData, status, version, readyDate, createdAt, clock.instant());
     }
 
     /**
@@ -109,7 +133,13 @@ public final class CustomerOrder {
                     "Order can be approved only from DRAFT, current=" + status + ", id=" + id);
         }
         return new CustomerOrder(
-                id, orderNumber, commercialData, OrderStatus.APPROVED, version, createdAt,
+                id,
+                orderNumber,
+                commercialData,
+                OrderStatus.APPROVED,
+                version,
+                readyDate,
+                createdAt,
                 clock.instant());
     }
 
@@ -130,7 +160,13 @@ public final class CustomerOrder {
                     "Order can be activated only from APPROVED, current=" + status + ", id=" + id);
         }
         return new CustomerOrder(
-                id, orderNumber, commercialData, OrderStatus.ACTIVE, version, createdAt,
+                id,
+                orderNumber,
+                commercialData,
+                OrderStatus.ACTIVE,
+                version,
+                readyDate,
+                createdAt,
                 clock.instant());
     }
 
@@ -155,7 +191,13 @@ public final class CustomerOrder {
                     "Order can be cancelled only from DRAFT, current=" + status + ", id=" + id);
         }
         return new CustomerOrder(
-                id, orderNumber, commercialData, OrderStatus.CANCELLED, version, createdAt,
+                id,
+                orderNumber,
+                commercialData,
+                OrderStatus.CANCELLED,
+                version,
+                readyDate,
+                createdAt,
                 clock.instant());
     }
 
@@ -184,6 +226,11 @@ public final class CustomerOrder {
 
     public long version() {
         return version;
+    }
+
+    /** Optional planned ready date; {@code null} when absent. */
+    public LocalDate readyDate() {
+        return readyDate;
     }
 
     public Instant createdAt() {

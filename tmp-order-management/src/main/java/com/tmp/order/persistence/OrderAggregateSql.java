@@ -10,8 +10,9 @@ final class OrderAggregateSql {
             """
             INSERT INTO order_management.orders
               (order_id, order_number, customer_ref, customer_name, contract_ref, site_ref,
-               responsible_manager, direction, currency, status, version, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               responsible_manager, direction, currency, status, version, ready_date,
+               created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
     static final String UPDATE_ORDER =
@@ -26,7 +27,8 @@ final class OrderAggregateSql {
     static final String SELECT_ORDER_BY_ID =
             """
             SELECT order_id, order_number, customer_ref, customer_name, contract_ref, site_ref,
-                   responsible_manager, direction, currency, status, version, created_at, updated_at
+                   responsible_manager, direction, currency, status, version, ready_date,
+                   created_at, updated_at
             FROM order_management.orders
             WHERE order_id = ?
             """;

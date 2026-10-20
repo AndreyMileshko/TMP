@@ -2,6 +2,7 @@ package com.tmp.order.application.order;
 
 import com.tmp.order.domain.OrderCommercialData;
 import com.tmp.order.domain.OrderNumber;
+import java.time.LocalDate;
 import java.util.Objects;
 
 /**
@@ -13,10 +14,17 @@ public final class CreateOrderCommand {
 
     private final OrderNumber orderNumber;
     private final OrderCommercialData commercialData;
+    private final LocalDate readyDate;
 
     public CreateOrderCommand(OrderNumber orderNumber, OrderCommercialData commercialData) {
+        this(orderNumber, commercialData, null);
+    }
+
+    public CreateOrderCommand(
+            OrderNumber orderNumber, OrderCommercialData commercialData, LocalDate readyDate) {
         this.orderNumber = Objects.requireNonNull(orderNumber, "orderNumber");
         this.commercialData = Objects.requireNonNull(commercialData, "commercialData");
+        this.readyDate = readyDate;
     }
 
     public OrderNumber orderNumber() {
@@ -25,5 +33,10 @@ public final class CreateOrderCommand {
 
     public OrderCommercialData commercialData() {
         return commercialData;
+    }
+
+    /** Optional planned ready date from import; {@code null} for manual create. */
+    public LocalDate readyDate() {
+        return readyDate;
     }
 }

@@ -16,6 +16,7 @@ import com.tmp.ui.shell.order.worklist.DateTimePresentation;
 import com.tmp.ui.shell.order.worklist.OrderOperationalStatus;
 import com.tmp.ui.shell.order.worklist.OrderOperationalSummary;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -53,12 +54,13 @@ class OrderListControllerFxTest {
         assertNull(root.lookup("#openOrderButton"));
         assertNull(root.lookup("#customerRefColumn"));
         TableView<?> table = (TableView<?>) root.lookup("#ordersTable");
-        assertEquals(5, table.getColumns().size());
+        assertEquals(6, table.getColumns().size());
         assertEquals("Номер заказа", ((TableColumn<?, ?>) table.getColumns().get(0)).getText());
         assertEquals("Заказчик", ((TableColumn<?, ?>) table.getColumns().get(1)).getText());
-        assertEquals("Дата создания", ((TableColumn<?, ?>) table.getColumns().get(2)).getText());
+        assertEquals("Дата изготовления", ((TableColumn<?, ?>) table.getColumns().get(2)).getText());
         assertEquals("Изделий", ((TableColumn<?, ?>) table.getColumns().get(3)).getText());
         assertEquals("Статус", ((TableColumn<?, ?>) table.getColumns().get(4)).getText());
+        assertEquals("Дата создания", ((TableColumn<?, ?>) table.getColumns().get(5)).getText());
         assertNotNull(root.lookup("#quickSearchField"));
         assertNotNull(root.lookup("#customerFilterButton"));
         assertNotNull(root.lookup("#periodCombo"));
@@ -88,6 +90,12 @@ class OrderListControllerFxTest {
     void dateFormatIsDayMonthYearHoursMinutes() throws Exception {
         Instant instant = Instant.parse("2026-09-02T10:19:00Z");
         assertEquals("02.09.2026 10:19", DateTimePresentation.format(instant, ZoneOffset.UTC));
+    }
+
+    @Test
+    void manufacturingDateFormatIsDayMonthYearAndNullIsDash() {
+        assertEquals("03.11.2026", DateTimePresentation.formatDate(LocalDate.of(2026, 11, 3)));
+        assertEquals("—", DateTimePresentation.formatDate(null));
     }
 
     @Test

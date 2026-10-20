@@ -146,6 +146,7 @@ class JdbcAggregatePersistenceIT {
                         commercial("Stale"),
                         OrderStatus.DRAFT,
                         0L,
+                        v0.readyDate(),
                         v0.createdAt(),
                         NOW);
         assertThrows(OptimisticLockConflictException.class, () -> orders.save(stale));

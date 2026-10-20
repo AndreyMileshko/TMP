@@ -252,8 +252,8 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
                 """
                 INSERT INTO order_management.order_create_payload
                   (document_id, order_number, customer_ref, customer_name, contract_ref, site_ref,
-                   responsible_manager, direction, currency_code)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   responsible_manager, direction, currency_code, ready_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 payload.documentId().value(),
                 payload.orderNumber().value(),
@@ -263,21 +263,25 @@ public final class JdbcOrderDocumentPayloadAdapter implements OrderDocumentPaylo
                 commercial.siteRef(),
                 commercial.responsibleManager(),
                 commercial.direction() == null ? null : commercial.direction().name(),
-                commercial.currency() == null ? null : commercial.currency().value());
+                commercial.currency() == null ? null : commercial.currency().value(),
+                payload.readyDate() == null ? null : java.sql.Date.valueOf(payload.readyDate()));
     }
 
     private OrderCreatePayload loadCreate(PayloadIdentity identity, UUID documentId) {
         return jdbc.queryForObject(
                 """
                 SELECT order_number, customer_ref, customer_name, contract_ref, site_ref,
-                       responsible_manager, direction, currency_code
+                       responsible_manager, direction, currency_code, ready_date
                 FROM order_management.order_create_payload WHERE document_id = ?
                 """,
-                (rs, rowNum) ->
-                        OrderCreatePayload.rehydrate(
-                                identity,
-                                OrderNumber.of(rs.getString("order_number")),
-                                mapOrderCommercial(rs)),
+                (rs, rowNum) -> {
+                    java.sql.Date ready = rs.getDate("ready_date");
+                    return OrderCreatePayload.rehydrate(
+                            identity,
+                            OrderNumber.of(rs.getString("order_number")),
+                            mapOrderCommercial(rs),
+                            ready == null ? null : ready.toLocalDate());
+                },
                 documentId);
     }
 

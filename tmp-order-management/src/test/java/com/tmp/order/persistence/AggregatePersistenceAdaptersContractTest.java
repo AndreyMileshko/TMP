@@ -4,6 +4,7 @@ import com.tmp.order.testsupport.IntakeContractFixtures;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.order.api.OrderId;
@@ -112,12 +113,14 @@ class AggregatePersistenceAdaptersContractTest {
                                 CurrencyCode.of("USD")),
                         OrderStatus.APPROVED,
                         3L,
+                        null,
                         created,
                         updated);
         assertEquals(orderId, order.id());
         assertEquals("ORD-1", order.orderNumber().value());
         assertEquals(OrderStatus.APPROVED, order.status());
         assertEquals(3L, order.version());
+        assertNull(order.readyDate());
         assertEquals(created, order.createdAt());
         assertEquals(updated, order.updatedAt());
         assertEquals("Acme", order.commercialData().customerName());

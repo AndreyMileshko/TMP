@@ -35,75 +35,27 @@ None — resolved.
 
 ## Active blockers
 
-**Active blockers:** `BLK-B3-MA-13-02-FIX1-MANUFACTURING-DATE-PERSISTENCE`
+**Active blockers:** NONE
 
 ---
 
 ## `BLK-B3-MA-13-02-FIX1-MANUFACTURING-DATE-PERSISTENCE` — Manufacturing date not persisted
 
-**Status:** OPEN — migration + import wiring required before UI implementation
-**Task:** B3-MA-13-02-FIX1 — Display Manufacturing Date and Creation Date Correctly
+**Status:** RESOLVED — implementation complete 2026-10-19; shared DB migration/backfill **not executed** (awaiting controlled deployment)
+**Task:** B3-MA-13-02-FIX1 — Persist and Display Order Manufacturing Date
 **Detected:** 2026-10-19
-**Stage:** Post-closure Order Management / Pilot UX corrective
+**Resolved:** 2026-10-19 (code + V54 + prepared backfill; DBs untouched)
 
-### Persistence classification
+### Resolution
 
-**B — Parsed but discarded before persistence.**
+1. Flyway **V54** adds nullable `order_management.orders.ready_date` and `order_create_payload.ready_date`.
+2. Import maps per-order `OrderImportBatch.readyDate` through `OrderCreatePayload` → `CustomerOrder`.
+3. Worklist / OrderDto / Order List / Order Details display «Дата изготовления» independently of `createdAt`.
+4. Pilot backfill prepared at `scripts/reconciliation/B3-MA-13-02-FIX1-pilot-ready-date-backfill.sql` (tmp_pilot only; not executed).
 
-### Trace (STXT → UI)
+### Remaining operational step (not a code blocker)
 
-| Layer | Finding |
-| --- | --- |
-| STXT source | Label «Дата готовности» |
-| Parser | `StxtBlockParser` maps to `OrderImportBatch.readyDate` (`LocalDate`) |
-| Import service | `DefaultOrderImportService.postOrderCreate` uses only `orderNumber` + `customerName`; **never reads `batch.readyDate()`** |
-| Domain | `CustomerOrder` has only `createdAt` / `updatedAt` — **no manufacturing/ready date field** |
-| DB | `order_management.orders` — no `ready_date` / `manufacturing_date`; `order_import_metadata` stores checksum/imported_at only |
-| API | `OrderWorklistRowDto` exposes `createdAt` only |
-| UI | Order List third column shows `createdAt` (creation timestamp) |
-
-Spec confirmation: Order Management Specification §27.3 — «Дата готовности | опциональна (парсится, не персистится в MVP)».
-
-### Exact missing field(s)
-
-1. **Database:** nullable date column on `order_management.orders` (proposed name: `manufacturing_date DATE NULL` or `ready_date DATE NULL` — product label «Дата изготовления»).
-2. **Domain:** corresponding optional `LocalDate` on `CustomerOrder` (+ create/rehydrate/update path for import).
-3. **Import confirm:** map `OrderImportBatch.readyDate()` into that field on ORDER_CREATE / import path.
-4. **Read API:** expose on worklist + order details DTOs.
-5. **UI:** Order List column order + Order Details read-only fields (blocked until 1–4 exist).
-
-### Minimal migration proposal (NOT applied — approval required)
-
-```sql
--- Proposed next Flyway version: V54 (current highest applied: V53)
-ALTER TABLE order_management.orders
-    ADD COLUMN manufacturing_date DATE NULL;
-```
-
-- Nullable: orders without STXT «Дата готовности» remain valid; UI shows «—».
-- No default, no backfill in the migration itself.
-- No change to `created_at` (creation timestamp stays independent).
-- Apply to stage and pilot only after explicit approval (same package; different DB connections).
-
-### Already-imported pilot orders (e.g. 26106009 / 26106066 / 26106063)
-
-- Expected manufacturing dates from original STXT **are not in the database**.
-- `created_at` values (import/system timestamps) **are** persisted and must remain unchanged.
-- Migration alone leaves existing rows with `manufacturing_date = NULL`.
-- **Reimport is not viable** for ACTIVE pilot orders without a separate approved correction path (import rejects duplicate order numbers; task forbids reset/recreate/reimport of existing orders).
-- **Backfill options requiring separate approval** (do not run without approval):
-  1. Controlled one-off UPDATE from original STXT files (order_number → manufacturing_date), preserving `created_at`.
-  2. Or accept NULL for historical rows and show «—» until a future approved correction.
-
-### Required user decision
-
-1. Approve Flyway V54 (or equivalent) adding nullable `manufacturing_date` (confirm column name).
-2. Approve whether pilot historical rows need a separate backfill from original STXT (recommended for the acceptance examples) vs leave NULL.
-3. After approval: implement persistence + import mapping first, then Order List / Details UI — not UI-only.
-
-### Required user decision (blocking)
-
-Do **not** silently add a migration or overwrite pilot records. Wait for approval of migration + backfill policy.
+Apply V54 to stage + pilot, then run the prepared pilot backfill under separate approval.
 
 ---
 

@@ -62,7 +62,9 @@ public final class OrderCreateDocumentProcessor extends AbstractOrderDocumentPro
         CustomerOrder order =
                 createOrderUseCase.execute(
                         new CreateOrderCommand(
-                                createPayload.orderNumber(), createPayload.commercialData()));
+                                createPayload.orderNumber(),
+                                createPayload.commercialData(),
+                                createPayload.readyDate()));
         return ResultReference.of(RESULT_PREFIX + order.id().value());
     }
 

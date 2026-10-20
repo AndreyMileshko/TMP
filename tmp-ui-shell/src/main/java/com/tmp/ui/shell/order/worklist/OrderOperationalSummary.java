@@ -3,6 +3,7 @@ package com.tmp.ui.shell.order.worklist;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderStatus;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Objects;
 
 /**
@@ -15,6 +16,7 @@ public final class OrderOperationalSummary {
     private final String customerRef;
     private final String customerName;
     private final Instant createdAt;
+    private final LocalDate readyDate;
     private final long itemQuantity;
     private final OrderStatus commercialStatus;
     private final OrderOperationalStatus operationalStatus;
@@ -28,11 +30,34 @@ public final class OrderOperationalSummary {
             long itemQuantity,
             OrderStatus commercialStatus,
             OrderOperationalStatus operationalStatus) {
+        this(
+                orderId,
+                orderNumber,
+                customerRef,
+                customerName,
+                createdAt,
+                null,
+                itemQuantity,
+                commercialStatus,
+                operationalStatus);
+    }
+
+    public OrderOperationalSummary(
+            OrderId orderId,
+            String orderNumber,
+            String customerRef,
+            String customerName,
+            Instant createdAt,
+            LocalDate readyDate,
+            long itemQuantity,
+            OrderStatus commercialStatus,
+            OrderOperationalStatus operationalStatus) {
         this.orderId = Objects.requireNonNull(orderId, "orderId");
         this.orderNumber = Objects.requireNonNull(orderNumber, "orderNumber");
         this.customerRef = customerRef;
         this.customerName = customerName;
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
+        this.readyDate = readyDate;
         if (itemQuantity < 0L) {
             throw new IllegalArgumentException("itemQuantity must be >= 0: " + itemQuantity);
         }
@@ -59,6 +84,11 @@ public final class OrderOperationalSummary {
 
     public Instant createdAt() {
         return createdAt;
+    }
+
+    /** Optional planned manufacturing date; {@code null} when absent. */
+    public LocalDate readyDate() {
+        return readyDate;
     }
 
     public long itemQuantity() {

@@ -1,6 +1,7 @@
 package com.tmp.order.api;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Objects;
 
 /**
@@ -12,6 +13,9 @@ import java.util.Objects;
  * <p>Per ADR-030, {@code customerName}, {@code direction} and {@code currency} may be {@code null}
  * while the order is in {@link OrderStatus#DRAFT}. Approval still requires complete commercial data
  * via {@code ORDER_APPROVE}.
+ *
+ * <p>{@code readyDate} is the optional planned manufacturing date (UI: «Дата изготовления»);
+ * independent of {@code createdAt}.
  */
 public final class OrderDto {
 
@@ -25,6 +29,7 @@ public final class OrderDto {
     private final String responsibleManager;
     private final String direction;
     private final String currency;
+    private final LocalDate readyDate;
     private final Instant createdAt;
     private final Instant updatedAt;
 
@@ -39,6 +44,7 @@ public final class OrderDto {
             String responsibleManager,
             String direction,
             String currency,
+            LocalDate readyDate,
             Instant createdAt,
             Instant updatedAt) {
         this.orderId = orderId;
@@ -51,6 +57,7 @@ public final class OrderDto {
         this.responsibleManager = responsibleManager;
         this.direction = direction;
         this.currency = currency;
+        this.readyDate = readyDate;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -66,6 +73,36 @@ public final class OrderDto {
             String responsibleManager,
             String direction,
             String currency,
+            Instant createdAt,
+            Instant updatedAt) {
+        return of(
+                orderId,
+                orderNumber,
+                status,
+                customerRef,
+                customerName,
+                contractRef,
+                siteRef,
+                responsibleManager,
+                direction,
+                currency,
+                null,
+                createdAt,
+                updatedAt);
+    }
+
+    public static OrderDto of(
+            OrderId orderId,
+            String orderNumber,
+            OrderStatus status,
+            String customerRef,
+            String customerName,
+            String contractRef,
+            String siteRef,
+            String responsibleManager,
+            String direction,
+            String currency,
+            LocalDate readyDate,
             Instant createdAt,
             Instant updatedAt) {
         Objects.requireNonNull(orderId, "orderId");
@@ -84,6 +121,7 @@ public final class OrderDto {
                 responsibleManager,
                 direction,
                 currency,
+                readyDate,
                 createdAt,
                 updatedAt);
     }
@@ -126,6 +164,11 @@ public final class OrderDto {
 
     public String currency() {
         return currency;
+    }
+
+    /** Optional planned ready date; {@code null} when absent. */
+    public LocalDate readyDate() {
+        return readyDate;
     }
 
     public Instant createdAt() {

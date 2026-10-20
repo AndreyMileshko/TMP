@@ -70,6 +70,7 @@ public final class JdbcCustomerOrderRepository implements CustomerOrderRepositor
                 commercial.currency() == null ? null : commercial.currency().value(),
                 order.status().name(),
                 order.version(),
+                OrderAggregateMappers.toSqlDate(order.readyDate()),
                 OrderAggregateMappers.toTimestamp(order.createdAt()),
                 OrderAggregateMappers.toTimestamp(order.updatedAt()));
     }
@@ -101,6 +102,7 @@ public final class JdbcCustomerOrderRepository implements CustomerOrderRepositor
                 order.commercialData(),
                 order.status(),
                 order.version() + 1L,
+                order.readyDate(),
                 order.createdAt(),
                 order.updatedAt());
     }

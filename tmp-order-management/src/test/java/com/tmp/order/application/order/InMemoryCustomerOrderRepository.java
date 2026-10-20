@@ -44,6 +44,7 @@ public final class InMemoryCustomerOrderRepository implements CustomerOrderRepos
                         order.commercialData(),
                         order.status(),
                         order.version() + 1L,
+                        order.readyDate(),
                         order.createdAt(),
                         order.updatedAt());
         byId.put(order.id(), persisted);

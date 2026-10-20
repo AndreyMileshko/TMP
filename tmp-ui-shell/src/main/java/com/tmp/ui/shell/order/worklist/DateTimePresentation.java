@@ -12,6 +12,8 @@ import java.util.Objects;
 public final class DateTimePresentation {
 
     private static final DateTimeFormatter FORMAT = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
+    private static final DateTimeFormatter DATE_ONLY = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+    private static final String ABSENT = "—";
 
     private DateTimePresentation() {}
 
@@ -25,9 +27,19 @@ public final class DateTimePresentation {
         return FORMAT.withZone(zoneId).format(instant);
     }
 
+    /**
+     * Formats a calendar date as {@code dd.MM.yyyy}, or {@code —} when {@code date} is null.
+     */
+    public static String formatDate(LocalDate date) {
+        if (date == null) {
+            return ABSENT;
+        }
+        return DATE_ONLY.format(date);
+    }
+
     public static String customerDisplay(String customerName) {
         if (customerName == null || customerName.isBlank()) {
-            return "—";
+            return ABSENT;
         }
         return customerName;
     }

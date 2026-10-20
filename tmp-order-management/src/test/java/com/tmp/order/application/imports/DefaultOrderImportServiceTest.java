@@ -585,6 +585,45 @@ class DefaultOrderImportServiceTest {
     }
 
     @Test
+    void confirmPassesReadyDateIntoOrderCreatePayload() {
+        stubPreviewReadOnlyOk();
+        stubConfirmDocumentFlow();
+        LocalDate ready = LocalDate.of(2026, 11, 3);
+        OrderImportBatch batch =
+                OrderImportBatch.of(
+                        "STXT",
+                        "sample.stxt",
+                        "checksum-ready",
+                        "26106009",
+                        ORDER_DATE,
+                        ready,
+                        CUSTOMER,
+                        List.of(
+                                position(
+                                        "1",
+                                        "P-1",
+                                        "Name",
+                                        1,
+                                        List.of(line("c", "n", null, null, bd("1"))))));
+        PreparedOrderImportPlan plan = service.preview(batch).preparedPlan().orElseThrow();
+
+        service.confirm(plan);
+
+        org.mockito.ArgumentCaptor<com.tmp.order.application.payload.OrderDocumentPayload> captor =
+                org.mockito.ArgumentCaptor.forClass(
+                        com.tmp.order.application.payload.OrderDocumentPayload.class);
+        verify(draftPayloads, org.mockito.Mockito.atLeastOnce()).createDraft(captor.capture());
+        com.tmp.order.application.payload.OrderCreatePayload create =
+                captor.getAllValues().stream()
+                        .filter(com.tmp.order.application.payload.OrderCreatePayload.class::isInstance)
+                        .map(com.tmp.order.application.payload.OrderCreatePayload.class::cast)
+                        .findFirst()
+                        .orElseThrow();
+        assertEquals(ready, create.readyDate());
+        assertEquals("26106009", create.orderNumber().value());
+    }
+
+    @Test
     void previewRejectsPlaceholderCommercialValues() {
         OrderImportBatch batch =
                 OrderImportBatch.of(

@@ -139,6 +139,7 @@ class OrderImportCoreIT {
 
         CustomerOrder order = orders.findById(result.orderId()).orElseThrow();
         assertEquals(OrderStatus.ACTIVE, order.status());
+        assertEquals(LocalDate.of(2026, 11, 3), order.readyDate());
         assertEquals("Import Customer", order.commercialData().customerName());
         assertNull(order.commercialData().direction());
         assertNull(order.commercialData().currency());
@@ -333,15 +334,53 @@ class OrderImportCoreIT {
         return OrderId.of(orderUuid);
     }
 
+    @Test
+    void confirmPersistsDistinctReadyDatesForMultiOrderPlan() {
+        OrderImportBatch first =
+                sampleBatch(
+                        "26106009",
+                        "checksum-multi-a",
+                        "multi.stxt",
+                        LocalDate.of(2026, 11, 3));
+        OrderImportBatch second =
+                sampleBatch(
+                        "26106066",
+                        "checksum-multi-b",
+                        "multi.stxt",
+                        LocalDate.of(2026, 11, 9));
+        OrderImportPreview preview = orderImportService.preview(List.of(first, second));
+        assertTrue(preview.canConfirm(), () -> preview.errors().toString());
+
+        OrderImportConfirmResult result =
+                orderImportService.confirm(preview.preparedPlan().orElseThrow());
+        assertEquals(2, result.orders().size());
+
+        CustomerOrder orderA =
+                orders.findById(result.orders().get(0).orderId()).orElseThrow();
+        CustomerOrder orderB =
+                orders.findById(result.orders().get(1).orderId()).orElseThrow();
+        assertEquals("26106009", orderA.orderNumber().value());
+        assertEquals("26106066", orderB.orderNumber().value());
+        assertEquals(LocalDate.of(2026, 11, 3), orderA.readyDate());
+        assertEquals(LocalDate.of(2026, 11, 9), orderB.readyDate());
+        assertEquals(OrderStatus.ACTIVE, orderA.status());
+        assertEquals(OrderStatus.ACTIVE, orderB.status());
+    }
+
     private static OrderImportBatch sampleBatch(
             String orderNumber, String checksum, String sourceReference) {
+        return sampleBatch(orderNumber, checksum, sourceReference, LocalDate.of(2026, 11, 3));
+    }
+
+    private static OrderImportBatch sampleBatch(
+            String orderNumber, String checksum, String sourceReference, LocalDate readyDate) {
         return OrderImportBatch.of(
                 "STXT",
                 sourceReference,
                 checksum,
                 orderNumber,
                 LocalDate.of(2026, 6, 25),
-                null,
+                readyDate,
                 "Import Customer",
                 List.of(
                         OrderImportPosition.of(

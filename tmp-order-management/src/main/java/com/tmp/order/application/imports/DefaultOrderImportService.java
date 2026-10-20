@@ -46,6 +46,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -232,7 +233,7 @@ public final class DefaultOrderImportService implements OrderImportService {
             OrderNumber orderNumber = OrderNumber.of(batch.orderNumber().trim());
             OrderId orderId;
             try {
-                orderId = postOrderCreate(orderNumber, batch.customerName(), now);
+                orderId = postOrderCreate(orderNumber, batch.customerName(), batch.readyDate(), now);
             } catch (DuplicateOrderNumberException duplicate) {
                 throw new OrderImportConflictException();
             } catch (DataIntegrityViolationException integrity) {
@@ -274,13 +275,14 @@ public final class DefaultOrderImportService implements OrderImportService {
         }
     }
 
-    private OrderId postOrderCreate(OrderNumber orderNumber, String customerName, Instant now) {
+    private OrderId postOrderCreate(
+            OrderNumber orderNumber, String customerName, LocalDate readyDate, Instant now) {
         UUID documentId = createDocument(DocumentTypeCode.ORDER_CREATE, "import-order-create");
         OrderCommercialData commercial =
                 OrderCommercialData.of(null, customerName, null, null, null, null, null);
         draftPayloads.createDraft(
                 OrderCreatePayload.create(
-                        DocumentId.of(documentId), orderNumber, commercial, now));
+                        DocumentId.of(documentId), orderNumber, commercial, readyDate, now));
         documentEngine.postDocument(documentId);
         return resolveCreatedOrderId(DocumentId.of(documentId));
     }

@@ -18,10 +18,12 @@ import com.tmp.order.domain.OrderNumber;
 import com.tmp.order.domain.OrderedQuantity;
 import com.tmp.order.domain.SpecificationLine;
 import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,8 +43,17 @@ final class OrderAggregateMappers {
                 mapOrderCommercial(rs),
                 OrderStatus.valueOf(rs.getString("status")),
                 rs.getLong("version"),
+                toLocalDate(rs.getDate("ready_date")),
                 toInstant(rs.getTimestamp("created_at")),
                 toInstant(rs.getTimestamp("updated_at")));
+    }
+
+    static LocalDate toLocalDate(Date date) {
+        return date == null ? null : date.toLocalDate();
+    }
+
+    static Date toSqlDate(LocalDate date) {
+        return date == null ? null : Date.valueOf(date);
     }
 
     static OrderCommercialData mapOrderCommercial(ResultSet rs) throws SQLException {

@@ -89,7 +89,8 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
                 jdbc.query(
                         """
                         SELECT order_id, order_number, status, customer_ref, customer_name, contract_ref,
-                               site_ref, responsible_manager, direction, currency, created_at, updated_at
+                               site_ref, responsible_manager, direction, currency, ready_date,
+                               created_at, updated_at
                         FROM order_management.orders
                         WHERE order_id = ?
                         """,
@@ -341,6 +342,7 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
     }
 
     private static OrderDto mapOrder(ResultSet rs) throws SQLException {
+        java.sql.Date ready = rs.getDate("ready_date");
         return OrderDto.of(
                 OrderId.of(rs.getObject("order_id", UUID.class)),
                 rs.getString("order_number"),
@@ -352,6 +354,7 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
                 rs.getString("responsible_manager"),
                 rs.getString("direction"),
                 rs.getString("currency"),
+                ready == null ? null : ready.toLocalDate(),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant());
     }
@@ -492,7 +495,7 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
         String sql =
                 """
                 SELECT o.order_id, o.order_number, o.status, o.customer_ref, o.customer_name,
-                       o.created_at, COALESCE(q.item_quantity, 0) AS item_quantity
+                       o.created_at, o.ready_date, COALESCE(q.item_quantity, 0) AS item_quantity
                   FROM order_management.orders o
                   LEFT JOIN (
                         SELECT i.order_id,
@@ -661,6 +664,7 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
     private static OrderWorklistRowDto mapWorklistRow(ResultSet rs) throws SQLException {
         BigDecimal quantity = rs.getBigDecimal("item_quantity");
         long itemQuantity = quantity == null ? 0L : quantity.longValueExact();
+        java.sql.Date ready = rs.getDate("ready_date");
         return OrderWorklistRowDto.of(
                 OrderId.of(rs.getObject("order_id", UUID.class)),
                 rs.getString("order_number"),
@@ -668,6 +672,7 @@ public final class JdbcOrderQueryReadAdapter implements OrderQueryReadPort {
                 rs.getString("customer_ref"),
                 rs.getString("customer_name"),
                 rs.getTimestamp("created_at").toInstant(),
+                ready == null ? null : ready.toLocalDate(),
                 itemQuantity);
     }
 
