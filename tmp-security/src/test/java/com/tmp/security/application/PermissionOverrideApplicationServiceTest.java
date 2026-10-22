@@ -14,6 +14,7 @@ import com.tmp.capability.api.NavigationContribution;
 import com.tmp.capability.api.PermissionDescriptor;
 import com.tmp.capability.api.ViewDescriptor;
 import com.tmp.security.api.DisplayName;
+import com.tmp.security.api.LastAdministratorException;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.RoleId;
@@ -42,6 +43,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,6 +57,8 @@ class PermissionOverrideApplicationServiceTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-07-23T03:00:00Z"), ZoneOffset.UTC);
 
     private InMemoryUsers users;
+    private InMemoryRoles roles;
+    private InMemoryAssignments assignments;
     private InMemoryOverrides overrides;
     private InMemoryAudit audit;
     private SessionContext sessions;
@@ -64,6 +68,8 @@ class PermissionOverrideApplicationServiceTest {
     @BeforeEach
     void setUp() {
         users = new InMemoryUsers();
+        roles = new InMemoryRoles();
+        assignments = new InMemoryAssignments();
         overrides = new InMemoryOverrides();
         audit = new InMemoryAudit();
         sessions = new SessionContext();
@@ -77,12 +83,16 @@ class PermissionOverrideApplicationServiceTest {
                 users,
                 overrides,
                 new AuthorizationApplicationService(
-                sessions,
-                alwaysActiveUsers(),
-                engine(perms), emptyAssignments(), emptyRoles(), grant(actor, perms)),
+                        sessions,
+                        alwaysActiveUsers(),
+                        engine(perms),
+                        emptyAssignments(),
+                        emptyRoles(),
+                        grant(actor, perms)),
                 audit,
                 sessions,
-                CLOCK);
+                CLOCK,
+                LastAdministratorGuardFixtures.guard(users, roles, assignments, overrides));
     }
 
     @Test
@@ -96,6 +106,64 @@ class PermissionOverrideApplicationServiceTest {
         service.removeOverride(target, SecurityPermissions.USERS_VIEW);
         assertTrue(overrides.findByUser(target).isEmpty());
         assertTrue(audit.events.stream().anyMatch(e -> e.operation() == AuditOperation.PERMISSION_OVERRIDE_REMOVED));
+    }
+
+    @Test
+    void rejectsRevokeOfLastAdministratorRolesAssignGrant() {
+        overrides.save(IndividualPermissionOverride.of(
+                target, SecurityPermissions.ROLES_ASSIGN, PermissionOverrideDecision.GRANT, CLOCK));
+        int auditBefore = audit.events.size();
+
+        LastAdministratorException ex = assertThrows(
+                LastAdministratorException.class,
+                () -> service.revokeIndividualPermission(target, SecurityPermissions.ROLES_ASSIGN));
+        assertEquals(LastAdministratorGuard.PERMISSION_REMOVE_MESSAGE, ex.getMessage());
+        assertEquals(1, overrides.findByUser(target).size());
+        assertEquals(PermissionOverrideDecision.GRANT, overrides.findByUser(target).getFirst().decision());
+        assertEquals(auditBefore, audit.events.size());
+    }
+
+    @Test
+    void rejectsRevokeOverrideThatWouldBlockLastRoleBasedAdministrator() {
+        RoleId adminRole = roles.save(Role.create(RoleId.generate(), "Admin", "", CLOCK)
+                        .grantPermission(SecurityPermissions.ROLES_ASSIGN, CLOCK))
+                .id();
+        assignments.assign(RoleAssignment.of(target, adminRole, CLOCK.instant()));
+        int auditBefore = audit.events.size();
+
+        LastAdministratorException ex = assertThrows(
+                LastAdministratorException.class,
+                () -> service.revokeIndividualPermission(target, SecurityPermissions.ROLES_ASSIGN));
+        assertEquals(LastAdministratorGuard.PERMISSION_REMOVE_MESSAGE, ex.getMessage());
+        assertTrue(overrides.findByUser(target).isEmpty());
+        assertEquals(auditBefore, audit.events.size());
+    }
+
+    @Test
+    void rejectsRemovalOfSoleRolesAssignGrant() {
+        overrides.save(IndividualPermissionOverride.of(
+                target, SecurityPermissions.ROLES_ASSIGN, PermissionOverrideDecision.GRANT, CLOCK));
+
+        LastAdministratorException ex = assertThrows(
+                LastAdministratorException.class,
+                () -> service.removeOverride(target, SecurityPermissions.ROLES_ASSIGN));
+        assertEquals(LastAdministratorGuard.PERMISSION_REMOVE_MESSAGE, ex.getMessage());
+        assertEquals(1, overrides.findByUser(target).size());
+    }
+
+    @Test
+    void allowsRevokeOverrideWhenAnotherEligibleAdministratorRemains() {
+        RoleId adminRole = roles.save(Role.create(RoleId.generate(), "Admin", "", CLOCK)
+                        .grantPermission(SecurityPermissions.ROLES_ASSIGN, CLOCK))
+                .id();
+        UserId other = users.save(User.createActive(
+                        UserId.generate(), Login.of("other-admin"), DisplayName.of("O"), PasswordHash.of("h"), CLOCK))
+                .id();
+        assignments.assign(RoleAssignment.of(target, adminRole, CLOCK.instant()));
+        assignments.assign(RoleAssignment.of(other, adminRole, CLOCK.instant()));
+
+        service.revokeIndividualPermission(target, SecurityPermissions.ROLES_ASSIGN);
+        assertEquals(PermissionOverrideDecision.REVOKE, overrides.findByUser(target).getFirst().decision());
     }
 
     @Test
@@ -286,7 +354,11 @@ class PermissionOverrideApplicationServiceTest {
 
         @Override
         public List<User> findPage(int pageIndex, int pageSize, UserStatus statusFilter) {
-            return List.of();
+            return store.values().stream()
+                    .filter(u -> statusFilter == null || u.status() == statusFilter)
+                    .skip((long) pageIndex * pageSize)
+                    .limit(pageSize)
+                    .toList();
         }
 
         @Override
@@ -302,6 +374,62 @@ class PermissionOverrideApplicationServiceTest {
                     .sorted(java.util.Comparator.comparing(u -> u.login().value(), String.CASE_INSENSITIVE_ORDER))
                     .limit(limit)
                     .toList();
+        }
+    }
+
+    private static final class InMemoryRoles implements RoleRepository {
+        private final Map<RoleId, Role> store = new HashMap<>();
+
+        @Override
+        public Role save(Role role) {
+            store.put(role.id(), role);
+            return role;
+        }
+
+        @Override
+        public Optional<Role> findById(RoleId id) {
+            return Optional.ofNullable(store.get(id));
+        }
+
+        @Override
+        public List<Role> findAll() {
+            return List.copyOf(store.values());
+        }
+
+        @Override
+        public void deleteById(RoleId id) {
+            store.remove(id);
+        }
+    }
+
+    private static final class InMemoryAssignments implements RoleAssignmentRepository {
+        private final List<RoleAssignment> store = new ArrayList<>();
+
+        @Override
+        public void assign(RoleAssignment assignment) {
+            store.add(assignment);
+        }
+
+        @Override
+        public void revoke(UserId userId, RoleId roleId) {
+            store.removeIf(a -> a.userId().equals(userId) && a.roleId().equals(roleId));
+        }
+
+        @Override
+        public Set<RoleId> findRoleIdsForUser(UserId userId) {
+            Set<RoleId> ids = new HashSet<>();
+            store.stream().filter(a -> a.userId().equals(userId)).forEach(a -> ids.add(a.roleId()));
+            return ids;
+        }
+
+        @Override
+        public List<UserId> findUserIdsForRole(RoleId roleId) {
+            return store.stream().filter(a -> a.roleId().equals(roleId)).map(RoleAssignment::userId).toList();
+        }
+
+        @Override
+        public long countUsersForRole(RoleId roleId) {
+            return store.stream().filter(a -> a.roleId().equals(roleId)).count();
         }
     }
 

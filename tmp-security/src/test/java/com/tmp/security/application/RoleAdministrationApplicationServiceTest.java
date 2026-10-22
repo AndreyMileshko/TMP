@@ -13,6 +13,8 @@ import com.tmp.capability.api.CommandDescriptor;
 import com.tmp.capability.api.NavigationContribution;
 import com.tmp.capability.api.PermissionDescriptor;
 import com.tmp.capability.api.ViewDescriptor;
+import com.tmp.security.api.DisplayName;
+import com.tmp.security.api.LastAdministratorException;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.RoleId;
@@ -23,16 +25,20 @@ import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.domain.AuditOperation;
 import com.tmp.security.domain.AuditQueryFilter;
 import com.tmp.security.domain.IndividualPermissionOverride;
+import com.tmp.security.domain.PasswordHash;
 import com.tmp.security.domain.PermissionOverrideDecision;
 import com.tmp.security.domain.Role;
 import com.tmp.security.domain.RoleAssignment;
 import com.tmp.security.api.RoleInUseException;
 import com.tmp.security.domain.SecurityAuditEvent;
 import com.tmp.security.domain.Session;
+import com.tmp.security.domain.User;
+import com.tmp.security.domain.UserStatus;
 import com.tmp.security.domain.repository.PermissionOverrideRepository;
 import com.tmp.security.domain.repository.RoleAssignmentRepository;
 import com.tmp.security.domain.repository.RoleRepository;
 import com.tmp.security.domain.repository.SecurityAuditRepository;
+import com.tmp.security.domain.repository.UserRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -43,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -50,16 +57,20 @@ class RoleAdministrationApplicationServiceTest {
 
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-07-23T03:00:00Z"), ZoneOffset.UTC);
 
+    private InMemoryUsers users;
     private InMemoryRoles roles;
     private InMemoryAssignments assignments;
+    private InMemoryOverrides overrides;
     private InMemoryAudit audit;
     private SessionContext sessions;
     private RoleAdministrationApplicationService service;
 
     @BeforeEach
     void setUp() {
+        users = new InMemoryUsers();
         roles = new InMemoryRoles();
         assignments = new InMemoryAssignments();
+        overrides = new InMemoryOverrides();
         audit = new InMemoryAudit();
         sessions = new SessionContext();
         UserId actor = UserId.generate();
@@ -75,7 +86,13 @@ class RoleAdministrationApplicationServiceTest {
                 alwaysActiveUsers(),
                 engine(perms), emptyAssignments(), emptyRoles(), grantAll(actor, perms));
         service = new RoleAdministrationApplicationService(
-                roles, assignments, authorization, audit, sessions, CLOCK);
+                roles,
+                assignments,
+                authorization,
+                audit,
+                sessions,
+                CLOCK,
+                LastAdministratorGuardFixtures.guard(users, roles, assignments, overrides));
     }
 
     @Test
@@ -134,13 +151,134 @@ class RoleAdministrationApplicationServiceTest {
                 alwaysActiveUsers(),
                 engine(perms), emptyAssignments(), emptyRoles(), grantAll(actor, perms));
         RoleAdministrationApplicationService limited = new RoleAdministrationApplicationService(
-                roles, assignments, authorization, audit, sessions, CLOCK);
+                roles,
+                assignments,
+                authorization,
+                audit,
+                sessions,
+                CLOCK,
+                LastAdministratorGuardFixtures.guard(users, roles, assignments, overrides));
         Role role = Role.create(RoleId.generate(), "R", "", CLOCK);
         roles.save(role);
         assertThrows(
                 AccessDeniedException.class,
                 () -> limited.setRolePermissions(role.id(), Set.of(SecurityPermissions.USERS_VIEW)));
         assertTrue(roles.findById(role.id()).orElseThrow().permissions().isEmpty());
+    }
+
+    @Test
+    void rejectsPermissionUpdateRemovingLastEffectiveRolesAssign() {
+        Role adminRole = roles.save(Role.create(RoleId.generate(), "Admin", "", CLOCK)
+                .grantPermission(SecurityPermissions.ROLES_ASSIGN, CLOCK)
+                .grantPermission(SecurityPermissions.USERS_VIEW, CLOCK));
+        UserId admin = users.save(User.createActive(
+                        UserId.generate(), Login.of("admin-user"), DisplayName.of("Admin"), PasswordHash.of("h"), CLOCK))
+                .id();
+        assignments.assign(RoleAssignment.of(admin, adminRole.id(), CLOCK.instant()));
+        Set<PermissionId> before = adminRole.permissions();
+        int auditBefore = audit.events.size();
+
+        LastAdministratorException ex = assertThrows(
+                LastAdministratorException.class,
+                () -> service.setRolePermissions(adminRole.id(), Set.of(SecurityPermissions.USERS_VIEW)));
+        assertEquals(LastAdministratorGuard.PERMISSION_REMOVE_MESSAGE, ex.getMessage());
+        assertEquals(before, roles.findById(adminRole.id()).orElseThrow().permissions());
+        assertEquals(auditBefore, audit.events.size());
+    }
+
+    @Test
+    void allowsPermissionUpdateWhenAnotherEligibleAdministratorRemains() {
+        Role adminRole = roles.save(Role.create(RoleId.generate(), "Admin", "", CLOCK)
+                .grantPermission(SecurityPermissions.ROLES_ASSIGN, CLOCK));
+        Role otherAdminRole = roles.save(Role.create(RoleId.generate(), "OtherAdmin", "", CLOCK)
+                .grantPermission(SecurityPermissions.ROLES_ASSIGN, CLOCK));
+        UserId first = users.save(User.createActive(
+                        UserId.generate(), Login.of("a1"), DisplayName.of("A1"), PasswordHash.of("h"), CLOCK))
+                .id();
+        UserId second = users.save(User.createActive(
+                        UserId.generate(), Login.of("a2"), DisplayName.of("A2"), PasswordHash.of("h"), CLOCK))
+                .id();
+        assignments.assign(RoleAssignment.of(first, adminRole.id(), CLOCK.instant()));
+        assignments.assign(RoleAssignment.of(second, otherAdminRole.id(), CLOCK.instant()));
+
+        Role updated = service.setRolePermissions(adminRole.id(), Set.of(SecurityPermissions.USERS_VIEW));
+        assertEquals(Set.of(SecurityPermissions.USERS_VIEW), updated.permissions());
+        assertTrue(roles.findById(otherAdminRole.id())
+                .orElseThrow()
+                .permissions()
+                .contains(SecurityPermissions.ROLES_ASSIGN));
+    }
+
+    @Test
+    void retainsEligibilityThroughIndividualGrantWhenRoleLosesAssign() {
+        Role adminRole = roles.save(Role.create(RoleId.generate(), "Admin", "", CLOCK)
+                .grantPermission(SecurityPermissions.ROLES_ASSIGN, CLOCK));
+        UserId admin = users.save(User.createActive(
+                        UserId.generate(), Login.of("grant-admin"), DisplayName.of("G"), PasswordHash.of("h"), CLOCK))
+                .id();
+        assignments.assign(RoleAssignment.of(admin, adminRole.id(), CLOCK.instant()));
+        overrides.save(IndividualPermissionOverride.of(
+                admin, SecurityPermissions.ROLES_ASSIGN, PermissionOverrideDecision.GRANT, CLOCK));
+
+        Role updated = service.setRolePermissions(adminRole.id(), Set.of());
+        assertTrue(updated.permissions().isEmpty());
+    }
+
+    @Test
+    void retainsEligibilityThroughSecondAssignedRoleWhenFirstLosesAssign() {
+        Role firstRole = roles.save(Role.create(RoleId.generate(), "AdminA", "", CLOCK)
+                .grantPermission(SecurityPermissions.ROLES_ASSIGN, CLOCK)
+                .grantPermission(SecurityPermissions.USERS_VIEW, CLOCK));
+        Role secondRole = roles.save(Role.create(RoleId.generate(), "AdminB", "", CLOCK)
+                .grantPermission(SecurityPermissions.ROLES_ASSIGN, CLOCK));
+        UserId admin = users.save(User.createActive(
+                        UserId.generate(), Login.of("multi-admin"), DisplayName.of("M"), PasswordHash.of("h"), CLOCK))
+                .id();
+        assignments.assign(RoleAssignment.of(admin, firstRole.id(), CLOCK.instant()));
+        assignments.assign(RoleAssignment.of(admin, secondRole.id(), CLOCK.instant()));
+
+        Role updated = service.setRolePermissions(firstRole.id(), Set.of(SecurityPermissions.USERS_VIEW));
+        assertEquals(Set.of(SecurityPermissions.USERS_VIEW), updated.permissions());
+        assertTrue(roles.findById(secondRole.id())
+                .orElseThrow()
+                .permissions()
+                .contains(SecurityPermissions.ROLES_ASSIGN));
+    }
+
+    @Test
+    void rejectsSinglePermissionRevokeRemovingLastEffectiveRolesAssign() {
+        Role adminRole = roles.save(Role.create(RoleId.generate(), "Admin", "", CLOCK)
+                .grantPermission(SecurityPermissions.ROLES_ASSIGN, CLOCK)
+                .grantPermission(SecurityPermissions.USERS_VIEW, CLOCK));
+        UserId admin = users.save(User.createActive(
+                        UserId.generate(), Login.of("single-revoke"), DisplayName.of("S"), PasswordHash.of("h"), CLOCK))
+                .id();
+        assignments.assign(RoleAssignment.of(admin, adminRole.id(), CLOCK.instant()));
+        Set<PermissionId> before = adminRole.permissions();
+
+        LastAdministratorException ex = assertThrows(
+                LastAdministratorException.class,
+                () -> service.revokePermissionFromRole(adminRole.id(), SecurityPermissions.ROLES_ASSIGN));
+        assertEquals(LastAdministratorGuard.PERMISSION_REMOVE_MESSAGE, ex.getMessage());
+        assertEquals(before, roles.findById(adminRole.id()).orElseThrow().permissions());
+    }
+
+    @Test
+    void allowsUnrelatedPermissionChangesOnAdminRole() {
+        Role adminRole = roles.save(Role.create(RoleId.generate(), "Admin", "", CLOCK)
+                .grantPermission(SecurityPermissions.ROLES_ASSIGN, CLOCK)
+                .grantPermission(SecurityPermissions.USERS_VIEW, CLOCK));
+        UserId admin = users.save(User.createActive(
+                        UserId.generate(), Login.of("keep-admin"), DisplayName.of("K"), PasswordHash.of("h"), CLOCK))
+                .id();
+        assignments.assign(RoleAssignment.of(admin, adminRole.id(), CLOCK.instant()));
+
+        Role updated = service.setRolePermissions(
+                adminRole.id(),
+                Set.of(SecurityPermissions.ROLES_ASSIGN, SecurityPermissions.AUDIT_VIEW));
+        assertEquals(
+                Set.of(SecurityPermissions.ROLES_ASSIGN, SecurityPermissions.AUDIT_VIEW),
+                updated.permissions());
     }
 
     private static CapabilityEngine engine(Set<PermissionId> active) {
@@ -345,6 +483,81 @@ class RoleAdministrationApplicationServiceTest {
         }
     }
 
+    private static final class InMemoryUsers implements UserRepository {
+        private final Map<UserId, User> store = new ConcurrentHashMap<>();
+
+        @Override
+        public User save(User user) {
+            store.put(user.id(), user);
+            return user;
+        }
+
+        @Override
+        public Optional<User> findById(UserId id) {
+            return Optional.ofNullable(store.get(id));
+        }
+
+        @Override
+        public Optional<User> findByLoginIgnoreCase(Login login) {
+            return Optional.empty();
+        }
+
+        @Override
+        public boolean existsByLoginIgnoreCase(Login login) {
+            return false;
+        }
+
+        @Override
+        public boolean existsAny() {
+            return !store.isEmpty();
+        }
+
+        @Override
+        public List<User> findPage(int pageIndex, int pageSize, UserStatus statusFilter) {
+            return store.values().stream()
+                    .filter(u -> statusFilter == null || u.status() == statusFilter)
+                    .skip((long) pageIndex * pageSize)
+                    .limit(pageSize)
+                    .toList();
+        }
+
+        @Override
+        public List<User> searchByLoginOrDisplayName(String query, int limit) {
+            return List.of();
+        }
+    }
+
+    private static final class InMemoryOverrides implements PermissionOverrideRepository {
+        private final List<IndividualPermissionOverride> store = new ArrayList<>();
+
+        @Override
+        public IndividualPermissionOverride save(IndividualPermissionOverride override) {
+            store.removeIf(existing -> existing.userId().equals(override.userId())
+                    && existing.permissionId().equals(override.permissionId()));
+            store.add(override);
+            return override;
+        }
+
+        @Override
+        public void remove(UserId userId, PermissionId permissionId) {
+            store.removeIf(existing -> existing.userId().equals(userId)
+                    && existing.permissionId().equals(permissionId));
+        }
+
+        @Override
+        public List<IndividualPermissionOverride> findByUser(UserId userId) {
+            return store.stream().filter(o -> o.userId().equals(userId)).toList();
+        }
+
+        @Override
+        public Optional<IndividualPermissionOverride> findByUserAndPermission(
+                UserId userId, PermissionId permissionId) {
+            return store.stream()
+                    .filter(o -> o.userId().equals(userId) && o.permissionId().equals(permissionId))
+                    .findFirst();
+        }
+    }
+
     private static final class InMemoryAudit implements SecurityAuditRepository {
         private final List<SecurityAuditEvent> events = new ArrayList<>();
 
@@ -363,6 +576,7 @@ class RoleAdministrationApplicationServiceTest {
             return events.size();
         }
     }
+
     private static AlwaysActiveUserRepository alwaysActiveUsers() {
         return new AlwaysActiveUserRepository();
     }

@@ -1,6 +1,7 @@
 package com.tmp.security.application;
 
 import com.tmp.security.api.AuditEventId;
+import com.tmp.security.api.LastAdministratorException;
 import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.RoleId;
 import com.tmp.security.api.SecurityPermissions;
@@ -14,6 +15,7 @@ import com.tmp.security.domain.repository.RoleAssignmentRepository;
 import com.tmp.security.domain.repository.RoleRepository;
 import com.tmp.security.domain.repository.SecurityAuditRepository;
 import java.time.Clock;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -30,6 +32,7 @@ public class RoleAdministrationApplicationService {
     private final SecurityAuditRepository auditRepository;
     private final SessionContext sessionContext;
     private final Clock clock;
+    private final LastAdministratorGuard lastAdministratorGuard;
 
     public RoleAdministrationApplicationService(
             RoleRepository roleRepository,
@@ -37,7 +40,8 @@ public class RoleAdministrationApplicationService {
             AuthorizationApplicationService authorization,
             SecurityAuditRepository auditRepository,
             SessionContext sessionContext,
-            Clock clock) {
+            Clock clock,
+            LastAdministratorGuard lastAdministratorGuard) {
         this.roleRepository = Objects.requireNonNull(roleRepository, "roleRepository");
         this.roleAssignmentRepository =
                 Objects.requireNonNull(roleAssignmentRepository, "roleAssignmentRepository");
@@ -45,6 +49,8 @@ public class RoleAdministrationApplicationService {
         this.auditRepository = Objects.requireNonNull(auditRepository, "auditRepository");
         this.sessionContext = Objects.requireNonNull(sessionContext, "sessionContext");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.lastAdministratorGuard =
+                Objects.requireNonNull(lastAdministratorGuard, "lastAdministratorGuard");
     }
 
     @Transactional
@@ -78,6 +84,12 @@ public class RoleAdministrationApplicationService {
     public Role revokePermissionFromRole(RoleId roleId, PermissionId permissionId) {
         authorization.requirePermission(SecurityPermissions.PERMISSIONS_ASSIGN);
         Role role = requireRole(roleId);
+        Set<PermissionId> target = new HashSet<>(role.permissions());
+        target.remove(permissionId);
+        lastAdministratorGuard.acquireLock();
+        if (!lastAdministratorGuard.wouldRetainEligibleAfterRolePermissions(roleId, target)) {
+            throw new LastAdministratorException(LastAdministratorGuard.PERMISSION_REMOVE_MESSAGE);
+        }
         Role updated = roleRepository.save(role.revokePermission(permissionId, clock));
         appendAudit(AuditOperation.ROLE_PERMISSIONS_CHANGED, updated.id(), "Role permission revoked");
         return updated;
@@ -96,6 +108,10 @@ public class RoleAdministrationApplicationService {
         Set<PermissionId> target = Set.copyOf(targetPermissions);
         if (current.equals(target)) {
             return role;
+        }
+        lastAdministratorGuard.acquireLock();
+        if (!lastAdministratorGuard.wouldRetainEligibleAfterRolePermissions(roleId, target)) {
+            throw new LastAdministratorException(LastAdministratorGuard.PERMISSION_REMOVE_MESSAGE);
         }
         for (PermissionId permissionId : target) {
             if (!current.contains(permissionId)) {

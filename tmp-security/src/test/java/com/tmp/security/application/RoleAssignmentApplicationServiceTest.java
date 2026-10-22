@@ -14,6 +14,7 @@ import com.tmp.capability.api.NavigationContribution;
 import com.tmp.capability.api.PermissionDescriptor;
 import com.tmp.capability.api.ViewDescriptor;
 import com.tmp.security.api.DisplayName;
+import com.tmp.security.api.LastAdministratorException;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.RoleAlreadyAssignedException;
@@ -43,6 +44,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -56,10 +58,10 @@ import org.junit.jupiter.api.Test;
 class RoleAssignmentApplicationServiceTest {
 
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-07-23T03:00:00Z"), ZoneOffset.UTC);
-
     private InMemoryUsers users;
     private InMemoryRoles roles;
     private InMemoryAssignments assignments;
+    private InMemoryOverrides overrides;
     private InMemoryAudit audit;
     private SessionContext sessions;
     private RoleAssignmentApplicationService service;
@@ -70,12 +72,15 @@ class RoleAssignmentApplicationServiceTest {
         users = new InMemoryUsers();
         roles = new InMemoryRoles();
         assignments = new InMemoryAssignments();
+        overrides = new InMemoryOverrides();
         audit = new InMemoryAudit();
         sessions = new SessionContext();
         actor = UserId.generate();
+        users.save(User.createActive(
+                actor, Login.of("admin"), DisplayName.of("Admin"), PasswordHash.of("h"), CLOCK));
         sessions.open(Session.of(SessionId.generate(), actor, Login.of("admin"), CLOCK.instant()));
         Set<PermissionId> perms = Set.of(SecurityPermissions.ROLES_ASSIGN);
-        PermissionOverrideRepository overrides = grant(actor, perms);
+        PermissionOverrideRepository authOverrides = grant(actor, perms);
         service = new RoleAssignmentApplicationService(
                 users,
                 roles,
@@ -88,14 +93,15 @@ class RoleAssignmentApplicationServiceTest {
                         engine(perms),
                         emptyAssignments(),
                         emptyRoles(),
-                        overrides),
+                        authOverrides),
                 audit,
                 sessions,
-                CLOCK);
+                CLOCK,
+                LastAdministratorGuardFixtures.guard(users, roles, assignments, overrides));
     }
 
     @Test
-    void assignAndRevoke() {
+    void assignAndRevokeOrdinaryRole() {
         UserId target = users.save(User.createActive(
                         UserId.generate(), Login.of("u"), DisplayName.of("U"), PasswordHash.of("h"), CLOCK))
                 .id();
@@ -105,6 +111,96 @@ class RoleAssignmentApplicationServiceTest {
         assertEquals(AuditOperation.ROLE_ASSIGNED, audit.events.getFirst().operation());
         service.revokeRole(target, roleId);
         assertEquals(0, assignments.countUsersForRole(roleId));
+        assertEquals(AuditOperation.ROLE_REVOKED, audit.events.get(1).operation());
+    }
+
+    @Test
+    void lastActiveAdministratorCannotRevokeOwnAdministratorAssignment() {
+        RoleId adminRole = saveAdminRole();
+        assignments.assign(RoleAssignment.of(actor, adminRole, CLOCK.instant()));
+        int auditBefore = audit.events.size();
+
+        LastAdministratorException ex =
+                assertThrows(LastAdministratorException.class, () -> service.revokeRole(actor, adminRole));
+        assertEquals(LastAdministratorGuard.ROLE_REVOKE_MESSAGE, ex.getMessage());
+        assertEquals(Set.of(adminRole), assignments.findRoleIdsForUser(actor));
+        assertEquals(auditBefore, audit.events.size());
+    }
+
+    @Test
+    void anotherUserCannotRevokeLastAdministratorCriticalRole() {
+        RoleId adminRole = saveAdminRole();
+        assignments.assign(RoleAssignment.of(actor, adminRole, CLOCK.instant()));
+        UserId operator = users.save(User.createActive(
+                        UserId.generate(), Login.of("op"), DisplayName.of("Op"), PasswordHash.of("h"), CLOCK))
+                .id();
+        int auditBefore = audit.events.size();
+
+        LastAdministratorException ex =
+                assertThrows(LastAdministratorException.class, () -> service.revokeRole(actor, adminRole));
+        assertEquals(LastAdministratorGuard.ROLE_REVOKE_MESSAGE, ex.getMessage());
+        assertEquals(Set.of(adminRole), assignments.findRoleIdsForUser(actor));
+        assertTrue(assignments.findRoleIdsForUser(operator).isEmpty());
+        assertEquals(auditBefore, audit.events.size());
+    }
+
+    @Test
+    void revokeAllowedWhenAnotherEligibleActiveAdministratorExists() {
+        RoleId adminRole = saveAdminRole();
+        UserId secondAdmin = users.save(User.createActive(
+                        UserId.generate(),
+                        Login.of("admin2"),
+                        DisplayName.of("Admin2"),
+                        PasswordHash.of("h"),
+                        CLOCK))
+                .id();
+        assignments.assign(RoleAssignment.of(actor, adminRole, CLOCK.instant()));
+        assignments.assign(RoleAssignment.of(secondAdmin, adminRole, CLOCK.instant()));
+
+        service.revokeRole(actor, adminRole);
+
+        assertTrue(assignments.findRoleIdsForUser(actor).isEmpty());
+        assertEquals(Set.of(adminRole), assignments.findRoleIdsForUser(secondAdmin));
+        assertEquals(AuditOperation.ROLE_REVOKED, audit.events.getLast().operation());
+    }
+
+    @Test
+    void inactiveAdministratorsDoNotSatisfySafeguard() {
+        RoleId adminRole = saveAdminRole();
+        UserId inactiveAdmin = users.save(User.createActive(
+                        UserId.generate(),
+                        Login.of("gone"),
+                        DisplayName.of("Gone"),
+                        PasswordHash.of("h"),
+                        CLOCK)
+                .deleted(CLOCK))
+                .id();
+        assignments.assign(RoleAssignment.of(actor, adminRole, CLOCK.instant()));
+        assignments.assign(RoleAssignment.of(inactiveAdmin, adminRole, CLOCK.instant()));
+
+        LastAdministratorException ex =
+                assertThrows(LastAdministratorException.class, () -> service.revokeRole(actor, adminRole));
+        assertEquals(LastAdministratorGuard.ROLE_REVOKE_MESSAGE, ex.getMessage());
+        assertEquals(Set.of(adminRole), assignments.findRoleIdsForUser(actor));
+        assertEquals(Set.of(adminRole), assignments.findRoleIdsForUser(inactiveAdmin));
+    }
+
+    @Test
+    void rejectedChangeLeavesAllAssignmentsIntact() {
+        RoleId adminRole = saveAdminRole();
+        RoleId otherRole = roles.save(Role.create(RoleId.generate(), "Other", "", CLOCK)).id();
+        UserId operator = users.save(User.createActive(
+                        UserId.generate(), Login.of("op2"), DisplayName.of("Op2"), PasswordHash.of("h"), CLOCK))
+                .id();
+        assignments.assign(RoleAssignment.of(actor, adminRole, CLOCK.instant()));
+        assignments.assign(RoleAssignment.of(operator, otherRole, CLOCK.instant()));
+
+        assertThrows(LastAdministratorException.class, () -> service.revokeRole(actor, adminRole));
+
+        assertEquals(Set.of(adminRole), assignments.findRoleIdsForUser(actor));
+        assertEquals(Set.of(otherRole), assignments.findRoleIdsForUser(operator));
+        assertEquals(1, assignments.countUsersForRole(adminRole));
+        assertEquals(1, assignments.countUsersForRole(otherRole));
     }
 
     @Test
@@ -139,7 +235,8 @@ class RoleAssignmentApplicationServiceTest {
                         grant(actor, Set.of(SecurityPermissions.ROLES_ASSIGN))),
                 audit,
                 sessions,
-                CLOCK);
+                CLOCK,
+                LastAdministratorGuardFixtures.guard(users, roles, assignments, overrideStore));
 
         assertEquals(Set.of(view), queryService.listEffectivePermissionsForUser(target));
     }
@@ -176,6 +273,15 @@ class RoleAssignmentApplicationServiceTest {
         assertThrows(
                 AccessDeniedException.class,
                 () -> service.assignRole(UserId.generate(), RoleId.generate()));
+        assertThrows(
+                AccessDeniedException.class,
+                () -> service.revokeRole(UserId.generate(), RoleId.generate()));
+    }
+
+    private RoleId saveAdminRole() {
+        return roles.save(Role.create(RoleId.generate(), "Security Administrator", "", CLOCK)
+                        .grantPermission(SecurityPermissions.ROLES_ASSIGN, CLOCK))
+                .id();
     }
 
     private static CapabilityEngine engine(Set<PermissionId> active) {
@@ -382,7 +488,12 @@ class RoleAssignmentApplicationServiceTest {
 
         @Override
         public List<User> findPage(int pageIndex, int pageSize, UserStatus statusFilter) {
-            return List.of();
+            return store.values().stream()
+                    .filter(u -> statusFilter == null || u.status() == statusFilter)
+                    .sorted(Comparator.comparing(u -> u.login().value(), String.CASE_INSENSITIVE_ORDER))
+                    .skip((long) pageIndex * pageSize)
+                    .limit(pageSize)
+                    .toList();
         }
 
         @Override
@@ -395,7 +506,7 @@ class RoleAssignmentApplicationServiceTest {
                     .filter(u -> u.status() == UserStatus.ACTIVE)
                     .filter(u -> u.login().value().toLowerCase().contains(normalized)
                             || u.displayName().value().toLowerCase().contains(normalized))
-                    .sorted(java.util.Comparator.comparing(u -> u.login().value(), String.CASE_INSENSITIVE_ORDER))
+                    .sorted(Comparator.comparing(u -> u.login().value(), String.CASE_INSENSITIVE_ORDER))
                     .limit(limit)
                     .toList();
         }
@@ -475,6 +586,7 @@ class RoleAssignmentApplicationServiceTest {
             return events.size();
         }
     }
+
     private static AlwaysActiveUserRepository alwaysActiveUsers() {
         return new AlwaysActiveUserRepository();
     }

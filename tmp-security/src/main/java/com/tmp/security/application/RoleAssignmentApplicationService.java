@@ -3,6 +3,7 @@ package com.tmp.security.application;
 import com.tmp.capability.api.CapabilityEngine;
 import com.tmp.capability.api.PermissionDescriptor;
 import com.tmp.security.api.AuditEventId;
+import com.tmp.security.api.LastAdministratorException;
 import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.RoleAlreadyAssignedException;
 import com.tmp.security.api.RoleId;
@@ -23,6 +24,7 @@ import com.tmp.security.domain.repository.RoleAssignmentRepository;
 import com.tmp.security.domain.repository.RoleRepository;
 import com.tmp.security.domain.repository.SecurityAuditRepository;
 import com.tmp.security.domain.repository.UserRepository;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Clock;
 import java.util.HashSet;
 import java.util.Objects;
@@ -33,6 +35,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Assign / revoke roles for users; read effective permissions for administration UX.
  */
+@SuppressFBWarnings(
+        value = "EI_EXPOSE_REP2",
+        justification = "Constructor stores Spring-managed collaborators.")
 public class RoleAssignmentApplicationService {
 
     private final UserRepository userRepository;
@@ -44,6 +49,7 @@ public class RoleAssignmentApplicationService {
     private final SecurityAuditRepository auditRepository;
     private final SessionContext sessionContext;
     private final Clock clock;
+    private final LastAdministratorGuard lastAdministratorGuard;
 
     public RoleAssignmentApplicationService(
             UserRepository userRepository,
@@ -54,7 +60,8 @@ public class RoleAssignmentApplicationService {
             AuthorizationApplicationService authorization,
             SecurityAuditRepository auditRepository,
             SessionContext sessionContext,
-            Clock clock) {
+            Clock clock,
+            LastAdministratorGuard lastAdministratorGuard) {
         this.userRepository = Objects.requireNonNull(userRepository, "userRepository");
         this.roleRepository = Objects.requireNonNull(roleRepository, "roleRepository");
         this.roleAssignmentRepository =
@@ -66,6 +73,8 @@ public class RoleAssignmentApplicationService {
         this.auditRepository = Objects.requireNonNull(auditRepository, "auditRepository");
         this.sessionContext = Objects.requireNonNull(sessionContext, "sessionContext");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.lastAdministratorGuard =
+                Objects.requireNonNull(lastAdministratorGuard, "lastAdministratorGuard");
     }
 
     @Transactional
@@ -85,6 +94,12 @@ public class RoleAssignmentApplicationService {
     @Transactional
     public void revokeRole(UserId userId, RoleId roleId) {
         authorization.requirePermission(SecurityPermissions.ROLES_ASSIGN);
+        Objects.requireNonNull(userId, "userId");
+        Objects.requireNonNull(roleId, "roleId");
+        lastAdministratorGuard.acquireLock();
+        if (!lastAdministratorGuard.wouldRetainEligibleAfterRoleRevoke(userId, roleId)) {
+            throw new LastAdministratorException(LastAdministratorGuard.ROLE_REVOKE_MESSAGE);
+        }
         roleAssignmentRepository.revoke(userId, roleId);
         appendAudit(AuditOperation.ROLE_REVOKED, userId, roleId, "Role revoked");
     }

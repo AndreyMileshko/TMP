@@ -2,6 +2,7 @@ package com.tmp.ui.shell.screen.roleadmin;
 
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
+import com.tmp.security.api.LastAdministratorException;
 import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.PermissionSummary;
 import com.tmp.security.api.RoleAdministrationService;
@@ -458,6 +459,7 @@ public final class RoleAdministrationViewModel {
         } catch (AccessDeniedException
                 | RoleInUseException
                 | RoleAlreadyAssignedException
+                | LastAdministratorException
                 | IllegalArgumentException ex) {
             errorMessage.set(ex.getMessage());
         } catch (RuntimeException ex) {

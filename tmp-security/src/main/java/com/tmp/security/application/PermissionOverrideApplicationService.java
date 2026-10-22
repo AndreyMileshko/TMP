@@ -1,6 +1,7 @@
 package com.tmp.security.application;
 
 import com.tmp.security.api.AuditEventId;
+import com.tmp.security.api.LastAdministratorException;
 import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.UserId;
 import com.tmp.security.api.SecurityPermissions;
@@ -31,6 +32,7 @@ public class PermissionOverrideApplicationService {
     private final SecurityAuditRepository auditRepository;
     private final SessionContext sessionContext;
     private final Clock clock;
+    private final LastAdministratorGuard lastAdministratorGuard;
 
     public PermissionOverrideApplicationService(
             UserRepository userRepository,
@@ -38,13 +40,16 @@ public class PermissionOverrideApplicationService {
             AuthorizationApplicationService authorization,
             SecurityAuditRepository auditRepository,
             SessionContext sessionContext,
-            Clock clock) {
+            Clock clock,
+            LastAdministratorGuard lastAdministratorGuard) {
         this.userRepository = Objects.requireNonNull(userRepository, "userRepository");
         this.overrideRepository = Objects.requireNonNull(overrideRepository, "overrideRepository");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.auditRepository = Objects.requireNonNull(auditRepository, "auditRepository");
         this.sessionContext = Objects.requireNonNull(sessionContext, "sessionContext");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.lastAdministratorGuard =
+                Objects.requireNonNull(lastAdministratorGuard, "lastAdministratorGuard");
     }
 
     @Transactional
@@ -65,6 +70,11 @@ public class PermissionOverrideApplicationService {
         if (existing.isEmpty()) {
             return;
         }
+        lastAdministratorGuard.acquireLock();
+        if (!lastAdministratorGuard.wouldRetainEligibleAfterOverrideChange(
+                userId, permissionId, Optional.empty())) {
+            throw new LastAdministratorException(LastAdministratorGuard.PERMISSION_REMOVE_MESSAGE);
+        }
         overrideRepository.remove(userId, permissionId);
         appendAudit(AuditOperation.PERMISSION_OVERRIDE_REMOVED, userId, permissionId, "Override removed");
     }
@@ -76,6 +86,11 @@ public class PermissionOverrideApplicationService {
             AuditOperation operation) {
         authorization.requirePermission(SecurityPermissions.PERMISSIONS_ASSIGN);
         requireActiveUser(userId);
+        lastAdministratorGuard.acquireLock();
+        if (!lastAdministratorGuard.wouldRetainEligibleAfterOverrideChange(
+                userId, permissionId, Optional.of(decision))) {
+            throw new LastAdministratorException(LastAdministratorGuard.PERMISSION_REMOVE_MESSAGE);
+        }
         Optional<IndividualPermissionOverride> existing =
                 overrideRepository.findByUserAndPermission(userId, permissionId);
         IndividualPermissionOverride next = existing

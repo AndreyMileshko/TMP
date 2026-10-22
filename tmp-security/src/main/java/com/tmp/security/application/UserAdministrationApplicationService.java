@@ -2,6 +2,7 @@ package com.tmp.security.application;
 
 import com.tmp.security.api.AuditEventId;
 import com.tmp.security.api.DisplayName;
+import com.tmp.security.api.LastAdministratorException;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.UserCreationResult;
 import com.tmp.security.api.UserId;
@@ -29,6 +30,7 @@ public class UserAdministrationApplicationService {
     private final SecurityAuditRepository auditRepository;
     private final SessionContext sessionContext;
     private final Clock clock;
+    private final LastAdministratorGuard lastAdministratorGuard;
 
     public UserAdministrationApplicationService(
             UserRepository userRepository,
@@ -36,7 +38,8 @@ public class UserAdministrationApplicationService {
             PasswordApplicationService passwordApplicationService,
             SecurityAuditRepository auditRepository,
             SessionContext sessionContext,
-            Clock clock) {
+            Clock clock,
+            LastAdministratorGuard lastAdministratorGuard) {
         this.userRepository = Objects.requireNonNull(userRepository, "userRepository");
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.passwordApplicationService =
@@ -44,6 +47,8 @@ public class UserAdministrationApplicationService {
         this.auditRepository = Objects.requireNonNull(auditRepository, "auditRepository");
         this.sessionContext = Objects.requireNonNull(sessionContext, "sessionContext");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.lastAdministratorGuard =
+                Objects.requireNonNull(lastAdministratorGuard, "lastAdministratorGuard");
     }
 
     @Transactional
@@ -78,6 +83,10 @@ public class UserAdministrationApplicationService {
         authorization.requirePermission(SecurityPermissions.USERS_DELETE);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+        lastAdministratorGuard.acquireLock();
+        if (!lastAdministratorGuard.wouldRetainEligibleAfterUserDeactivation(userId)) {
+            throw new LastAdministratorException(LastAdministratorGuard.USER_DELETE_MESSAGE);
+        }
         User deleted = userRepository.save(user.deleted(clock));
         appendAudit(AuditOperation.USER_DELETED, deleted.id(), "User logically deleted");
         sessionContext.current().ifPresent(session -> {

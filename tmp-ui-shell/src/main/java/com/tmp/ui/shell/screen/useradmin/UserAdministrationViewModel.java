@@ -8,6 +8,7 @@ import com.tmp.security.api.PasswordResetResult;
 import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.PermissionSummary;
 import com.tmp.security.api.RoleAdministrationService;
+import com.tmp.security.api.LastAdministratorException;
 import com.tmp.security.api.RoleAlreadyAssignedException;
 import com.tmp.security.api.RoleId;
 import com.tmp.security.api.RoleSummary;
@@ -200,7 +201,10 @@ public final class UserAdministrationViewModel {
             }
             refresh();
             return true;
-        } catch (AccessDeniedException | RoleAlreadyAssignedException | IllegalArgumentException ex) {
+        } catch (AccessDeniedException
+                | RoleAlreadyAssignedException
+                | LastAdministratorException
+                | IllegalArgumentException ex) {
             errorMessage.set(ex.getMessage());
             return false;
         } catch (RuntimeException ex) {
@@ -297,7 +301,10 @@ public final class UserAdministrationViewModel {
         errorMessage.set("");
         try {
             action.run();
-        } catch (AccessDeniedException | RoleAlreadyAssignedException | IllegalArgumentException ex) {
+        } catch (AccessDeniedException
+                | RoleAlreadyAssignedException
+                | LastAdministratorException
+                | IllegalArgumentException ex) {
             errorMessage.set(ex.getMessage());
         } catch (RuntimeException ex) {
             errorMessage.set(safeMessage(ex));
@@ -308,7 +315,10 @@ public final class UserAdministrationViewModel {
         errorMessage.set("");
         try {
             return Optional.ofNullable(action.call());
-        } catch (AccessDeniedException | RoleAlreadyAssignedException | IllegalArgumentException ex) {
+        } catch (AccessDeniedException
+                | RoleAlreadyAssignedException
+                | LastAdministratorException
+                | IllegalArgumentException ex) {
             errorMessage.set(ex.getMessage());
             return Optional.empty();
         } catch (RuntimeException ex) {

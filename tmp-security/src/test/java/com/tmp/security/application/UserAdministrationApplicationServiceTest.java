@@ -15,6 +15,7 @@ import com.tmp.capability.api.NavigationContribution;
 import com.tmp.capability.api.PermissionDescriptor;
 import com.tmp.capability.api.ViewDescriptor;
 import com.tmp.security.api.DisplayName;
+import com.tmp.security.api.LastAdministratorException;
 import com.tmp.security.api.Login;
 import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.RoleId;
@@ -31,6 +32,7 @@ import com.tmp.security.domain.ActivationCodeGenerator;
 import com.tmp.security.domain.PasswordHash;
 import com.tmp.security.domain.PasswordHasher;
 import com.tmp.security.domain.Role;
+import com.tmp.security.domain.RoleAssignment;
 import com.tmp.security.domain.SecurityAuditEvent;
 import com.tmp.security.domain.Session;
 import com.tmp.security.domain.User;
@@ -44,6 +46,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -58,6 +62,9 @@ class UserAdministrationApplicationServiceTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-07-23T03:00:00Z"), ZoneOffset.UTC);
 
     private InMemoryUsers users;
+    private InMemoryRoles roles;
+    private InMemoryAssignments assignments;
+    private InMemoryOverrides overrides;
     private InMemoryAudit audit;
     private SessionContext sessions;
     private UserAdministrationApplicationService service;
@@ -68,6 +75,9 @@ class UserAdministrationApplicationServiceTest {
     @BeforeEach
     void setUp() {
         users = new InMemoryUsers();
+        roles = new InMemoryRoles();
+        assignments = new InMemoryAssignments();
+        overrides = new InMemoryOverrides();
         audit = new InMemoryAudit();
         sessions = new SessionContext();
         UserId actor = UserId.generate();
@@ -89,7 +99,13 @@ class UserAdministrationApplicationServiceTest {
                 ActivationTestSupport.defaultActivationProperties(),
                 CLOCK);
         service = new UserAdministrationApplicationService(
-                users, authorization, passwordService, audit, sessions, CLOCK);
+                users,
+                authorization,
+                passwordService,
+                audit,
+                sessions,
+                CLOCK,
+                LastAdministratorGuardFixtures.guard(users, roles, assignments, overrides));
     }
 
     @Test
@@ -120,6 +136,64 @@ class UserAdministrationApplicationServiceTest {
         service.createUser(Login.of("dup"), DisplayName.of("A"));
         assertThrows(DuplicateLoginException.class,
                 () -> service.createUser(Login.of("DUP"), DisplayName.of("B")));
+    }
+
+    @Test
+    void rejectsDeactivationOfLastEligibleAdministrator() {
+        UserId adminId = users.save(User.createActive(
+                        UserId.generate(), Login.of("sole-admin"), DisplayName.of("Sole"), PasswordHash.of("h"), CLOCK))
+                .id();
+        RoleId adminRole = roles.save(Role.create(RoleId.generate(), "Admin", "", CLOCK)
+                        .grantPermission(SecurityPermissions.ROLES_ASSIGN, CLOCK))
+                .id();
+        assignments.assign(RoleAssignment.of(adminId, adminRole, CLOCK.instant()));
+        int auditBefore = audit.events.size();
+
+        LastAdministratorException ex =
+                assertThrows(LastAdministratorException.class, () -> service.deleteUser(adminId));
+        assertEquals(LastAdministratorGuard.USER_DELETE_MESSAGE, ex.getMessage());
+        assertEquals(UserStatus.ACTIVE, users.findById(adminId).orElseThrow().status());
+        assertEquals(Set.of(adminRole), assignments.findRoleIdsForUser(adminId));
+        assertEquals(auditBefore, audit.events.size());
+    }
+
+    @Test
+    void allowsDeactivationWhenAnotherActiveAdministratorRemains() {
+        RoleId adminRole = roles.save(Role.create(RoleId.generate(), "Admin", "", CLOCK)
+                        .grantPermission(SecurityPermissions.ROLES_ASSIGN, CLOCK))
+                .id();
+        UserId first = users.save(User.createActive(
+                        UserId.generate(), Login.of("a1"), DisplayName.of("A1"), PasswordHash.of("h"), CLOCK))
+                .id();
+        UserId second = users.save(User.createActive(
+                        UserId.generate(), Login.of("a2"), DisplayName.of("A2"), PasswordHash.of("h"), CLOCK))
+                .id();
+        assignments.assign(RoleAssignment.of(first, adminRole, CLOCK.instant()));
+        assignments.assign(RoleAssignment.of(second, adminRole, CLOCK.instant()));
+
+        User deleted = service.deleteUser(first);
+        assertEquals(UserStatus.DELETED, deleted.status());
+        assertEquals(UserStatus.ACTIVE, users.findById(second).orElseThrow().status());
+        assertEquals(Set.of(adminRole), assignments.findRoleIdsForUser(second));
+    }
+
+    @Test
+    void ignoresInactiveAlternativeAdministrator() {
+        RoleId adminRole = roles.save(Role.create(RoleId.generate(), "Admin", "", CLOCK)
+                        .grantPermission(SecurityPermissions.ROLES_ASSIGN, CLOCK))
+                .id();
+        UserId active = users.save(User.createActive(
+                        UserId.generate(), Login.of("active-admin"), DisplayName.of("Active"), PasswordHash.of("h"), CLOCK))
+                .id();
+        UserId inactive = users.save(User.createActive(
+                        UserId.generate(), Login.of("inactive-admin"), DisplayName.of("Inactive"), PasswordHash.of("h"), CLOCK)
+                .deleted(CLOCK))
+                .id();
+        assignments.assign(RoleAssignment.of(active, adminRole, CLOCK.instant()));
+        assignments.assign(RoleAssignment.of(inactive, adminRole, CLOCK.instant()));
+
+        assertThrows(LastAdministratorException.class, () -> service.deleteUser(active));
+        assertEquals(UserStatus.ACTIVE, users.findById(active).orElseThrow().status());
     }
 
     private static CapabilityEngine allPermissionsEngine() {
@@ -337,6 +411,93 @@ class UserAdministrationApplicationServiceTest {
                     .sorted(java.util.Comparator.comparing(u -> u.login().value(), String.CASE_INSENSITIVE_ORDER))
                     .limit(limit)
                     .toList();
+        }
+    }
+
+    private static final class InMemoryRoles implements RoleRepository {
+        private final Map<RoleId, Role> store = new HashMap<>();
+
+        @Override
+        public Role save(Role role) {
+            store.put(role.id(), role);
+            return role;
+        }
+
+        @Override
+        public Optional<Role> findById(RoleId id) {
+            return Optional.ofNullable(store.get(id));
+        }
+
+        @Override
+        public List<Role> findAll() {
+            return List.copyOf(store.values());
+        }
+
+        @Override
+        public void deleteById(RoleId id) {
+            store.remove(id);
+        }
+    }
+
+    private static final class InMemoryAssignments implements RoleAssignmentRepository {
+        private final List<RoleAssignment> store = new ArrayList<>();
+
+        @Override
+        public void assign(RoleAssignment assignment) {
+            store.add(assignment);
+        }
+
+        @Override
+        public void revoke(UserId userId, RoleId roleId) {
+            store.removeIf(a -> a.userId().equals(userId) && a.roleId().equals(roleId));
+        }
+
+        @Override
+        public Set<RoleId> findRoleIdsForUser(UserId userId) {
+            Set<RoleId> ids = new HashSet<>();
+            store.stream().filter(a -> a.userId().equals(userId)).forEach(a -> ids.add(a.roleId()));
+            return ids;
+        }
+
+        @Override
+        public List<UserId> findUserIdsForRole(RoleId roleId) {
+            return store.stream().filter(a -> a.roleId().equals(roleId)).map(RoleAssignment::userId).toList();
+        }
+
+        @Override
+        public long countUsersForRole(RoleId roleId) {
+            return store.stream().filter(a -> a.roleId().equals(roleId)).count();
+        }
+    }
+
+    private static final class InMemoryOverrides implements PermissionOverrideRepository {
+        private final List<IndividualPermissionOverride> store = new ArrayList<>();
+
+        @Override
+        public IndividualPermissionOverride save(IndividualPermissionOverride override) {
+            store.removeIf(existing -> existing.userId().equals(override.userId())
+                    && existing.permissionId().equals(override.permissionId()));
+            store.add(override);
+            return override;
+        }
+
+        @Override
+        public void remove(UserId userId, PermissionId permissionId) {
+            store.removeIf(existing -> existing.userId().equals(userId)
+                    && existing.permissionId().equals(permissionId));
+        }
+
+        @Override
+        public List<IndividualPermissionOverride> findByUser(UserId userId) {
+            return store.stream().filter(o -> o.userId().equals(userId)).toList();
+        }
+
+        @Override
+        public Optional<IndividualPermissionOverride> findByUserAndPermission(
+                UserId userId, PermissionId permissionId) {
+            return store.stream()
+                    .filter(o -> o.userId().equals(userId) && o.permissionId().equals(permissionId))
+                    .findFirst();
         }
     }
 

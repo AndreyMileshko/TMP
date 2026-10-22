@@ -22,6 +22,7 @@ import com.tmp.security.application.DefaultAuthorizationService;
 import com.tmp.security.application.DefaultRoleAdministrationService;
 import com.tmp.security.application.DefaultSystemRolePermissionEnsureService;
 import com.tmp.security.application.DefaultUserAdministrationService;
+import com.tmp.security.application.LastAdministratorGuard;
 import com.tmp.security.application.PasswordApplicationService;
 import com.tmp.security.application.PermissionOverrideApplicationService;
 import com.tmp.security.application.PermissionSynchronizationApplicationService;
@@ -208,20 +209,37 @@ public class SecurityAutoConfiguration {
     }
 
     @Bean
+    LastAdministratorGuard lastAdministratorGuard(
+            UserRepository userRepository,
+            RoleRepository roleRepository,
+            RoleAssignmentRepository roleAssignmentRepository,
+            PermissionOverrideRepository permissionOverrideRepository,
+            JdbcTemplate jdbcTemplate) {
+        return new LastAdministratorGuard(
+                userRepository,
+                roleRepository,
+                roleAssignmentRepository,
+                permissionOverrideRepository,
+                jdbcTemplate);
+    }
+
+    @Bean
     UserAdministrationApplicationService userAdministrationApplicationService(
             UserRepository userRepository,
             AuthorizationApplicationService authorizationApplicationService,
             PasswordApplicationService passwordApplicationService,
             SecurityAuditRepository securityAuditRepository,
             SessionContext sessionContext,
-            Clock securityClock) {
+            Clock securityClock,
+            LastAdministratorGuard lastAdministratorGuard) {
         return new UserAdministrationApplicationService(
                 userRepository,
                 authorizationApplicationService,
                 passwordApplicationService,
                 securityAuditRepository,
                 sessionContext,
-                securityClock);
+                securityClock,
+                lastAdministratorGuard);
     }
 
     @Bean
@@ -252,14 +270,16 @@ public class SecurityAutoConfiguration {
             AuthorizationApplicationService authorizationApplicationService,
             SecurityAuditRepository securityAuditRepository,
             SessionContext sessionContext,
-            Clock securityClock) {
+            Clock securityClock,
+            LastAdministratorGuard lastAdministratorGuard) {
         return new RoleAdministrationApplicationService(
                 roleRepository,
                 roleAssignmentRepository,
                 authorizationApplicationService,
                 securityAuditRepository,
                 sessionContext,
-                securityClock);
+                securityClock,
+                lastAdministratorGuard);
     }
 
     @Bean
@@ -272,7 +292,8 @@ public class SecurityAutoConfiguration {
             AuthorizationApplicationService authorizationApplicationService,
             SecurityAuditRepository securityAuditRepository,
             SessionContext sessionContext,
-            Clock securityClock) {
+            Clock securityClock,
+            LastAdministratorGuard lastAdministratorGuard) {
         return new RoleAssignmentApplicationService(
                 userRepository,
                 roleRepository,
@@ -282,7 +303,8 @@ public class SecurityAutoConfiguration {
                 authorizationApplicationService,
                 securityAuditRepository,
                 sessionContext,
-                securityClock);
+                securityClock,
+                lastAdministratorGuard);
     }
 
     @Bean
@@ -292,14 +314,16 @@ public class SecurityAutoConfiguration {
             AuthorizationApplicationService authorizationApplicationService,
             SecurityAuditRepository securityAuditRepository,
             SessionContext sessionContext,
-            Clock securityClock) {
+            Clock securityClock,
+            LastAdministratorGuard lastAdministratorGuard) {
         return new PermissionOverrideApplicationService(
                 userRepository,
                 permissionOverrideRepository,
                 authorizationApplicationService,
                 securityAuditRepository,
                 sessionContext,
-                securityClock);
+                securityClock,
+                lastAdministratorGuard);
     }
 
     @Bean
