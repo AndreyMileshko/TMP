@@ -99,6 +99,29 @@ class OrderListControllerFxTest {
     }
 
     @Test
+    void manufacturingDateColumnIsServerSideSortable() throws Exception {
+        Parent root = load(OrderListTestSupport.viewModel());
+        @SuppressWarnings("unchecked")
+        TableView<OrderOperationalSummary> table =
+                (TableView<OrderOperationalSummary>) root.lookup("#ordersTable");
+        @SuppressWarnings("unchecked")
+        TableColumn<OrderOperationalSummary, ?> readyDateColumn =
+                (TableColumn<OrderOperationalSummary, ?>) table.getColumns().get(2);
+        assertEquals("Дата изготовления", readyDateColumn.getText());
+        assertTrue(readyDateColumn.isSortable());
+        assertEquals(
+                com.tmp.ui.shell.order.worklist.OrderListSortField.READY_DATE,
+                readyDateColumn.getUserData());
+        @SuppressWarnings("unchecked")
+        TableColumn<OrderOperationalSummary, ?> createdAtColumn =
+                (TableColumn<OrderOperationalSummary, ?>) table.getColumns().get(5);
+        assertTrue(createdAtColumn.isSortable());
+        assertEquals(
+                com.tmp.ui.shell.order.worklist.OrderListSortField.CREATED_AT,
+                createdAtColumn.getUserData());
+    }
+
+    @Test
     void enterOnSelectedRowOpensOrder() throws Exception {
         OrderListTestSupport.InMemoryWorklistQuery worklist = new OrderListTestSupport.InMemoryWorklistQuery();
         worklist.rows.add(

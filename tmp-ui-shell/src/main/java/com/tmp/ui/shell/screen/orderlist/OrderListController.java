@@ -265,6 +265,7 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
     private void configureServerSideSorting() {
         bindSortColumn(orderNumberColumn, OrderListSortField.ORDER_NUMBER);
         bindSortColumn(customerNameColumn, OrderListSortField.CUSTOMER);
+        bindSortColumn(readyDateColumn, OrderListSortField.READY_DATE);
         bindSortColumn(createdAtColumn, OrderListSortField.CREATED_AT);
         bindSortColumn(itemCountColumn, OrderListSortField.ITEM_COUNT);
         bindSortColumn(statusColumn, OrderListSortField.STATUS);
@@ -347,6 +348,7 @@ public final class OrderListController implements ViewModelAware<OrderListViewMo
         return switch (field) {
             case ORDER_NUMBER -> orderNumberColumn;
             case CUSTOMER -> customerNameColumn;
+            case READY_DATE -> readyDateColumn;
             case CREATED_AT -> createdAtColumn;
             case ITEM_COUNT -> itemCountColumn;
             case STATUS -> statusColumn;

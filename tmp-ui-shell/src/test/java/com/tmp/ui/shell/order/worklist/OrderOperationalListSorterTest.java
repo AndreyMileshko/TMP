@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tmp.order.api.OrderId;
 import com.tmp.order.api.OrderStatus;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -50,6 +51,62 @@ class OrderOperationalListSorterTest {
         assertEquals("c", rows.get(0).orderNumber());
         assertEquals("a", rows.get(1).orderNumber());
         assertEquals("b", rows.get(2).orderNumber());
+    }
+
+    @Test
+    void readyDateSortsByLocalDateChronologicallyAcrossMonths() {
+        List<OrderOperationalSummary> rows = new ArrayList<>();
+        rows.add(ready("26106066", LocalDate.of(2026, 11, 9), Instant.parse("2026-09-01T10:00:00Z")));
+        rows.add(ready("26106082", LocalDate.of(2026, 10, 23), Instant.parse("2026-09-01T11:00:00Z")));
+        rows.add(ready("26106101", LocalDate.of(2026, 11, 2), Instant.parse("2026-09-01T12:00:00Z")));
+        rows.add(ready("26106009", LocalDate.of(2026, 11, 3), Instant.parse("2026-09-01T13:00:00Z")));
+        rows.add(ready("26106063", LocalDate.of(2026, 11, 12), Instant.parse("2026-09-01T14:00:00Z")));
+        OrderOperationalListSorter.sortInPlace(
+                rows, OrderListSortField.READY_DATE, OrderListSortDirection.ASC);
+        assertEquals(
+                List.of("26106082", "26106101", "26106009", "26106066", "26106063"),
+                rows.stream().map(OrderOperationalSummary::orderNumber).toList());
+        OrderOperationalListSorter.sortInPlace(
+                rows, OrderListSortField.READY_DATE, OrderListSortDirection.DESC);
+        assertEquals(
+                List.of("26106063", "26106066", "26106009", "26106101", "26106082"),
+                rows.stream().map(OrderOperationalSummary::orderNumber).toList());
+    }
+
+    @Test
+    void readyDateEqualDatesUseCreatedAtDescThenOrderIdTieBreaker() {
+        Instant older = Instant.parse("2026-09-01T10:00:00Z");
+        Instant newer = Instant.parse("2026-09-01T12:00:00Z");
+        List<OrderOperationalSummary> rows = new ArrayList<>();
+        rows.add(ready("older-same-date", LocalDate.of(2026, 11, 2), older));
+        rows.add(ready("newer-a", LocalDate.of(2026, 11, 2), newer));
+        rows.add(ready("newer-b", LocalDate.of(2026, 11, 2), newer));
+        OrderOperationalListSorter.sortInPlace(
+                rows, OrderListSortField.READY_DATE, OrderListSortDirection.ASC);
+        assertEquals(newer, rows.get(0).createdAt());
+        assertEquals(newer, rows.get(1).createdAt());
+        assertEquals(older, rows.get(2).createdAt());
+        assertEquals("older-same-date", rows.get(2).orderNumber());
+        assertTrue(
+                rows.get(0).orderId().value().compareTo(rows.get(1).orderId().value()) <= 0);
+    }
+
+    @Test
+    void readyDateNullsSortLastAscendingAndDescending() {
+        List<OrderOperationalSummary> rows = new ArrayList<>();
+        rows.add(ready("null-a", null, Instant.parse("2026-09-01T14:00:00Z")));
+        rows.add(ready("dated", LocalDate.of(2026, 11, 2), Instant.parse("2026-09-01T10:00:00Z")));
+        rows.add(ready("null-b", null, Instant.parse("2026-09-01T11:00:00Z")));
+        OrderOperationalListSorter.sortInPlace(
+                rows, OrderListSortField.READY_DATE, OrderListSortDirection.ASC);
+        assertEquals("dated", rows.get(0).orderNumber());
+        assertEquals(null, rows.get(1).readyDate());
+        assertEquals(null, rows.get(2).readyDate());
+        OrderOperationalListSorter.sortInPlace(
+                rows, OrderListSortField.READY_DATE, OrderListSortDirection.DESC);
+        assertEquals("dated", rows.get(0).orderNumber());
+        assertEquals(null, rows.get(1).readyDate());
+        assertEquals(null, rows.get(2).readyDate());
     }
 
     @Test
@@ -141,6 +198,19 @@ class OrderOperationalListSorterTest {
                 "c",
                 customer,
                 createdAt,
+                1L,
+                OrderStatus.DRAFT,
+                OrderOperationalStatus.EDITING);
+    }
+
+    private static OrderOperationalSummary ready(String number, LocalDate readyDate, Instant createdAt) {
+        return new OrderOperationalSummary(
+                OrderId.of(UUID.nameUUIDFromBytes(number.getBytes())),
+                number,
+                "c",
+                "Customer",
+                createdAt,
+                readyDate,
                 1L,
                 OrderStatus.DRAFT,
                 OrderOperationalStatus.EDITING);

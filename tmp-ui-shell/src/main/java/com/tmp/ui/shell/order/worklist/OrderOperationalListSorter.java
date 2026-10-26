@@ -1,5 +1,6 @@
 package com.tmp.ui.shell.order.worklist;
 
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
@@ -51,13 +52,16 @@ public final class OrderOperationalListSorter {
                     case ORDER_NUMBER -> Comparator.comparing(
                             OrderOperationalSummary::orderNumber, OrderOperationalListSorter::compareNatural);
                     case CUSTOMER -> customerComparator(direction);
+                    case READY_DATE -> readyDateComparator(direction);
                     case CREATED_AT -> Comparator.comparing(OrderOperationalSummary::createdAt);
                     case ITEM_COUNT -> Comparator.comparingLong(OrderOperationalSummary::itemQuantity);
                     case STATUS -> Comparator.comparingInt(
                             row -> statusBusinessRank(row.operationalStatus()));
                 };
-        // CUSTOMER applies ASC/DESC only to non-empty names; null/blank stay last (do not reverse).
-        if (field != OrderListSortField.CUSTOMER && direction == OrderListSortDirection.DESC) {
+        // CUSTOMER / READY_DATE apply ASC/DESC only to present values; nulls stay last (do not reverse).
+        if (field != OrderListSortField.CUSTOMER
+                && field != OrderListSortField.READY_DATE
+                && direction == OrderListSortDirection.DESC) {
             primary = primary.reversed();
         }
         Comparator<OrderOperationalSummary> byCreatedAt = Comparator.comparing(OrderOperationalSummary::createdAt);
@@ -120,6 +124,18 @@ public final class OrderOperationalListSorter {
             }
         }
         return Integer.compare(a.length() - i, b.length() - j);
+    }
+
+    /**
+     * Manufacturing date ({@code readyDate}) sort by actual {@link LocalDate}, not formatted text.
+     * Null dates always last in ASC and DESC.
+     */
+    private static Comparator<OrderOperationalSummary> readyDateComparator(OrderListSortDirection direction) {
+        Comparator<LocalDate> dates = Comparator.naturalOrder();
+        if (direction == OrderListSortDirection.DESC) {
+            dates = dates.reversed();
+        }
+        return Comparator.comparing(OrderOperationalSummary::readyDate, Comparator.nullsLast(dates));
     }
 
     /**

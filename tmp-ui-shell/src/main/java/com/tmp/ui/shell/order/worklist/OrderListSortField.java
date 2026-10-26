@@ -6,6 +6,7 @@ package com.tmp.ui.shell.order.worklist;
 public enum OrderListSortField {
     ORDER_NUMBER,
     CUSTOMER,
+    READY_DATE,
     CREATED_AT,
     ITEM_COUNT,
     STATUS

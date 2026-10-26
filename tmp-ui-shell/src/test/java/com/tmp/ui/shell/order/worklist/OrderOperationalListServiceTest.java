@@ -14,7 +14,9 @@ import com.tmp.ui.shell.order.error.OrderUiOperation;
 import com.tmp.ui.shell.screen.orderlist.OrderListTestSupport.InMemoryWorklistQuery;
 import com.tmp.ui.shell.screen.orderlist.OrderListTestSupport.MapProductionQuery;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -290,6 +292,87 @@ class OrderOperationalListServiceTest {
         assertEquals(100L, page1.content().getLast().itemQuantity());
         assertEquals(101L, page2.content().getFirst().itemQuantity());
         assertEquals(120L, page2.content().getLast().itemQuantity());
+    }
+
+    @Test
+    void readyDateSortAppliesToFullMatchedSetBeforePagination() {
+        InMemoryWorklistQuery worklist = new InMemoryWorklistQuery();
+        LocalDate[] dates = {
+            LocalDate.of(2026, 11, 12),
+            LocalDate.of(2026, 10, 23),
+            LocalDate.of(2026, 11, 2),
+            LocalDate.of(2026, 11, 9),
+            LocalDate.of(2026, 11, 3)
+        };
+        for (int i = 0; i < dates.length; i++) {
+            worklist.rows.add(
+                    OrderWorklistRowDto.of(
+                            OrderId.generate(),
+                            "RD-" + i,
+                            OrderStatus.DRAFT,
+                            "c",
+                            "C",
+                            Instant.parse("2026-09-01T10:00:00Z").plusSeconds(i),
+                            dates[i],
+                            1L));
+        }
+        OrderOperationalListService service =
+                new OrderOperationalListService(worklist, new MapProductionQuery());
+        OrderOperationalListResult page0 =
+                service.search(
+                        new OrderOperationalListRequest(
+                                FROM,
+                                TO,
+                                null,
+                                EnumSet.of(OrderOperationalStatus.EDITING),
+                                Set.of(),
+                                Set.of(),
+                                false,
+                                false,
+                                0,
+                                2,
+                                OrderListSortField.READY_DATE,
+                                OrderListSortDirection.ASC));
+        OrderOperationalListResult page1 =
+                service.search(
+                        new OrderOperationalListRequest(
+                                FROM,
+                                TO,
+                                null,
+                                EnumSet.of(OrderOperationalStatus.EDITING),
+                                Set.of(),
+                                Set.of(),
+                                false,
+                                false,
+                                1,
+                                2,
+                                OrderListSortField.READY_DATE,
+                                OrderListSortDirection.ASC));
+        OrderOperationalListResult page2 =
+                service.search(
+                        new OrderOperationalListRequest(
+                                FROM,
+                                TO,
+                                null,
+                                EnumSet.of(OrderOperationalStatus.EDITING),
+                                Set.of(),
+                                Set.of(),
+                                false,
+                                false,
+                                2,
+                                2,
+                                OrderListSortField.READY_DATE,
+                                OrderListSortDirection.ASC));
+        assertEquals(5, page0.totalElements());
+        assertEquals(
+                List.of(LocalDate.of(2026, 10, 23), LocalDate.of(2026, 11, 2)),
+                page0.content().stream().map(OrderOperationalSummary::readyDate).toList());
+        assertEquals(
+                List.of(LocalDate.of(2026, 11, 3), LocalDate.of(2026, 11, 9)),
+                page1.content().stream().map(OrderOperationalSummary::readyDate).toList());
+        assertEquals(
+                List.of(LocalDate.of(2026, 11, 12)),
+                page2.content().stream().map(OrderOperationalSummary::readyDate).toList());
     }
 
     @Test
