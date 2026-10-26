@@ -29,7 +29,7 @@ class OrderOperationalStatusDeriverTest {
     }
 
     @Test
-    void activeWithZeroReleasedIsAwaitingProduction() {
+    void activeNotAcceptedIsAwaitingProduction() {
         assertEquals(
                 OrderOperationalStatus.AWAITING_PRODUCTION,
                 OrderOperationalStatusDeriver.derive(OrderStatus.ACTIVE, 10L, empty()));
@@ -37,12 +37,28 @@ class OrderOperationalStatusDeriverTest {
                 OrderOperationalStatus.AWAITING_PRODUCTION,
                 OrderOperationalStatusDeriver.derive(
                         OrderStatus.ACTIVE,
-                        10L,
-                        facts(OrderProductionViewStatus.IN_PRODUCTION, 10L, 0L, 10L, false)));
+                        5L,
+                        facts(OrderProductionViewStatus.NOT_ACCEPTED, 0L, 0L, 0L, false)));
+    }
+
+    @Test
+    void activeLaunchedZeroReleasedIsInProduction() {
+        assertEquals(
+                OrderOperationalStatus.IN_PRODUCTION,
+                OrderOperationalStatusDeriver.derive(
+                        OrderStatus.ACTIVE,
+                        5L,
+                        facts(OrderProductionViewStatus.IN_PRODUCTION, 5L, 0L, 5L, false)));
     }
 
     @Test
     void partialReleasedWithWorkRemainingIsInProduction() {
+        assertEquals(
+                OrderOperationalStatus.IN_PRODUCTION,
+                OrderOperationalStatusDeriver.derive(
+                        OrderStatus.ACTIVE,
+                        5L,
+                        facts(OrderProductionViewStatus.IN_PRODUCTION, 5L, 2L, 3L, false)));
         assertEquals(
                 OrderOperationalStatus.IN_PRODUCTION,
                 OrderOperationalStatusDeriver.derive(
@@ -53,6 +69,12 @@ class OrderOperationalStatusDeriverTest {
 
     @Test
     void allManufacturedIsCompleted() {
+        assertEquals(
+                OrderOperationalStatus.COMPLETED,
+                OrderOperationalStatusDeriver.derive(
+                        OrderStatus.ACTIVE,
+                        5L,
+                        facts(OrderProductionViewStatus.MANUFACTURED, 5L, 5L, 0L, false)));
         assertEquals(
                 OrderOperationalStatus.COMPLETED,
                 OrderOperationalStatusDeriver.derive(

@@ -162,6 +162,28 @@ class OrderEditorViewModelTest {
     }
 
     @Test
+    void activeLaunchedZeroReleasedShowsInProduction() {
+        OrderId id = OrderId.generate();
+        FakeQuery query = new FakeQuery();
+        query.order = order(id, OrderStatus.ACTIVE);
+        OrderEditorViewModel viewModel =
+                new OrderEditorViewModel(
+                        query,
+                        new FakeDocs(),
+                        auth(allOrderPerms()),
+                        new FixedProductionFactsQuery(
+                                id.value(),
+                                com.tmp.production.api.ProductionQueryApi.OrderProductionViewStatus
+                                        .IN_PRODUCTION,
+                                5L,
+                                0L,
+                                5L));
+        viewModel.openExisting(id);
+        assertEquals(OrderOperationalStatus.IN_PRODUCTION, viewModel.operationalStatus());
+        assertEquals("В производстве", viewModel.statusTextProperty().get());
+    }
+
+    @Test
     void productionAccessDeniedShowsUnavailableNotFakeAwaiting() {
         OrderId id = OrderId.generate();
         FakeQuery query = new FakeQuery();
@@ -189,6 +211,57 @@ class OrderEditorViewModelTest {
     private static OrderEditorViewModel vm(
             OrderQueryService query, OrderDocumentUiService docs, Set<PermissionId> perms) {
         return new OrderEditorViewModel(query, docs, auth(perms), new EmptyProductionQuery());
+    }
+
+    private static final class FixedProductionFactsQuery
+            implements com.tmp.production.api.ProductionQueryApi {
+        private final java.util.UUID orderId;
+        private final OrderProductionViewStatus status;
+        private final long ordered;
+        private final long released;
+        private final long active;
+
+        private FixedProductionFactsQuery(
+                java.util.UUID orderId,
+                OrderProductionViewStatus status,
+                long ordered,
+                long released,
+                long active) {
+            this.orderId = orderId;
+            this.status = status;
+            this.ordered = ordered;
+            this.released = released;
+            this.active = active;
+        }
+
+        @Override
+        public OrderProductionView getOrderProductionView(java.util.UUID id) {
+            return new OrderProductionView(id, status, 1, 1, 0, 0, 0);
+        }
+
+        @Override
+        public java.util.Map<java.util.UUID, OrderProductionListFacts> getOrderProductionListFacts(
+                java.util.Collection<java.util.UUID> orderIds) {
+            return java.util.Map.of(
+                    orderId, new OrderProductionListFacts(orderId, status, ordered, released, active, false));
+        }
+
+        @Override
+        public java.util.Optional<ItemProductionStateView> getItemProductionState(
+                java.util.UUID orderItemId) {
+            return java.util.Optional.empty();
+        }
+
+        @Override
+        public java.util.Optional<MaterialAvailabilityResultView> getMaterialAvailabilityResult(
+                java.util.UUID orderId) {
+            return java.util.Optional.empty();
+        }
+
+        @Override
+        public java.util.List<ProductionHistoryEntryView> listProductionHistory(java.util.UUID orderId) {
+            return java.util.List.of();
+        }
     }
 
     private static final class DeniedProductionQuery implements com.tmp.production.api.ProductionQueryApi {

@@ -225,6 +225,39 @@ class OrderOperationalListServiceTest {
     }
 
     @Test
+    void launchedUnreleasedOrderMatchesInProductionFilterNotAwaiting() {
+        InMemoryWorklistQuery worklist = new InMemoryWorklistQuery();
+        OrderId launchedId = OrderId.generate();
+        OrderId awaitingId = OrderId.generate();
+        worklist.rows.add(row(launchedId, "26106082", OrderStatus.ACTIVE, 5L));
+        worklist.rows.add(row(awaitingId, "AWAIT-1", OrderStatus.ACTIVE, 5L));
+        MapProductionQuery production = new MapProductionQuery();
+        production.put(
+                launchedId,
+                facts(launchedId.value(), OrderProductionViewStatus.IN_PRODUCTION, 5L, 0L, 5L, false));
+        production.put(
+                awaitingId,
+                facts(awaitingId.value(), OrderProductionViewStatus.NOT_ACCEPTED, 0L, 0L, 0L, false));
+        OrderOperationalListService service = new OrderOperationalListService(worklist, production);
+
+        OrderOperationalListResult inProduction =
+                service.search(request(Set.of(OrderOperationalStatus.IN_PRODUCTION), 0, 50));
+        assertEquals(1, inProduction.totalElements());
+        assertEquals("26106082", inProduction.content().getFirst().orderNumber());
+        assertEquals(
+                OrderOperationalStatus.IN_PRODUCTION,
+                inProduction.content().getFirst().operationalStatus());
+
+        OrderOperationalListResult awaiting =
+                service.search(request(Set.of(OrderOperationalStatus.AWAITING_PRODUCTION), 0, 50));
+        assertEquals(1, awaiting.totalElements());
+        assertEquals("AWAIT-1", awaiting.content().getFirst().orderNumber());
+        assertEquals(
+                OrderOperationalStatus.AWAITING_PRODUCTION,
+                awaiting.content().getFirst().operationalStatus());
+    }
+
+    @Test
     void sortsFullMatchedSetBeforePagination() {
         InMemoryWorklistQuery worklist = new InMemoryWorklistQuery();
         for (int i = 1; i <= 120; i++) {

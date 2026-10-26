@@ -74,14 +74,14 @@ class OrderItemOperationalStatusDeriverTest {
     }
 
     @Test
-    void transferredZeroReleasedIsAwaiting() {
+    void launchedZeroReleasedIsInProduction() {
         assertEquals(
-                OrderItemOperationalStatus.AWAITING_PRODUCTION,
+                OrderItemOperationalStatus.IN_PRODUCTION,
                 OrderItemOperationalStatusDeriver.derive(
                         OrderStatus.ACTIVE,
                         OrderItemStatus.ACTIVE,
                         ItemProductionReadResult.successWithState(
-                                facts(10, 0, ItemProductionStateStatus.IN_PRODUCTION))));
+                                facts(5, 0, ItemProductionStateStatus.IN_PRODUCTION))));
     }
 
     @Test

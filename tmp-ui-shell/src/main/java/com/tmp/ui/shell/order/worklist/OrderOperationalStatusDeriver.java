@@ -58,7 +58,11 @@ public final class OrderOperationalStatusDeriver {
         if (production.status() == OrderProductionViewStatus.MANUFACTURED && active == 0L) {
             return OrderOperationalStatus.COMPLETED;
         }
-        if (released > 0L) {
+        // Accepted into production (or partial release with remaining work). NOT_ACCEPTED stays
+        // awaiting — a non-null facts DTO alone is not enough.
+        if (production.status() == OrderProductionViewStatus.IN_PRODUCTION
+                || active > 0L
+                || released > 0L) {
             return OrderOperationalStatus.IN_PRODUCTION;
         }
         return OrderOperationalStatus.AWAITING_PRODUCTION;

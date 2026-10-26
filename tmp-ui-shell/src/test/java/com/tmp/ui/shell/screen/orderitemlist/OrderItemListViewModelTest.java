@@ -199,6 +199,24 @@ class OrderItemListViewModelTest {
     }
 
     @Test
+    void activeParentLaunchedZeroReleasedIsInProduction() {
+        FakeQuery query = new FakeQuery();
+        OrderId orderId = OrderId.generate();
+        OrderItemId itemId = OrderItemId.generate();
+        query.items = List.of(item(orderId, itemId, OrderItemStatus.ACTIVE));
+        OrderItemListViewModel viewModel =
+                new OrderItemListViewModel(
+                        query,
+                        new FakeAuthorization(),
+                        null,
+                        new LaunchedBatchProductionQuery(orderId.value(), itemId.value()));
+        viewModel.openForOrder(orderId, OrderStatus.ACTIVE);
+        assertEquals(
+                OrderItemOperationalStatus.IN_PRODUCTION,
+                viewModel.items().get(0).operationalStatus());
+    }
+
+    @Test
     void activeParentWithDeniedProductionBatchIsStatusUnavailable() {
         FakeQuery query = new FakeQuery();
         OrderId orderId = OrderId.generate();
@@ -310,6 +328,55 @@ class OrderItemListViewModelTest {
         @Override
         public Map<UUID, ItemProductionStateView> getItemProductionStatesByOrderId(UUID orderId) {
             return Map.of();
+        }
+
+        @Override
+        public Optional<MaterialAvailabilityResultView> getMaterialAvailabilityResult(UUID orderId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public List<ProductionHistoryEntryView> listProductionHistory(UUID orderId) {
+            return List.of();
+        }
+    }
+
+    private static final class LaunchedBatchProductionQuery implements ProductionQueryApi {
+        private final UUID orderId;
+        private final UUID itemId;
+
+        private LaunchedBatchProductionQuery(UUID orderId, UUID itemId) {
+            this.orderId = orderId;
+            this.itemId = itemId;
+        }
+
+        @Override
+        public OrderProductionView getOrderProductionView(UUID id) {
+            return new OrderProductionView(
+                    id, OrderProductionViewStatus.IN_PRODUCTION, 1, 1, 0, 0, 0);
+        }
+
+        @Override
+        public Optional<ItemProductionStateView> getItemProductionState(UUID orderItemId) {
+            return Optional.ofNullable(getItemProductionStatesByOrderId(orderId).get(orderItemId));
+        }
+
+        @Override
+        public Map<UUID, ItemProductionStateView> getItemProductionStatesByOrderId(UUID id) {
+            return Map.of(
+                    itemId,
+                    new ItemProductionStateView(
+                            orderId,
+                            itemId,
+                            UUID.randomUUID(),
+                            ItemProductionStateStatus.IN_PRODUCTION,
+                            5L,
+                            5L,
+                            5L,
+                            0L,
+                            Optional.empty(),
+                            Instant.parse("2026-10-26T05:37:45Z"),
+                            List.of()));
         }
 
         @Override

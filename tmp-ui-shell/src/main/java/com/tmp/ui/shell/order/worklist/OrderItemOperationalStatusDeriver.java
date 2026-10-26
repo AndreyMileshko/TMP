@@ -67,10 +67,9 @@ public final class OrderItemOperationalStatusDeriver {
         if (state.status() == ItemProductionStateStatus.RELEASED) {
             return OrderItemOperationalStatus.COMPLETED;
         }
-        if (released > 0L) {
-            return OrderItemOperationalStatus.IN_PRODUCTION;
-        }
-        return OrderItemOperationalStatus.AWAITING_PRODUCTION;
+        // Any remaining accepted item state (IN_PRODUCTION / PARTIALLY_RELEASED, including
+        // released == 0) is in production. Awaiting applies only when there is no Production row.
+        return OrderItemOperationalStatus.IN_PRODUCTION;
     }
 
     /**

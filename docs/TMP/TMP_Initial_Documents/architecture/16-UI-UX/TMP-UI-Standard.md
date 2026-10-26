@@ -754,15 +754,16 @@ Status cell **MUST** be a colored indicator **plus** text (not color-only, not e
 
 `READY_FOR_TRANSFER` is presentation-only for **order items**. It **MUST NOT** be added to commercial `OrderItemStatus`. Order-list operational status (this table) is unchanged.
 
-Derivation for the **Orders list** (manufacturing complete = all ordered items released; warehouse/shipment/installation are out of scope):
+Derivation for the **Orders list** (manufacturing complete = all ordered items released; warehouse/shipment/installation are out of scope). Aligns with Production Spec order view: acceptance into production is distinct from first release.
 
 | Condition | Status |
 |---|---|
 | Commercial `DRAFT` or leftover `APPROVED` | Редактируется |
 | `ACTIVE`, Production facts unavailable | Статус недоступен |
-| `ACTIVE`, 0 manufactured (confirmed Production facts) | Ожидает производства |
-| `ACTIVE`, partial manufactured, work remains | В производстве |
-| All items manufactured | Выполнен |
+| `ACTIVE`, not accepted into Production (`NOT_ACCEPTED` / no Production item states) | Ожидает производства |
+| `ACTIVE`, accepted / Production view `IN_PRODUCTION`, including zero released | В производстве |
+| `ACTIVE`, partially released, work remains | В производстве |
+| All items manufactured (fully released) | Выполнен |
 | Cancelled with 0 manufactured | Отменён |
 | Manufactured > 0 and remaining volume cancelled | Частично выполнен (terminal; not «Отменён») |
 
