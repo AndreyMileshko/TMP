@@ -18,6 +18,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TitledPane;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Region;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
@@ -56,6 +57,29 @@ class ReleaseConfirmDialogSizingFxTest {
         assertEquals(max, ReleaseConfirmPresentation.clampToScreenVisualHeight(2000, visual));
         assertEquals(400, ReleaseConfirmPresentation.clampToScreenVisualHeight(400, visual));
         assertEquals(0, ReleaseConfirmPresentation.clampToScreenVisualHeight(0, visual));
+    }
+
+    @Test
+    void clampToScreenVisualWidthRespectsFraction() {
+        double visual = 1000;
+        double max =
+                visual * ReleaseConfirmPresentation.CONFIRM_DIALOG_MAX_SCREEN_WIDTH_FRACTION;
+        assertEquals(max, ReleaseConfirmPresentation.clampToScreenVisualWidth(2000, visual));
+        assertEquals(800, ReleaseConfirmPresentation.clampToScreenVisualWidth(800, visual));
+        assertEquals(0, ReleaseConfirmPresentation.clampToScreenVisualWidth(0, visual));
+    }
+
+    @Test
+    void materialsViewportMaxShrinksOnShortScreens() {
+        assertEquals(
+                ReleaseConfirmPresentation.MATERIALS_VIEWPORT_MAX_HEIGHT,
+                ReleaseConfirmPresentation.materialsViewportMaxForScreen(1200));
+        assertTrue(
+                ReleaseConfirmPresentation.materialsViewportMaxForScreen(700)
+                        < ReleaseConfirmPresentation.MATERIALS_VIEWPORT_MAX_HEIGHT);
+        assertTrue(
+                ReleaseConfirmPresentation.materialsViewportMaxForScreen(700)
+                        >= ReleaseConfirmPresentation.MATERIALS_TABLE_PREF_HEIGHT);
     }
 
     @Test
@@ -119,6 +143,11 @@ class ReleaseConfirmDialogSizingFxTest {
                             session.materialsScroll().getMaxHeight()
                                     <= ReleaseConfirmPresentation.MATERIALS_VIEWPORT_MAX_HEIGHT
                                             + 0.1);
+                    assertTrue(
+                            session.materialsScroll().getHeight()
+                                    >= ReleaseConfirmPresentation.MATERIALS_TABLE_PREF_HEIGHT
+                                            - 1,
+                            "expanded materials area should fit at least six table rows");
 
                     Button release = lookupReleaseButton(session);
                     Button cancel = lookupCancelButton(session);
@@ -193,6 +222,44 @@ class ReleaseConfirmDialogSizingFxTest {
     }
 
     @Test
+    void sixMaterialsFitWithoutInternalTableScroll() throws Exception {
+        AtomicReference<ConfirmDialogSession> sessionRef = new AtomicReference<>();
+        AtomicReference<Stage> ownerRef = new AtomicReference<>();
+        JavaFxTestSupport.runOnFxThread(
+                () -> {
+                    ConfirmDialogSession session = createSession(manyMaterials(6));
+                    Stage owner = show(session);
+                    sessionRef.set(session);
+                    ownerRef.set(owner);
+
+                    session.expandMaterials();
+                    forceLayout(session);
+                    TitledPane groupPane = session.orderGroups().getFirst().pane();
+                    groupPane.setExpanded(true);
+                    forceLayout(session);
+
+                    TableView<ConfirmMaterialAggregate> table = lookupMaterialTable(groupPane);
+                    assertEquals(6, table.getItems().size());
+                    assertEquals(
+                            ReleaseConfirmPresentation.MATERIALS_TABLE_PREF_HEIGHT,
+                            table.getPrefHeight());
+                    assertTrue(
+                            table.getPrefHeight()
+                                    >= ReleaseConfirmPresentation.MATERIALS_TABLE_HEADER_HEIGHT
+                                            + 6
+                                                    * ReleaseConfirmPresentation
+                                                            .MATERIALS_TABLE_ROW_HEIGHT
+                                            - 0.1);
+                    assertTrue(
+                            session.materialsScroll().getPrefViewportHeight()
+                                    >= ReleaseConfirmPresentation.MATERIALS_TABLE_PREF_HEIGHT);
+                    assertTrue(lookupReleaseButton(session).isVisible());
+                    assertTrue(lookupCancelButton(session).isVisible());
+                });
+        closeQuietly(sessionRef.get(), ownerRef.get());
+    }
+
+    @Test
     void largeMaterialListsScrollInternallyWithinMaxViewport() throws Exception {
         AtomicReference<ConfirmDialogSession> sessionRef = new AtomicReference<>();
         AtomicReference<Stage> ownerRef = new AtomicReference<>();
@@ -207,22 +274,31 @@ class ReleaseConfirmDialogSizingFxTest {
                     forceLayout(session);
 
                     ScrollPane scroll = session.materialsScroll();
-                    assertEquals(
-                            ReleaseConfirmPresentation.MATERIALS_VIEWPORT_MAX_HEIGHT,
-                            scroll.getMaxHeight());
+                    assertTrue(
+                            scroll.getMaxHeight()
+                                    <= ReleaseConfirmPresentation.MATERIALS_VIEWPORT_MAX_HEIGHT
+                                            + 0.1);
                     assertTrue(scroll.getHeight() <= scroll.getMaxHeight() + 1);
 
                     TitledPane groupPane = session.orderGroups().getFirst().pane();
                     groupPane.setExpanded(true);
                     forceLayout(session);
-                    assertTrue(groupPane.getContent() instanceof TableView<?>);
-                    @SuppressWarnings("unchecked")
-                    TableView<ConfirmMaterialAggregate> table =
-                            (TableView<ConfirmMaterialAggregate>) groupPane.getContent();
+                    TableView<ConfirmMaterialAggregate> table = lookupMaterialTable(groupPane);
                     assertEquals(40, table.getItems().size());
-                    assertEquals(160, table.getPrefHeight());
+                    assertEquals(
+                            ReleaseConfirmPresentation.MATERIALS_TABLE_PREF_HEIGHT,
+                            table.getPrefHeight());
+                    assertEquals(
+                            ReleaseConfirmPresentation.MATERIALS_TABLE_MIN_VISIBLE_ROWS
+                                    * ReleaseConfirmPresentation.MATERIALS_TABLE_ROW_HEIGHT
+                                    + ReleaseConfirmPresentation.MATERIALS_TABLE_HEADER_HEIGHT,
+                            table.getPrefHeight());
                     assertTrue(
-                            table.getHeight() <= table.getPrefHeight() + 1,
+                            table.getHeight()
+                                    <= Math.max(
+                                                    table.getPrefHeight(),
+                                                    scroll.getHeight())
+                                            + 1,
                             "large lists must keep a bounded table height and scroll inside");
                     assertTrue(
                             window(session).getHeight()
@@ -358,6 +434,15 @@ class ReleaseConfirmDialogSizingFxTest {
 
     private static Window window(ConfirmDialogSession session) {
         return session.dialog().getDialogPane().getScene().getWindow();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static TableView<ConfirmMaterialAggregate> lookupMaterialTable(TitledPane groupPane) {
+        assertTrue(groupPane.getContent() instanceof Pane, "table host must be a layout pane");
+        Pane host = (Pane) groupPane.getContent();
+        assertFalse(host.getChildren().isEmpty());
+        assertTrue(host.getChildren().getFirst() instanceof TableView<?>);
+        return (TableView<ConfirmMaterialAggregate>) host.getChildren().getFirst();
     }
 
     private static Button lookupReleaseButton(ConfirmDialogSession session) {

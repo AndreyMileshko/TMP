@@ -53,16 +53,39 @@ public final class ReleaseConfirmPresentation {
     public static final String DEVIATION_OK = "";
 
     /** Preferred confirm dialog width (dialog pane). */
-    public static final double CONFIRM_DIALOG_PREF_WIDTH = 720;
+    public static final double CONFIRM_DIALOG_PREF_WIDTH = 920;
 
-    /** Materials detail viewport preferred height when expanded. */
-    public static final double MATERIALS_VIEWPORT_PREF_HEIGHT = 260;
+    /** Minimum dialog width so action buttons and columns remain usable on smaller displays. */
+    public static final double CONFIRM_DIALOG_MIN_WIDTH = 640;
+
+    /** Fixed row height for predictable material-table viewport sizing. */
+    public static final double MATERIALS_TABLE_ROW_HEIGHT = 28;
+
+    /** Header band included in the materials table preferred height. */
+    public static final double MATERIALS_TABLE_HEADER_HEIGHT = 32;
+
+    /** At least this many material rows should fit without internal table scrolling. */
+    public static final int MATERIALS_TABLE_MIN_VISIBLE_ROWS = 6;
+
+    /**
+     * Preferred materials table height: header + six data rows. Larger lists scroll inside the
+     * table; the outer ScrollPane still scrolls multi-order groups.
+     */
+    public static final double MATERIALS_TABLE_PREF_HEIGHT =
+            MATERIALS_TABLE_HEADER_HEIGHT
+                    + MATERIALS_TABLE_MIN_VISIBLE_ROWS * MATERIALS_TABLE_ROW_HEIGHT;
+
+    /** Materials detail viewport preferred height when expanded (titled pane + six-row table). */
+    public static final double MATERIALS_VIEWPORT_PREF_HEIGHT = 360;
 
     /** Materials detail viewport max height — keeps large lists scrollable inside the dialog. */
-    public static final double MATERIALS_VIEWPORT_MAX_HEIGHT = 320;
+    public static final double MATERIALS_VIEWPORT_MAX_HEIGHT = 480;
 
     /** Expanded dialog may use at most this fraction of the screen visual height. */
     public static final double CONFIRM_DIALOG_MAX_SCREEN_HEIGHT_FRACTION = 0.9;
+
+    /** Expanded dialog may use at most this fraction of the screen visual width. */
+    public static final double CONFIRM_DIALOG_MAX_SCREEN_WIDTH_FRACTION = 0.92;
 
     private ReleaseConfirmPresentation() {}
 
@@ -277,7 +300,7 @@ public final class ReleaseConfirmPresentation {
 
         Label summaryLabel = new Label(buildSummaryText(stats));
         summaryLabel.setWrapText(true);
-        summaryLabel.setMaxWidth(640);
+        summaryLabel.setMaxWidth(Double.MAX_VALUE);
 
         Button toggleButton = new Button(SHOW_MATERIALS);
         TextField searchField = new TextField();
@@ -286,14 +309,15 @@ public final class ReleaseConfirmPresentation {
         searchField.setManaged(false);
 
         VBox orderGroupsBox = new VBox(8);
+        orderGroupsBox.setFillWidth(true);
         ScrollPane materialsScroll = new ScrollPane(orderGroupsBox);
         materialsScroll.setFitToWidth(true);
         materialsScroll.setPrefViewportHeight(MATERIALS_VIEWPORT_PREF_HEIGHT);
+        materialsScroll.setMinViewportHeight(MATERIALS_TABLE_PREF_HEIGHT);
         materialsScroll.setMaxHeight(MATERIALS_VIEWPORT_MAX_HEIGHT);
         materialsScroll.setMinHeight(0);
         materialsScroll.setVisible(false);
         materialsScroll.setManaged(false);
-        VBox.setVgrow(materialsScroll, Priority.ALWAYS);
 
         List<OrderGroupView> groupViews = buildOrderGroupViews(allAggregates);
         for (OrderGroupView group : groupViews) {
@@ -326,7 +350,7 @@ public final class ReleaseConfirmPresentation {
 
         Label footer = new Label(ProductionUiErrorMapper.RELEASE_CONFIRM_STOCK_NOTE);
         footer.setWrapText(true);
-        footer.setMaxWidth(640);
+        footer.setMaxWidth(Double.MAX_VALUE);
 
         VBox root =
                 new VBox(
@@ -337,8 +361,11 @@ public final class ReleaseConfirmPresentation {
                         materialsScroll,
                         footer);
         root.setPadding(new Insets(8));
-        root.setPrefWidth(680);
+        root.setPrefWidth(CONFIRM_DIALOG_PREF_WIDTH - 40);
+        root.setMinWidth(CONFIRM_DIALOG_MIN_WIDTH - 40);
+        root.setMaxWidth(Double.MAX_VALUE);
         root.setMinHeight(Region.USE_PREF_SIZE);
+        VBox.setVgrow(materialsScroll, Priority.ALWAYS);
 
         ButtonType releaseType =
                 new ButtonType(ReleaseDialogSupport.RELEASE_BUTTON, ButtonBar.ButtonData.OK_DONE);
@@ -347,6 +374,7 @@ public final class ReleaseConfirmPresentation {
         dialog.getDialogPane().getButtonTypes().setAll(releaseType, cancelType);
         dialog.getDialogPane().setContent(root);
         dialog.getDialogPane().setPrefWidth(CONFIRM_DIALOG_PREF_WIDTH);
+        dialog.getDialogPane().setMinWidth(CONFIRM_DIALOG_MIN_WIDTH);
 
         ConfirmDialogSizing sizing = new ConfirmDialogSizing(dialog, materialsScroll);
         toggleButton.setOnAction(
@@ -388,6 +416,33 @@ public final class ReleaseConfirmPresentation {
         }
         double max = visualScreenHeight * CONFIRM_DIALOG_MAX_SCREEN_HEIGHT_FRACTION;
         return Math.min(desiredHeight, max);
+    }
+
+    /** Clamps a desired dialog width to the usable fraction of screen visual bounds. */
+    public static double clampToScreenVisualWidth(double desiredWidth, double visualScreenWidth) {
+        if (desiredWidth <= 0) {
+            return desiredWidth;
+        }
+        if (visualScreenWidth <= 0) {
+            return desiredWidth;
+        }
+        double max = visualScreenWidth * CONFIRM_DIALOG_MAX_SCREEN_WIDTH_FRACTION;
+        return Math.min(desiredWidth, max);
+    }
+
+    /**
+     * Materials viewport max height for the current window: prefers the design max, but shrinks on
+     * short screens so confirmation buttons stay reachable.
+     */
+    public static double materialsViewportMaxForScreen(double visualScreenHeight) {
+        if (visualScreenHeight <= 0) {
+            return MATERIALS_VIEWPORT_MAX_HEIGHT;
+        }
+        // Reserve chrome for header, summary, toggle, search, footer, and button bar.
+        double available =
+                visualScreenHeight * CONFIRM_DIALOG_MAX_SCREEN_HEIGHT_FRACTION - 280;
+        double capped = Math.min(MATERIALS_VIEWPORT_MAX_HEIGHT, available);
+        return Math.max(MATERIALS_TABLE_PREF_HEIGHT, capped);
     }
 
     /**
@@ -481,6 +536,7 @@ public final class ReleaseConfirmPresentation {
             Window window = windowOrNull();
             if (window == null) {
                 // Dialog not shown yet (unit construction) — still layout content sizes.
+                materialsScroll.setMaxHeight(MATERIALS_VIEWPORT_MAX_HEIGHT);
                 layoutContent();
                 return;
             }
@@ -489,17 +545,27 @@ public final class ReleaseConfirmPresentation {
             }
             applyingSize = true;
             try {
+                double visualHeight = visualScreenHeight(window);
+                double visualWidth = visualScreenWidth(window);
+                materialsScroll.setMaxHeight(materialsViewportMaxForScreen(visualHeight));
                 layoutContent();
                 if (expanded) {
                     window.sizeToScene();
-                    double desired = window.getHeight();
-                    double clamped =
-                            clampToScreenVisualHeight(desired, visualScreenHeight(window));
-                    if (clamped < desired) {
-                        window.setHeight(clamped);
+                    double desiredHeight = window.getHeight();
+                    double clampedHeight = clampToScreenVisualHeight(desiredHeight, visualHeight);
+                    if (clampedHeight < desiredHeight) {
+                        window.setHeight(clampedHeight);
                     }
-                    // Keep action button bar reachable: materials stay max-bounded + scrollable.
-                    materialsScroll.setMaxHeight(MATERIALS_VIEWPORT_MAX_HEIGHT);
+                    if (!userResized) {
+                        double targetWidth =
+                                Math.max(
+                                        CONFIRM_DIALOG_MIN_WIDTH,
+                                        clampToScreenVisualWidth(
+                                                CONFIRM_DIALOG_PREF_WIDTH, visualWidth));
+                        window.setWidth(targetWidth);
+                    } else if (window.getWidth() < CONFIRM_DIALOG_MIN_WIDTH) {
+                        window.setWidth(CONFIRM_DIALOG_MIN_WIDTH);
+                    }
                 } else if (!userResized && compactHeight > 0) {
                     layoutContent();
                     window.setHeight(compactHeight);
@@ -543,16 +609,24 @@ public final class ReleaseConfirmPresentation {
         }
 
         private static double visualScreenHeight(Window window) {
+            return visualScreenBounds(window).getHeight();
+        }
+
+        private static double visualScreenWidth(Window window) {
+            return visualScreenBounds(window).getWidth();
+        }
+
+        private static Rectangle2D visualScreenBounds(Window window) {
             Rectangle2D bounds = Screen.getPrimary().getVisualBounds();
             if (window.getX() >= 0) {
                 for (Screen screen : Screen.getScreens()) {
                     Rectangle2D vb = screen.getVisualBounds();
                     if (vb.contains(window.getX() + 8, window.getY() + 8)) {
-                        return vb.getHeight();
+                        return vb;
                     }
                 }
             }
-            return bounds.getHeight();
+            return bounds;
         }
     }
 
@@ -566,15 +640,19 @@ public final class ReleaseConfirmPresentation {
             ObservableList<ConfirmMaterialAggregate> items =
                     FXCollections.observableArrayList(rows);
             TableView<ConfirmMaterialAggregate> table = materialTable(items);
+            VBox tableHost = new VBox(table);
+            tableHost.setFillWidth(true);
+            VBox.setVgrow(table, Priority.ALWAYS);
             TitledPane pane =
                     new TitledPane(
                             orderLabel
                                     + " — "
                                     + rows.size()
                                     + (rows.size() == 1 ? " материал" : " материалов"),
-                            table);
+                            tableHost);
             pane.setExpanded(false);
             pane.setAnimated(false);
+            pane.setMaxWidth(Double.MAX_VALUE);
             views.add(new OrderGroupView(entry.getKey(), orderLabel, pane, items));
         }
         return views;
@@ -594,26 +672,49 @@ public final class ReleaseConfirmPresentation {
             ObservableList<ConfirmMaterialAggregate> items) {
         TableView<ConfirmMaterialAggregate> table = new TableView<>(items);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        table.setPrefHeight(160);
+        table.setFixedCellSize(MATERIALS_TABLE_ROW_HEIGHT);
+        table.setPrefHeight(MATERIALS_TABLE_PREF_HEIGHT);
+        table.setMinHeight(MATERIALS_TABLE_PREF_HEIGHT);
+        table.setMaxHeight(Double.MAX_VALUE);
         table.setPlaceholder(new Label("Нет данных"));
+        TableColumn<ConfirmMaterialAggregate, String> codeColumn =
+                stringColumn("Артикул", 150, 110, ConfirmMaterialAggregate::materialCode);
+        TableColumn<ConfirmMaterialAggregate, String> nameColumn =
+                stringColumn("Материал", 320, 160, ConfirmMaterialAggregate::materialName);
+        TableColumn<ConfirmMaterialAggregate, String> actualColumn =
+                stringColumn("Факт", 90, 70, ConfirmMaterialAggregate::actualLabel);
+        TableColumn<ConfirmMaterialAggregate, String> uomColumn =
+                stringColumn("Ед.", 56, 44, ConfirmMaterialAggregate::unitOfMeasure);
         table.getColumns()
-                .setAll(
-                        stringColumn("Артикул", 90, ConfirmMaterialAggregate::materialCode),
-                        stringColumn("Материал", 180, ConfirmMaterialAggregate::materialName),
-                        stringColumn("Факт", 80, ConfirmMaterialAggregate::actualLabel),
-                        stringColumn("Ед.", 50, ConfirmMaterialAggregate::unitOfMeasure),
-                        deviationColumn());
+                .setAll(codeColumn, nameColumn, actualColumn, uomColumn, deviationColumn());
         return table;
     }
 
     private static TableColumn<ConfirmMaterialAggregate, String> stringColumn(
             String title,
             double pref,
+            double min,
             java.util.function.Function<ConfirmMaterialAggregate, String> value) {
         TableColumn<ConfirmMaterialAggregate, String> column = new TableColumn<>(title);
         column.setPrefWidth(pref);
+        column.setMinWidth(min);
         column.setCellValueFactory(
                 data -> new SimpleStringProperty(value.apply(data.getValue())));
+        column.setCellFactory(
+                col ->
+                        new TableCell<>() {
+                            @Override
+                            protected void updateItem(String item, boolean empty) {
+                                super.updateItem(item, empty);
+                                if (empty || item == null || item.isBlank()) {
+                                    setText(null);
+                                    setTooltip(null);
+                                    return;
+                                }
+                                setText(item);
+                                setTooltip(new Tooltip(item));
+                            }
+                        });
         return column;
     }
 
