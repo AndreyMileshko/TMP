@@ -17,6 +17,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
@@ -30,6 +31,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.stage.Screen;
 
 /**
  * Table-style receipt dialog for Warehouse Workspace (Поступление). Does not require stock row
@@ -62,6 +64,33 @@ public final class WarehouseReceiptDialogSupport {
     public static final int WAREHOUSE_COLUMN = 6;
     public static final int CELL_COLUMN = 7;
 
+    /** Preferred dialog size — wide enough for «Ячейка» ComboBox; tall enough for ~10 rows. */
+    public static final double DIALOG_PREF_WIDTH = 1220;
+
+    public static final double DIALOG_PREF_HEIGHT = 680;
+    public static final double DIALOG_MIN_WIDTH = 980;
+    public static final double DIALOG_MIN_HEIGHT = 420;
+    public static final double TABLE_PREF_HEIGHT = 400;
+    public static final double TABLE_MIN_HEIGHT = 180;
+
+    private static final double COL_MATERIAL_MIN = 100;
+    private static final double COL_MATERIAL_PREF = 130;
+    private static final double COL_NAME_MIN = 140;
+    private static final double COL_NAME_PREF = 220;
+    private static final double COL_COLOR_MIN = 80;
+    private static final double COL_COLOR_PREF = 110;
+    private static final double COL_SIZE_MIN = 70;
+    private static final double COL_SIZE_PREF = 90;
+    private static final double COL_QTY_MIN = 90;
+    private static final double COL_QTY_PREF = 100;
+    private static final double COL_UNIT_MIN = 55;
+    private static final double COL_UNIT_PREF = 65;
+    private static final double COL_WAREHOUSE_MIN = 140;
+    private static final double COL_WAREHOUSE_PREF = 180;
+    private static final double COL_CELL_MIN = 150;
+    private static final double COL_CELL_PREF = 180;
+    private static final double SCREEN_MARGIN = 80;
+
     private WarehouseReceiptDialogSupport() {}
 
     public static ReceiptDialogSession createReceiptDialog(
@@ -80,39 +109,47 @@ public final class WarehouseReceiptDialogSupport {
         ButtonType cancelType = new ButtonType(CANCEL_BUTTON, ButtonBar.ButtonData.CANCEL_CLOSE);
         dialog.getDialogPane().getButtonTypes().addAll(cancelType, submitType);
         dialog.getDialogPane().getStyleClass().add("tmp-dialog");
-        dialog.getDialogPane().setPrefSize(1080, 440);
-        dialog.getDialogPane().setMinSize(900, 340);
+        applyScreenAwareDialogSize(dialog);
 
         ObservableList<ReceiptDialogRow> rows = FXCollections.observableArrayList();
         rows.add(new ReceiptDialogRow());
         TableView<ReceiptDialogRow> table = new TableView<>(rows);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        table.setPrefHeight(260);
+        table.setPrefHeight(TABLE_PREF_HEIGHT);
+        table.setMinHeight(TABLE_MIN_HEIGHT);
+        table.setMaxWidth(Double.MAX_VALUE);
+        table.setMaxHeight(Double.MAX_VALUE);
         table.setPlaceholder(new Label("Нет строк поступления"));
         table.setEditable(false);
 
         TableColumn<ReceiptDialogRow, String> materialCol =
                 new TableColumn<>(COLUMN_HEADERS.get(MATERIAL_COLUMN));
+        configureColumn(materialCol, COL_MATERIAL_MIN, COL_MATERIAL_PREF, false);
         materialCol.setCellValueFactory(c -> c.getValue().materialTextProperty());
         materialCol.setCellFactory(col -> textFieldCell(row -> row.materialTextProperty()));
         TableColumn<ReceiptDialogRow, String> nameCol =
                 new TableColumn<>(COLUMN_HEADERS.get(NAME_COLUMN));
+        configureColumn(nameCol, COL_NAME_MIN, COL_NAME_PREF, true);
         nameCol.setCellValueFactory(c -> c.getValue().nameTextProperty());
         nameCol.setCellFactory(col -> textFieldCell(row -> row.nameTextProperty()));
         TableColumn<ReceiptDialogRow, String> colorCol =
                 new TableColumn<>(COLUMN_HEADERS.get(COLOR_COLUMN));
+        configureColumn(colorCol, COL_COLOR_MIN, COL_COLOR_PREF, false);
         colorCol.setCellValueFactory(c -> c.getValue().colorTextProperty());
         colorCol.setCellFactory(col -> textFieldCell(row -> row.colorTextProperty()));
         TableColumn<ReceiptDialogRow, String> sizeCol =
                 new TableColumn<>(COLUMN_HEADERS.get(SIZE_COLUMN));
+        configureColumn(sizeCol, COL_SIZE_MIN, COL_SIZE_PREF, false);
         sizeCol.setCellValueFactory(c -> c.getValue().sizeTextProperty());
         sizeCol.setCellFactory(col -> textFieldCell(row -> row.sizeTextProperty()));
         TableColumn<ReceiptDialogRow, String> qtyCol =
                 new TableColumn<>(COLUMN_HEADERS.get(QUANTITY_COLUMN));
+        configureColumn(qtyCol, COL_QTY_MIN, COL_QTY_PREF, false);
         qtyCol.setCellValueFactory(c -> c.getValue().quantityTextProperty());
         qtyCol.setCellFactory(col -> textFieldCell(row -> row.quantityTextProperty()));
         TableColumn<ReceiptDialogRow, String> unitCol =
                 new TableColumn<>(COLUMN_HEADERS.get(UNIT_COLUMN));
+        configureColumn(unitCol, COL_UNIT_MIN, COL_UNIT_PREF, false);
         unitCol.setCellValueFactory(
                 c ->
                         new SimpleStringProperty(
@@ -122,6 +159,7 @@ public final class WarehouseReceiptDialogSupport {
         unitCol.setCellFactory(col -> unitComboCell(unitsOfMeasure));
         TableColumn<ReceiptDialogRow, String> warehouseCol =
                 new TableColumn<>(COLUMN_HEADERS.get(WAREHOUSE_COLUMN));
+        configureColumn(warehouseCol, COL_WAREHOUSE_MIN, COL_WAREHOUSE_PREF, false);
         warehouseCol.setCellValueFactory(
                 c ->
                         new SimpleStringProperty(
@@ -131,6 +169,7 @@ public final class WarehouseReceiptDialogSupport {
         warehouseCol.setCellFactory(col -> warehouseComboCell(warehouses));
         TableColumn<ReceiptDialogRow, String> cellCol =
                 new TableColumn<>(COLUMN_HEADERS.get(CELL_COLUMN));
+        configureColumn(cellCol, COL_CELL_MIN, COL_CELL_PREF, true);
         cellCol.setCellValueFactory(
                 c ->
                         new SimpleStringProperty(
@@ -190,6 +229,35 @@ public final class WarehouseReceiptDialogSupport {
                 });
 
         return session;
+    }
+
+    /**
+     * Clamps preferred/min dialog size to the primary monitor working area so buttons stay on
+     * screen; table scrolls when height is constrained.
+     */
+    static void applyScreenAwareDialogSize(Dialog<?> dialog) {
+        Rectangle2D bounds = Screen.getPrimary().getVisualBounds();
+        double maxWidth = Math.max(DIALOG_MIN_WIDTH, bounds.getWidth() - SCREEN_MARGIN);
+        double maxHeight = Math.max(DIALOG_MIN_HEIGHT, bounds.getHeight() - SCREEN_MARGIN);
+        double prefWidth = Math.min(DIALOG_PREF_WIDTH, maxWidth);
+        double prefHeight = Math.min(DIALOG_PREF_HEIGHT, maxHeight);
+        double minWidth = Math.min(DIALOG_MIN_WIDTH, prefWidth);
+        double minHeight = Math.min(DIALOG_MIN_HEIGHT, prefHeight);
+        dialog.getDialogPane().setPrefSize(prefWidth, prefHeight);
+        dialog.getDialogPane().setMinSize(minWidth, minHeight);
+        dialog.getDialogPane().setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+    }
+
+    private static void configureColumn(
+            TableColumn<?, ?> column, double minWidth, double prefWidth, boolean growable) {
+        column.setMinWidth(minWidth);
+        column.setPrefWidth(prefWidth);
+        column.setResizable(true);
+        if (growable) {
+            column.setMaxWidth(Double.MAX_VALUE);
+        } else {
+            column.setMaxWidth(Math.max(prefWidth * 1.5, minWidth + 40));
+        }
     }
 
     private static TableCell<ReceiptDialogRow, String> textFieldCell(

@@ -17,6 +17,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javafx.event.ActionEvent;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -26,6 +27,7 @@ import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.Region;
+import javafx.stage.Screen;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -52,6 +54,72 @@ class WarehouseReceiptDialogSupportTest {
                             session.table().getColumns().stream()
                                     .map(TableColumn::getText)
                                     .toList());
+                });
+    }
+
+    @Test
+    void dialogSizeFitsCellColumnAndMultipleRows() throws Exception {
+        JavaFxTestSupport.runOnFxThread(
+                () -> {
+                    ReceiptDialogSession session = createSession();
+                    Region pane = session.dialog().getDialogPane();
+                    Rectangle2D bounds = Screen.getPrimary().getVisualBounds();
+                    double expectedWidth =
+                            Math.min(
+                                    WarehouseReceiptDialogSupport.DIALOG_PREF_WIDTH,
+                                    Math.max(
+                                            WarehouseReceiptDialogSupport.DIALOG_MIN_WIDTH,
+                                            bounds.getWidth() - 80));
+                    double expectedHeight =
+                            Math.min(
+                                    WarehouseReceiptDialogSupport.DIALOG_PREF_HEIGHT,
+                                    Math.max(
+                                            WarehouseReceiptDialogSupport.DIALOG_MIN_HEIGHT,
+                                            bounds.getHeight() - 80));
+                    assertEquals(expectedWidth, pane.getPrefWidth(), 0.1);
+                    assertEquals(expectedHeight, pane.getPrefHeight(), 0.1);
+                    assertTrue(
+                            pane.getPrefWidth()
+                                    >= Math.min(
+                                            WarehouseReceiptDialogSupport.DIALOG_PREF_WIDTH,
+                                            expectedWidth)
+                                                    - 0.1);
+                    assertTrue(pane.getPrefWidth() >= 980.0);
+                    assertTrue(pane.getPrefHeight() >= 420.0);
+                    assertTrue(
+                            WarehouseReceiptDialogSupport.DIALOG_PREF_WIDTH >= 1200.0);
+                    assertTrue(
+                            WarehouseReceiptDialogSupport.DIALOG_PREF_HEIGHT >= 650.0);
+
+                    TableView<ReceiptDialogRow> table = session.table();
+                    assertEquals(
+                            WarehouseReceiptDialogSupport.TABLE_PREF_HEIGHT,
+                            table.getPrefHeight(),
+                            0.1);
+                    TableColumn<ReceiptDialogRow, ?> cellCol =
+                            table.getColumns().get(WarehouseReceiptDialogSupport.CELL_COLUMN);
+                    assertEquals("Ячейка", cellCol.getText());
+                    assertTrue(
+                            cellCol.getMinWidth() >= 150.0,
+                            "Ячейка min width must fit ComboBox");
+                    assertTrue(
+                            table.getColumns().stream()
+                                            .mapToDouble(TableColumn::getMinWidth)
+                                            .sum()
+                                    < Math.max(pane.getPrefWidth(), expectedWidth),
+                            "column mins must fit preferred dialog width without clipping");
+
+                    for (int i = 0; i < 11; i++) {
+                        session.rows().add(new ReceiptDialogRow());
+                    }
+                    assertEquals(12, session.rows().size());
+                    forceLayout(session);
+                    assertNotNull(
+                            requireCell(
+                                    table, 0, WarehouseReceiptDialogSupport.CELL_COLUMN));
+                    assertNotNull(
+                            requireCell(
+                                    table, 0, WarehouseReceiptDialogSupport.WAREHOUSE_COLUMN));
                 });
     }
 
@@ -363,9 +431,11 @@ class WarehouseReceiptDialogSupportTest {
         TableView<ReceiptDialogRow> table = session.table();
         table.applyCss();
         table.layout();
-        table.setPrefWidth(1080);
-        table.setPrefHeight(260);
-        table.resize(1080, 260);
+        double width = WarehouseReceiptDialogSupport.DIALOG_PREF_WIDTH;
+        double height = WarehouseReceiptDialogSupport.TABLE_PREF_HEIGHT;
+        table.setPrefWidth(width);
+        table.setPrefHeight(height);
+        table.resize(width, height);
         table.layout();
         for (Node node : table.lookupAll(".table-row-cell")) {
             node.applyCss();

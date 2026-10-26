@@ -992,7 +992,6 @@ public final class WarehouseWorkspaceViewModel {
         private final BigDecimal receivedQuantity;
         private final BigDecimal remainingQuantity;
         private final String reasonLabel;
-        private final String lengthHint;
         private final StringProperty quantityText;
 
         SupplyWaitingLineRow(WarehouseDemandSupplyWaitingLineView line) {
@@ -1005,7 +1004,6 @@ public final class WarehouseWorkspaceViewModel {
             this.remainingQuantity = line.remainingQuantity();
             this.reasonLabel =
                     WarehouseDemandWaitingReasonPresentation.labelFor(line.effectiveWaitingReason());
-            this.lengthHint = formatLengthHint(line.lengthMm());
             this.quantityText =
                     new FixedQuantityProperty(DecimalUiFormat.formatRu(remainingQuantity));
         }
@@ -1022,13 +1020,6 @@ public final class WarehouseWorkspaceViewModel {
             return value == null ? "" : value;
         }
 
-        private static String formatLengthHint(BigDecimal lengthMm) {
-            if (lengthMm == null) {
-                return "";
-            }
-            return "Длина, мм: " + DecimalUiFormat.formatRu(lengthMm);
-        }
-
         public String receivedQuantityText() {
             return DecimalUiFormat.formatRu(receivedQuantity);
         }
@@ -1039,10 +1030,6 @@ public final class WarehouseWorkspaceViewModel {
 
         public String reasonLabel() {
             return reasonLabel;
-        }
-
-        public String lengthHint() {
-            return lengthHint;
         }
 
         @Override

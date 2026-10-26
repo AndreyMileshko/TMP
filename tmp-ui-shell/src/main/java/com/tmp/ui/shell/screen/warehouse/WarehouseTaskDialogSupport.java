@@ -413,20 +413,8 @@ public final class WarehouseTaskDialogSupport {
         TableColumn<ActionEditRow, String> nameCol =
                 new TableColumn<>(SUPPLY_COLUMN_HEADERS.get(1));
         nameCol.setCellValueFactory(
-                c -> {
-                    String name = dashIfBlank(c.getValue().name());
-                    String lengthHint =
-                            c.getValue() instanceof SupplyWaitingLineRow supply
-                                    ? supply.lengthHint()
-                                    : "";
-                    if (lengthHint.isBlank()) {
-                        return new SimpleStringProperty(name);
-                    }
-                    if ("—".equals(name)) {
-                        return new SimpleStringProperty(lengthHint);
-                    }
-                    return new SimpleStringProperty(name + " (" + lengthHint + ")");
-                });
+                c -> new SimpleStringProperty(supplyNameDisplay(c.getValue().name())));
+        nameCol.setCellFactory(col -> tooltipTextCell());
         TableColumn<ActionEditRow, String> colorCol =
                 new TableColumn<>(SUPPLY_COLUMN_HEADERS.get(2));
         colorCol.setCellValueFactory(
@@ -498,6 +486,15 @@ public final class WarehouseTaskDialogSupport {
             return "—";
         }
         return value;
+    }
+
+    /**
+     * Supply-task «Наименование» display: material name only. Does not append specification length
+     * metadata such as {@code (Длина, мм: …)}. Legitimate size text inside the source name (e.g.
+     * {@code Порог 14 мм}) is preserved unchanged.
+     */
+    static String supplyNameDisplay(String materialName) {
+        return dashIfBlank(materialName);
     }
 
     private static void updateOrderLabel(Label orderLabel, TaskRow task) {

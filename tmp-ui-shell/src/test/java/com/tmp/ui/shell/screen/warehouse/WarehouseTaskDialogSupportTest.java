@@ -11,11 +11,13 @@ import com.tmp.ui.shell.JavaFxTestSupport;
 import com.tmp.ui.shell.order.DecimalUiFormat;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ActionEditRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.ReceiveAllocationEditRow;
+import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.SupplyWaitingLineRow;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel.TaskRow;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskKind;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskSource;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskState;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskView;
+import com.tmp.warehouse.api.WarehouseDemandQueryApi.WarehouseDemandSupplyWaitingLineView;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -93,6 +95,30 @@ class WarehouseTaskDialogSupportTest {
         assertEquals("Количество", WarehouseTaskDialogSupport.COLUMN_HEADERS.get(7));
         assertFalse(WarehouseTaskDialogSupport.COLUMN_HEADERS.contains("Принять"));
         assertFalse(WarehouseTaskDialogSupport.COLUMN_HEADERS.contains("Передать"));
+    }
+
+    @Test
+    void supplyNameDisplayOmitsGeneratedLengthAnnotation() {
+        assertEquals(
+                "Рама верхняя",
+                WarehouseTaskDialogSupport.supplyNameDisplay("Рама верхняя"));
+        assertEquals(
+                "Створка боковая",
+                WarehouseTaskDialogSupport.supplyNameDisplay("Створка боковая"));
+        assertEquals(
+                "Порог 14 мм",
+                WarehouseTaskDialogSupport.supplyNameDisplay("Порог 14 мм"));
+        assertEquals(
+                "Рама 40 мм",
+                WarehouseTaskDialogSupport.supplyNameDisplay("Рама 40 мм"));
+        assertEquals(
+                "Импост усиленный 40 мм",
+                WarehouseTaskDialogSupport.supplyNameDisplay("Импост усиленный 40 мм"));
+        assertEquals("—", WarehouseTaskDialogSupport.supplyNameDisplay(""));
+        assertEquals("—", WarehouseTaskDialogSupport.supplyNameDisplay(null));
+        assertFalse(
+                WarehouseTaskDialogSupport.supplyNameDisplay("Рама верхняя")
+                        .contains("Длина"));
     }
 
     @Test
@@ -200,6 +226,87 @@ class WarehouseTaskDialogSupportTest {
         if (error.get() != null) {
             throw new AssertionError("dialog create failed", error.get());
         }
+    }
+
+    @Test
+    void supplyDialogNameColumnDoesNotAppendLengthMmAnnotation() throws Exception {
+        runOnFx(
+                () -> {
+                    SupplyWaitingLineRow withLength =
+                            new SupplyWaitingLineRow(
+                                    new WarehouseDemandSupplyWaitingLineView(
+                                            UUID.randomUUID(),
+                                            "ART-1",
+                                            "Рама верхняя",
+                                            "Белый",
+                                            "шт",
+                                            new BigDecimal("868"),
+                                            new BigDecimal("10"),
+                                            new BigDecimal("0"),
+                                            new BigDecimal("10"),
+                                            "NO_AVAILABLE_STOCK"));
+                    SupplyWaitingLineRow nameWithSize =
+                            new SupplyWaitingLineRow(
+                                    new WarehouseDemandSupplyWaitingLineView(
+                                            UUID.randomUUID(),
+                                            "ART-2",
+                                            "Порог 14 мм",
+                                            "Белый",
+                                            "шт",
+                                            new BigDecimal("812"),
+                                            new BigDecimal("5"),
+                                            new BigDecimal("0"),
+                                            new BigDecimal("5"),
+                                            "NO_AVAILABLE_STOCK"));
+                    ObservableList<ActionEditRow> lines =
+                            FXCollections.observableArrayList(withLength, nameWithSize);
+                    WarehouseTaskDialogSupport.TaskDialogSession session =
+                            WarehouseTaskDialogSupport.createTaskDialog(
+                                    new TaskRow(
+                                            supplyTaskView(WarehouseTaskState.NEW), null),
+                                    lines,
+                                    FXCollections.observableArrayList(),
+                                    new SimpleBooleanProperty(true),
+                                    new SimpleBooleanProperty(false),
+                                    new SimpleBooleanProperty(false),
+                                    new SimpleBooleanProperty(false),
+                                    new SimpleBooleanProperty(false),
+                                    new SimpleBooleanProperty(false),
+                                    new SimpleBooleanProperty(false),
+                                    new SimpleBooleanProperty(false),
+                                    () -> {},
+                                    () -> {},
+                                    () -> {},
+                                    reason -> {},
+                                    () -> {},
+                                    () -> {});
+                    TableView<ActionEditRow> table = session.table();
+                    session.dialog().show();
+                    table.applyCss();
+                    table.layout();
+
+                    assertEquals(
+                            WarehouseTaskDialogSupport.SUPPLY_COLUMN_HEADERS,
+                            table.getColumns().stream().map(TableColumn::getText).toList());
+                    assertEquals("Рама верхняя", withLength.name());
+                    assertEquals("Порог 14 мм", nameWithSize.name());
+                    assertEquals("10", withLength.referenceQuantityText());
+                    assertEquals("0", withLength.receivedQuantityText());
+                    assertEquals("10", withLength.remainingQuantityText());
+
+                    TableColumn<ActionEditRow, ?> nameCol = table.getColumns().get(1);
+                    assertEquals("Рама верхняя", nameCol.getCellObservableValue(0).getValue());
+                    assertEquals("Порог 14 мм", nameCol.getCellObservableValue(1).getValue());
+                    String name0 = String.valueOf(nameCol.getCellObservableValue(0).getValue());
+                    String name1 = String.valueOf(nameCol.getCellObservableValue(1).getValue());
+                    assertFalse(name0.contains("Длина"));
+                    assertFalse(name0.contains("868"));
+                    assertFalse(name1.contains("Длина"));
+                    assertFalse(name1.contains("812"));
+                    assertTrue(name1.contains("14 мм"));
+
+                    session.close();
+                });
     }
 
     @Test
@@ -452,6 +559,34 @@ class WarehouseTaskDialogSupportTest {
                 1,
                 state == WarehouseTaskState.IN_WORK ? UUID.randomUUID() : null,
                 state == WarehouseTaskState.IN_WORK ? Instant.EPOCH : null,
+                Instant.EPOCH,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
+    }
+
+    private static WarehouseTaskView supplyTaskView(WarehouseTaskState state) {
+        UUID demandId = UUID.randomUUID();
+        return new WarehouseTaskView(
+                WarehouseTaskSource.WAREHOUSE_DEMAND,
+                null,
+                demandId,
+                "—",
+                null,
+                WarehouseTaskKind.PRODUCTION_MATERIAL_SUPPLY,
+                state,
+                null,
+                null,
+                null,
+                UUID.randomUUID(),
+                "PROD",
+                "Production",
+                1,
+                null,
+                null,
                 Instant.EPOCH,
                 null,
                 null,
