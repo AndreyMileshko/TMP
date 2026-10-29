@@ -1,6 +1,7 @@
 package com.tmp.warehouse.domain.repository;
 
 import com.tmp.warehouse.domain.MaterialReferenceId;
+import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.WarehouseDemand;
 import com.tmp.warehouse.domain.WarehouseDemandId;
 import com.tmp.warehouse.domain.WarehouseDemandLineId;
@@ -52,6 +53,18 @@ public interface WarehouseDemandRepository {
 
     Optional<WarehouseDemandTransferLink> findTransferLinkByTransferLineId(
             WarehouseTransferLineId transferLineId);
+
+    /**
+     * Updates only {@code linked_quantity} for an existing Demand↔Transfer-line link. Preserves
+     * link id, demand line, document and transfer-line identity. No-op when no link exists for the
+     * transfer line (legacy Transfers without Demand lineage).
+     *
+     * <p>Used after SEND SHORTFALL shrinks a retained transfer line so {@code linked_quantity}
+     * matches the current transfer-line quantity. Does not rewrite RECEIVE_SHORTFALL parents (their
+     * transfer-line quantity is unchanged).
+     */
+    void updateTransferLinkQuantity(
+            WarehouseTransferLineId transferLineId, StockQuantity linkedQuantity);
 
     /**
      * Updates mutable operational resolution on a Demand line ({@code materialReferenceId}, {@code

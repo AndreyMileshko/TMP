@@ -265,6 +265,25 @@ public final class JdbcWarehouseDemandRepository implements WarehouseDemandRepos
     }
 
     @Override
+    public void updateTransferLinkQuantity(
+            WarehouseTransferLineId transferLineId, StockQuantity linkedQuantity) {
+        Objects.requireNonNull(transferLineId, "transferLineId");
+        Objects.requireNonNull(linkedQuantity, "linkedQuantity");
+        if (linkedQuantity.value().signum() <= 0) {
+            throw new IllegalArgumentException(
+                    "linkedQuantity must be > 0: " + linkedQuantity.value());
+        }
+        jdbc.update(
+                """
+                UPDATE warehouse.warehouse_demand_transfer_links
+                   SET linked_quantity = ?
+                 WHERE transfer_line_id = ?
+                """,
+                linkedQuantity.value(),
+                transferLineId.value());
+    }
+
+    @Override
     public void updateLineOperationalResolution(
             WarehouseDemandLineId demandLineId,
             MaterialReferenceId materialReferenceId,

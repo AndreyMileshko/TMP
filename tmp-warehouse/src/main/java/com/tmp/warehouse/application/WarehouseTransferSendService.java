@@ -31,10 +31,13 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * <p>Full send: stage allocations → POST → clear task (payload unchanged).
  *
- * <p>Shortfall: shrink DRAFT payload to actual sent quantities → create continuation DRAFT for
- * remainder → stage allocations against retained original line IDs → POST adjusted original → clear
- * original task. Processor still requires exact coverage of the posted payload. When parent lines
- * carry Demand links, SHORTFALL continuation lines inherit Demand lineage atomically (B3B-3A).
+ * <p>Shortfall: shrink DRAFT payload to actual sent quantities → synchronize Demand
+ * {@code linked_quantity} on retained parent lines to the sent quantity → create continuation DRAFT
+ * for remainder → stage allocations against retained original line IDs → POST adjusted original →
+ * clear original task. Processor still requires exact coverage of the posted payload. When parent
+ * lines carry Demand links, SHORTFALL continuation lines inherit Demand lineage atomically
+ * (B3B-3A). RECEIVE_SHORTFALL does not shrink the parent transfer line and does not rewrite parent
+ * {@code linked_quantity}.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -240,6 +243,8 @@ public final class WarehouseTransferSendService {
                         actualSentLines,
                         expectedRevision);
         transferDocuments.update(adjusted, expectedRevision);
+        // Park/restore keeps pre-shrink linked_quantity; sync retained parent links to sent qty.
+        demandContinuationLinks.synchronizeLinkedQuantitiesToTransferLines(actualSentLines);
 
         WarehouseTransferDocumentService.CreatedTransferDocument continuation =
                 transferDocumentService.createShortfallContinuation(

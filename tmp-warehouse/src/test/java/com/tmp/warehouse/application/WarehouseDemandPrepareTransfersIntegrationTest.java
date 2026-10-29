@@ -1101,6 +1101,12 @@ class WarehouseDemandPrepareTransfersIntegrationTest {
         }
 
         @Override
+        public void updateTransferLinkQuantity(
+                WarehouseTransferLineId transferLineId, StockQuantity linkedQuantity) {
+            delegate.updateTransferLinkQuantity(transferLineId, linkedQuantity);
+        }
+
+        @Override
         public void updateLineOperationalResolution(
                 WarehouseDemandLineId demandLineId,
                 MaterialReferenceId materialReferenceId,

@@ -68,6 +68,22 @@ public final class WarehouseDemandContinuationLinkPropagator {
         return inserted;
     }
 
+    /**
+     * After SEND SHORTFALL shrinks retained transfer lines, synchronizes each existing Demand link
+     * {@code linked_quantity} to the current transfer-line quantity. No-op for lines without a
+     * Demand link. Does not create, delete, or re-key links.
+     */
+    public void synchronizeLinkedQuantitiesToTransferLines(List<WarehouseTransferLine> lines) {
+        Objects.requireNonNull(lines, "lines");
+        for (WarehouseTransferLine line : lines) {
+            Objects.requireNonNull(line, "line");
+            if (demands.findTransferLinkByTransferLineId(line.id()).isEmpty()) {
+                continue;
+            }
+            demands.updateTransferLinkQuantity(line.id(), line.quantity());
+        }
+    }
+
     private static Map<String, WarehouseTransferLine> indexByMaterialAndOrder(
             WarehouseTransferDocument continuation) {
         Map<String, WarehouseTransferLine> byKey = new HashMap<>();

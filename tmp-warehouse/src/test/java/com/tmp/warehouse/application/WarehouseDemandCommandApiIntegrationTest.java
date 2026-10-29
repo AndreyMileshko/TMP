@@ -16,6 +16,7 @@ import com.tmp.security.api.UserId;
 import com.tmp.warehouse.api.WarehouseApi.CreateTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.SendTransferDocumentCommand;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentLineInput;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSendResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceAllocationInput;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseTaskKind;
@@ -429,7 +430,9 @@ class WarehouseDemandCommandApiIntegrationTest {
                 demandApi.acceptProductionDemand(
                         command(line(UUID.randomUUID(), materialA, "100")));
         UUID documentId = result.documents().getFirst().documentId();
+        UUID demandLineId = result.lineOutcomes().getFirst().demandLineId();
         assertEquals(0, new BigDecimal("100").compareTo(documentLineQuantity(documentId)));
+        assertEquals(0, new BigDecimal("100").compareTo(linkedQuantityForDocument(documentId)));
 
         api.assignUserToWarehouse(sourceA.value(), worker);
         session.set(sessionFor(worker));
@@ -453,6 +456,68 @@ class WarehouseDemandCommandApiIntegrationTest {
         assertEquals("SHORTFALL", continuation.continuationReason());
         assertEquals(0, new BigDecimal("40").compareTo(continuation.lines().getFirst().quantity()));
         assertEquals(2, count("warehouse.transfer_document_payload"));
+
+        assertEquals(0, new BigDecimal("60").compareTo(documentLineQuantity(documentId)));
+        assertEquals(0, new BigDecimal("60").compareTo(linkedQuantityForDocument(documentId)));
+        assertEquals(
+                0,
+                new BigDecimal("40")
+                        .compareTo(linkedQuantityForDocument(sent.continuationDocumentId())));
+        assertEquals(demandLineId, demandLineIdForDocument(documentId));
+        assertEquals(demandLineId, demandLineIdForDocument(sent.continuationDocumentId()));
+        assertEquals(
+                documentId,
+                jdbc.queryForObject(
+                        """
+                        SELECT continuation_of_document_id
+                          FROM warehouse.transfer_document_payload
+                         WHERE document_id = ?
+                        """,
+                        UUID.class,
+                        sent.continuationDocumentId()));
+        assertEquals(2, count("warehouse.warehouse_demand_transfer_links"));
+    }
+
+    @Test
+    void sendShortfallRepeatedContinuationsKeepPerLinkQuantities() {
+        seedAvailable(sourceA, cellA, materialA, "100");
+        AcceptProductionDemandResult result =
+                demandApi.acceptProductionDemand(command(line(UUID.randomUUID(), materialA, "10")));
+        UUID firstId = result.documents().getFirst().documentId();
+        UUID demandLineId = result.lineOutcomes().getFirst().demandLineId();
+
+        api.assignUserToWarehouse(sourceA.value(), worker);
+        session.set(sessionFor(worker));
+        UUID secondId = sendPartial(firstId, "4").continuationDocumentId();
+        assertTrue(secondId != null);
+        UUID thirdId = sendPartial(secondId, "3").continuationDocumentId();
+        assertTrue(thirdId != null);
+
+        assertEquals(0, new BigDecimal("4").compareTo(documentLineQuantity(firstId)));
+        assertEquals(0, new BigDecimal("4").compareTo(linkedQuantityForDocument(firstId)));
+        assertEquals(0, new BigDecimal("3").compareTo(documentLineQuantity(secondId)));
+        assertEquals(0, new BigDecimal("3").compareTo(linkedQuantityForDocument(secondId)));
+        assertEquals(0, new BigDecimal("3").compareTo(documentLineQuantity(thirdId)));
+        assertEquals(0, new BigDecimal("3").compareTo(linkedQuantityForDocument(thirdId)));
+        assertEquals(demandLineId, demandLineIdForDocument(firstId));
+        assertEquals(demandLineId, demandLineIdForDocument(secondId));
+        assertEquals(demandLineId, demandLineIdForDocument(thirdId));
+        assertEquals(3, count("warehouse.warehouse_demand_transfer_links"));
+    }
+
+    @Test
+    void fullSendWithoutShortfallKeepsLinkedQuantityAligned() {
+        seedAvailable(sourceA, cellA, materialA, "100");
+        AcceptProductionDemandResult result =
+                demandApi.acceptProductionDemand(command(line(UUID.randomUUID(), materialA, "10")));
+        UUID documentId = result.documents().getFirst().documentId();
+        api.assignUserToWarehouse(sourceA.value(), worker);
+        session.set(sessionFor(worker));
+        var sent = sendPartial(documentId, "10");
+        assertTrue(sent.continuationDocumentId() == null);
+        assertEquals(0, new BigDecimal("10").compareTo(documentLineQuantity(documentId)));
+        assertEquals(0, new BigDecimal("10").compareTo(linkedQuantityForDocument(documentId)));
+        assertEquals(1, count("warehouse.warehouse_demand_transfer_links"));
     }
 
     @Test
@@ -507,6 +572,43 @@ class WarehouseDemandCommandApiIntegrationTest {
                 """,
                 BigDecimal.class,
                 documentId);
+    }
+
+    private BigDecimal linkedQuantityForDocument(UUID documentId) {
+        return jdbc.queryForObject(
+                """
+                SELECT linked_quantity
+                  FROM warehouse.warehouse_demand_transfer_links
+                 WHERE transfer_document_id = ?
+                """,
+                BigDecimal.class,
+                documentId);
+    }
+
+    private UUID demandLineIdForDocument(UUID documentId) {
+        return jdbc.queryForObject(
+                """
+                SELECT demand_line_id
+                  FROM warehouse.warehouse_demand_transfer_links
+                 WHERE transfer_document_id = ?
+                """,
+                UUID.class,
+                documentId);
+    }
+
+    private TransferDocumentSendResult sendPartial(UUID documentId, String qty) {
+        TransferDocumentView loaded = api.getTransferDocument(documentId);
+        api.takeTransferTaskInWork(documentId);
+        return api.sendTransferDocument(
+                new SendTransferDocumentCommand(
+                        documentId,
+                        bundle.documentEngine().findById(documentId).orElseThrow().version(),
+                        loaded.payloadRevision(),
+                        List.of(
+                                new TransferDocumentSourceAllocationInput(
+                                        loaded.lines().getFirst().lineId(),
+                                        cellA.value(),
+                                        new BigDecimal(qty)))));
     }
 
     private int count(String table) {

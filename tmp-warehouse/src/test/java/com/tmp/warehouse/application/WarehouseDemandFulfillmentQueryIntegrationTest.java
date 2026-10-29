@@ -289,6 +289,76 @@ class WarehouseDemandFulfillmentQueryIntegrationTest {
                 api.getTransferDocument(received.continuationDocumentId());
         assertEquals(DocumentStatus.DRAFT.name(), continuation.documentStatus());
         assertEquals(0, continuation.lines().getFirst().quantity().compareTo(new BigDecimal("6")));
+        // RECEIVE_SHORTFALL: parent transfer line stays fully sent; linked_quantity is not shrunk.
+        assertEquals(0, new BigDecimal("10").compareTo(documentLineQuantity(documentId)));
+        assertEquals(0, new BigDecimal("10").compareTo(linkedQuantityForDocument(documentId)));
+        assertEquals(
+                0,
+                new BigDecimal("6")
+                        .compareTo(linkedQuantityForDocument(received.continuationDocumentId())));
+    }
+
+    @Test
+    void sendShortfallSynchronizesParentLinkedQuantityThenFulfillsViaReceipts() {
+        seedAvailable(source, sourceCell, materialA, "100");
+        AcceptProductionDemandResult accepted =
+                demandApi.acceptProductionDemand(command(line(UUID.randomUUID(), materialA, "10")));
+        UUID documentId = accepted.documents().getFirst().documentId();
+        UUID demandLineId = accepted.lineOutcomes().getFirst().demandLineId();
+
+        TransferDocumentView loaded = api.getTransferDocument(documentId);
+        api.takeTransferTaskInWork(documentId);
+        var sent =
+                api.sendTransferDocument(
+                        new SendTransferDocumentCommand(
+                                documentId,
+                                bundle.documentEngine().findById(documentId).orElseThrow().version(),
+                                loaded.payloadRevision(),
+                                List.of(
+                                        new TransferDocumentSourceAllocationInput(
+                                                loaded.lines().getFirst().lineId(),
+                                                sourceCell.value(),
+                                                new BigDecimal("4")))));
+        assertNotNull(sent.continuationDocumentId());
+
+        assertEquals(0, new BigDecimal("4").compareTo(documentLineQuantity(documentId)));
+        assertEquals(0, new BigDecimal("4").compareTo(linkedQuantityForDocument(documentId)));
+        assertEquals(
+                0,
+                new BigDecimal("6")
+                        .compareTo(documentLineQuantity(sent.continuationDocumentId())));
+        assertEquals(
+                0,
+                new BigDecimal("6")
+                        .compareTo(linkedQuantityForDocument(sent.continuationDocumentId())));
+        assertEquals(demandLineId, demandLineIdForDocument(documentId));
+        assertEquals(demandLineId, demandLineIdForDocument(sent.continuationDocumentId()));
+        assertEquals(
+                documentId,
+                jdbc.queryForObject(
+                        """
+                        SELECT continuation_of_document_id
+                          FROM warehouse.transfer_document_payload
+                         WHERE document_id = ?
+                        """,
+                        UUID.class,
+                        sent.continuationDocumentId()));
+
+        receiveFull(documentId, "4");
+        sendFull(sent.continuationDocumentId(), "6");
+        receiveFull(sent.continuationDocumentId(), "6");
+
+        WarehouseDemandLineView line =
+                demandQuery.getDemand(accepted.demandId()).orElseThrow().lines().getFirst();
+        assertEquals(0, line.receivedQuantity().compareTo(new BigDecimal("10")));
+        assertEquals(0, line.remainingQuantity().compareTo(BigDecimal.ZERO));
+        assertEquals(WarehouseDemandDerivedStatus.FULFILLED, line.derivedStatus());
+        assertEquals(
+                0,
+                inTransitQty(materialA.id().value(), sourceCell.value()).compareTo(BigDecimal.ZERO));
+        assertTrue(
+                availableQty(materialA.id().value(), destCell.value()).compareTo(BigDecimal.ZERO)
+                        > 0);
     }
 
     @Test
@@ -614,6 +684,72 @@ class WarehouseDemandFulfillmentQueryIntegrationTest {
                                 material,
                                 StockState.AVAILABLE,
                                 StockQuantity.of(new BigDecimal(qty))));
+    }
+
+    private BigDecimal documentLineQuantity(UUID documentId) {
+        return jdbc.queryForObject(
+                """
+                SELECT quantity FROM warehouse.transfer_document_lines
+                WHERE document_id = ?
+                ORDER BY line_order
+                LIMIT 1
+                """,
+                BigDecimal.class,
+                documentId);
+    }
+
+    private BigDecimal linkedQuantityForDocument(UUID documentId) {
+        return jdbc.queryForObject(
+                """
+                SELECT linked_quantity
+                  FROM warehouse.warehouse_demand_transfer_links
+                 WHERE transfer_document_id = ?
+                """,
+                BigDecimal.class,
+                documentId);
+    }
+
+    private UUID demandLineIdForDocument(UUID documentId) {
+        return jdbc.queryForObject(
+                """
+                SELECT demand_line_id
+                  FROM warehouse.warehouse_demand_transfer_links
+                 WHERE transfer_document_id = ?
+                """,
+                UUID.class,
+                documentId);
+    }
+
+    private BigDecimal inTransitQty(UUID materialReferenceId, UUID cellId) {
+        BigDecimal qty =
+                jdbc.queryForObject(
+                        """
+                        SELECT COALESCE(SUM(quantity), 0)
+                          FROM warehouse.stock_positions
+                         WHERE material_reference_id = ?
+                           AND storage_cell_id = ?
+                           AND stock_state = 'IN_TRANSIT'
+                        """,
+                        BigDecimal.class,
+                        materialReferenceId,
+                        cellId);
+        return qty == null ? BigDecimal.ZERO : qty;
+    }
+
+    private BigDecimal availableQty(UUID materialReferenceId, UUID cellId) {
+        BigDecimal qty =
+                jdbc.queryForObject(
+                        """
+                        SELECT COALESCE(SUM(quantity), 0)
+                          FROM warehouse.stock_positions
+                         WHERE material_reference_id = ?
+                           AND storage_cell_id = ?
+                           AND stock_state = 'AVAILABLE'
+                        """,
+                        BigDecimal.class,
+                        materialReferenceId,
+                        cellId);
+        return qty == null ? BigDecimal.ZERO : qty;
     }
 
     private int count(String table) {
