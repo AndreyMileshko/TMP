@@ -6,6 +6,7 @@ import com.tmp.production.domain.MaterialRequirementId;
 import com.tmp.production.domain.MaterialRequirementLine;
 import com.tmp.production.domain.MaterialRequirementLineContribution;
 import com.tmp.production.domain.MaterialRequirementLineId;
+import com.tmp.production.domain.MaterialRequirementNotDeletableException;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialRequirementSourceItem;
 import com.tmp.production.domain.MaterialRequirementSourceItemKey;
@@ -246,6 +247,95 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
             findById(MaterialRequirementId.of(id)).ifPresent(loaded::add);
         }
         return List.copyOf(loaded);
+    }
+
+    @Override
+    public void deleteDraft(MaterialRequirementId id, long expectedVersion) {
+        Objects.requireNonNull(id, "id");
+        Boolean deleted =
+                transactionTemplate.execute(
+                        status -> {
+                            MaterialRequirement requirement =
+                                    findByIdForUpdate(id)
+                                            .orElseThrow(
+                                                    () ->
+                                                            new MaterialRequirementOptimisticLockException(
+                                                                    id, expectedVersion));
+                            if (requirement.version() != expectedVersion) {
+                                throw new MaterialRequirementOptimisticLockException(
+                                        id, expectedVersion);
+                            }
+                            if (requirement.status() != MaterialRequirementStatus.DRAFT) {
+                                throw new MaterialRequirementNotDeletableException(
+                                        id,
+                                        "Material requirement can be deleted only in DRAFT status,"
+                                                + " was "
+                                                + requirement.status());
+                            }
+                            if (hasSubmissionArtifacts(id)) {
+                                throw new MaterialRequirementNotDeletableException(
+                                        id,
+                                        "Material requirement has submission artifacts and cannot"
+                                                + " be deleted: "
+                                                + id);
+                            }
+                            deleteOwnedRows(id);
+                            int removed =
+                                    jdbcTemplate.update(
+                                            """
+                                            DELETE FROM production.material_requirements
+                                            WHERE id = ? AND version = ? AND status = 'DRAFT'
+                                            """,
+                                            id.value(),
+                                            expectedVersion);
+                            if (removed == 0) {
+                                throw new MaterialRequirementOptimisticLockException(
+                                        id, expectedVersion);
+                            }
+                            return Boolean.TRUE;
+                        });
+        if (!Boolean.TRUE.equals(deleted)) {
+            throw new IllegalStateException("Material requirement delete returned null: " + id);
+        }
+    }
+
+    private boolean hasSubmissionArtifacts(MaterialRequirementId id) {
+        Integer generated =
+                jdbcTemplate.queryForObject(
+                        """
+                        SELECT COUNT(*)
+                        FROM production.material_requirement_generated_documents
+                        WHERE requirement_id = ?
+                        """,
+                        Integer.class,
+                        id.value());
+        Integer routing =
+                jdbcTemplate.queryForObject(
+                        """
+                        SELECT COUNT(*)
+                        FROM production.material_requirement_routing_snapshot
+                        WHERE requirement_id = ?
+                        """,
+                        Integer.class,
+                        id.value());
+        return (generated != null && generated > 0) || (routing != null && routing > 0);
+    }
+
+    private void deleteOwnedRows(MaterialRequirementId id) {
+        jdbcTemplate.update(
+                """
+                DELETE FROM production.material_requirement_generated_documents
+                WHERE requirement_id = ?
+                """,
+                id.value());
+        jdbcTemplate.update(
+                """
+                DELETE FROM production.material_requirement_routing_snapshot
+                WHERE requirement_id = ?
+                """,
+                id.value());
+        deleteSourceItems(id);
+        deleteLines(id);
     }
 
     private Optional<MaterialRequirement> load(

@@ -18,6 +18,7 @@ import com.tmp.production.domain.MaterialRequirementLine;
 import com.tmp.production.domain.MaterialRequirementLineContribution;
 import com.tmp.production.domain.MaterialRequirementLineId;
 import com.tmp.production.domain.MaterialRequirementNotAllowedException;
+import com.tmp.production.domain.MaterialRequirementNotDeletableException;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialRequirementSelectionException;
 import com.tmp.production.domain.MaterialRequirementSourceItem;
@@ -401,6 +402,44 @@ class MaterialRequirementServiceTest {
         assertEquals(
                 0, edited.lines().getFirst().requiredQuantity().compareTo(BigDecimal.valueOf(28)));
         assertEquals(1L, edited.version());
+    }
+
+    @Test
+    void saveDraftQuantitiesUpdatesAllLinesInOneSave() {
+        MaterialRequirement requirement = prepareSimpleRequirement(BigDecimal.valueOf(28));
+        MaterialRequirementLineId lineId = requirement.lines().getFirst().lineId();
+
+        MaterialRequirement edited =
+                service.saveDraftQuantities(
+                        requirement.requirementId(),
+                        Map.of(lineId, BigDecimal.valueOf(11)),
+                        requirement.version());
+
+        assertEquals(0, edited.lines().getFirst().quantity().compareTo(BigDecimal.valueOf(11)));
+        assertEquals(1L, edited.version());
+        assertTrue(requirementRepository.findById(requirement.requirementId()).isPresent());
+    }
+
+    @Test
+    void deleteDraftRemovesPersistedRequirement() {
+        MaterialRequirement requirement = prepareSimpleRequirement(BigDecimal.TEN);
+
+        service.deleteDraft(requirement.requirementId(), requirement.version());
+
+        assertTrue(requirementRepository.findById(requirement.requirementId()).isEmpty());
+    }
+
+    @Test
+    void deleteDraftRejectsSubmittedRequirement() {
+        MaterialRequirement requirement = prepareSimpleRequirement(BigDecimal.TEN);
+        MaterialRequirement submitted =
+                requirement.submit("user-1", Instant.parse("2026-09-09T12:00:00Z"));
+        MaterialRequirement persisted = requirementRepository.save(submitted);
+
+        assertThrows(
+                MaterialRequirementNotDeletableException.class,
+                () -> service.deleteDraft(requirement.requirementId(), persisted.version()));
+        assertTrue(requirementRepository.findById(requirement.requirementId()).isPresent());
     }
 
     @Test
@@ -1137,6 +1176,21 @@ class MaterialRequirementServiceTest {
                                         .compareTo(a.requirementId().value());
                             })
                     .toList();
+        }
+
+        @Override
+        public void deleteDraft(MaterialRequirementId id, long expectedVersion) {
+            MaterialRequirement existing = store.get(id);
+            if (existing == null || existing.version() != expectedVersion) {
+                throw new MaterialRequirementOptimisticLockException(id, expectedVersion);
+            }
+            if (existing.status() != MaterialRequirementStatus.DRAFT) {
+                throw new MaterialRequirementNotDeletableException(
+                        id,
+                        "Material requirement can be deleted only in DRAFT status, was "
+                                + existing.status());
+            }
+            store.remove(id);
         }
     }
 

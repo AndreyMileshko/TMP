@@ -680,6 +680,20 @@ class SubmitMaterialRequirementServiceTest {
                             })
                     .toList();
         }
+
+        @Override
+        public void deleteDraft(MaterialRequirementId id, long expectedVersion) {
+            MaterialRequirement existing = store.get(id);
+            if (existing == null || existing.version() != expectedVersion) {
+                throw new MaterialRequirementOptimisticLockException(id, expectedVersion);
+            }
+            if (existing.status() != MaterialRequirementStatus.DRAFT) {
+                throw new IllegalStateException(
+                        "Material requirement can be deleted only in DRAFT status, was "
+                                + existing.status());
+            }
+            store.remove(id);
+        }
     }
 
     private static final class InMemorySubmissionRepository

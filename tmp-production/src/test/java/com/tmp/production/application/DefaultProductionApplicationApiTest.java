@@ -187,8 +187,10 @@ class DefaultProductionApplicationApiTest {
         assertEquals(1, summaries.size());
         assertEquals(draft.requirementId().value(), summaries.getFirst().requirementId());
         assertEquals(draft.createdAt(), summaries.getFirst().createdAt());
+        assertEquals(draft.version(), summaries.getFirst().version());
         assertEquals(1, summaries.getFirst().sourceItemCount());
         assertEquals(1, summaries.getFirst().orderCount());
+        assertEquals(1, summaries.getFirst().sources().size());
     }
 
     @Test

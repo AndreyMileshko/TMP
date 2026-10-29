@@ -985,6 +985,26 @@ public final class ProductionWorkbenchViewModel {
                 requirementId, lineId, quantity, expectedVersion);
     }
 
+    public MaterialRequirementView saveMaterialRequirementDraftQuantities(
+            UUID requirementId,
+            List<MaterialRequestDraftLineRow> rows,
+            long expectedVersion) {
+        Objects.requireNonNull(rows, "rows");
+        List<ProductionApplicationApi.MaterialRequirementLineQuantityView> quantities =
+                new ArrayList<>(rows.size());
+        for (MaterialRequestDraftLineRow row : rows) {
+            quantities.add(
+                    new ProductionApplicationApi.MaterialRequirementLineQuantityView(
+                            row.lineId(), row.quantity()));
+        }
+        return applicationApi.saveMaterialRequirementDraftQuantities(
+                requirementId, quantities, expectedVersion);
+    }
+
+    public void deleteMaterialRequirementDraft(UUID requirementId, long expectedVersion) {
+        applicationApi.deleteMaterialRequirementDraft(requirementId, expectedVersion);
+    }
+
     public SubmitMaterialRequirementResultView submitMaterialRequirement(
             UUID requirementId, long expectedVersion) {
         return applicationApi.submitMaterialRequirement(requirementId, expectedVersion);
@@ -992,6 +1012,75 @@ public final class ProductionWorkbenchViewModel {
 
     public List<MaterialRequirementDraftSummaryView> listMaterialRequirementDrafts() {
         return applicationApi.listMaterialRequirementDrafts();
+    }
+
+    /**
+     * Builds draft-list display rows with human order/position labels. Resolves each distinct order
+     * at most once (no per-row N+1).
+     */
+    public List<MaterialRequestDialogSupport.DraftListRow> materialRequirementDraftListRows() {
+        List<MaterialRequirementDraftSummaryView> drafts = listMaterialRequirementDrafts();
+        Map<UUID, String> orderNumberById = new HashMap<>();
+        Map<UUID, String> positionLabelByItemId = new HashMap<>();
+        for (MaterialRequirementDraftSummaryView draft : drafts) {
+            for (var source : draft.sources()) {
+                UUID orderId = source.sourceOrderId();
+                if (!orderNumberById.containsKey(orderId)) {
+                    LoadedProductionOrder cached = findAuthoritativeOrder(orderId);
+                    if (cached != null) {
+                        orderNumberById.put(orderId, cached.orderNumber);
+                        for (LoadedProductionItem item : cached.items) {
+                            positionLabelByItemId.putIfAbsent(
+                                    item.ref().sourceOrderItemId(),
+                                    ProductionTreeNode.humanReadablePosition(
+                                            item.item.externalPositionNumber(), item.index1Based));
+                        }
+                    } else {
+                        try {
+                            Optional<OrderDto> order =
+                                    orderQueryService.getOrder(OrderId.of(orderId));
+                            orderNumberById.put(
+                                    orderId,
+                                    order.map(OrderDto::orderNumber).orElse("—"));
+                            if (order.isPresent()) {
+                                List<OrderItemDto> items =
+                                        ProductionOrderItemsLoader.loadAll(
+                                                orderQueryService, OrderId.of(orderId));
+                                int index = 1;
+                                for (OrderItemDto item : items) {
+                                    positionLabelByItemId.putIfAbsent(
+                                            item.orderItemId().value(),
+                                            ProductionTreeNode.humanReadablePosition(
+                                                    item.externalPositionNumber(), index++));
+                                }
+                            }
+                        } catch (RuntimeException ex) {
+                            orderNumberById.put(orderId, "—");
+                        }
+                    }
+                }
+            }
+        }
+        List<MaterialRequestDialogSupport.DraftListRow> rows = new ArrayList<>(drafts.size());
+        for (MaterialRequirementDraftSummaryView draft : drafts) {
+            LinkedHashSet<String> orderLabels = new LinkedHashSet<>();
+            LinkedHashSet<String> positionLabels = new LinkedHashSet<>();
+            long productTotal = 0L;
+            for (var source : draft.sources()) {
+                orderLabels.add(orderNumberById.getOrDefault(source.sourceOrderId(), "—"));
+                positionLabels.add(
+                        positionLabelByItemId.getOrDefault(source.sourceOrderItemId(), "—"));
+                productTotal += source.requestedProductQuantity();
+            }
+            rows.add(
+                    new MaterialRequestDialogSupport.DraftListRow(
+                            draft,
+                            MaterialRequestDialogSupport.formatDraftCreatedAt(draft.createdAt()),
+                            String.join(", ", orderLabels),
+                            String.join(", ", positionLabels),
+                            Long.toString(productTotal)));
+        }
+        return List.copyOf(rows);
     }
 
     public Optional<MaterialRequirementView> getMaterialRequirement(UUID requirementId) {

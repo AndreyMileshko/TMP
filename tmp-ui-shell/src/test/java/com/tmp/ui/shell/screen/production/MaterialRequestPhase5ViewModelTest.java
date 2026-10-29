@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.order.api.OrderId;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementDraftSourceSummaryView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementDraftSummaryView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProductCoverageView;
@@ -359,7 +360,16 @@ class MaterialRequestPhase5ViewModelTest {
     void draftListCaptionNeverExposesUuid() {
         MaterialRequirementDraftSummaryView draft =
                 new MaterialRequirementDraftSummaryView(
-                        REQ_ID, Instant.parse("2026-10-01T07:15:00Z"), 3, 2);
+                        REQ_ID,
+                        Instant.parse("2026-10-01T07:15:00Z"),
+                        0L,
+                        List.of(
+                                new MaterialRequirementDraftSourceSummaryView(
+                                        ORDER_A, ITEM_A1, 1L),
+                                new MaterialRequirementDraftSourceSummaryView(
+                                        ORDER_A, ITEM_C1, 1L),
+                                new MaterialRequirementDraftSourceSummaryView(
+                                        ORDER_B, ITEM_B3, 1L)));
         String caption = MaterialRequestDialogSupport.draftListCaption(draft);
         assertFalse(caption.toLowerCase().contains("uuid"));
         assertFalse(caption.contains(REQ_ID.toString()));

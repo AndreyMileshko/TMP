@@ -50,6 +50,12 @@ public final class ProductionUiErrorMapper {
             "Недостаточно материалов для формирования складского перемещения.\n\nЧерновик сохранён.";
     public static final String MATERIAL_DRAFT_CONFLICT =
             "Черновик изменён другим пользователем. Данные обновлены.";
+    public static final String MATERIAL_DRAFT_DELETE_FAILED =
+            "Не удалось удалить черновик запроса материалов.";
+    public static final String MATERIAL_DRAFT_DELETE_NOT_ALLOWED =
+            "Черновик нельзя удалить: он уже отправлен или недоступен.";
+    public static final String MATERIAL_DRAFT_CANCEL_CLEANUP_FAILED =
+            "Не удалось удалить несохранённый черновик. Он может остаться в списке черновиков.";
     public static final String MATERIAL_SUBMIT_SUCCESS =
             "Запрос материалов отправлен на склад.";
     public static final String MATERIAL_SUBMIT_SUCCESS_HINT =
@@ -127,6 +133,9 @@ public final class ProductionUiErrorMapper {
             }
             if (simple.contains("MaterialRequirementOptimisticLock")) {
                 return MATERIAL_DRAFT_CONFLICT;
+            }
+            if (simple.contains("MaterialRequirementNotDeletable")) {
+                return MATERIAL_DRAFT_DELETE_NOT_ALLOWED;
             }
             if (isModeChangedForMaterialRequest(simple, lower)) {
                 return QUANTITY_MODE_CHANGED_FOR_REQUEST;

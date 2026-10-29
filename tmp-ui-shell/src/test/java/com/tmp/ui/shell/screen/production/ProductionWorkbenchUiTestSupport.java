@@ -26,8 +26,10 @@ import com.tmp.production.api.ProductionApplicationApi.DestinationWarehouseView;
 import com.tmp.production.api.ProductionApplicationApi.ItemReleaseView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualDefaultView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialActualUsageView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementDraftSourceSummaryView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementDraftSummaryView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineProductionStockView;
+import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineQuantityView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProductCoverageView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementProductSelectionView;
@@ -346,17 +348,76 @@ final class ProductionWorkbenchUiTestSupport {
                     || requirement.status() != MaterialRequirementStatusView.DRAFT) {
                 return List.of();
             }
-            long orderCount =
-                    requirement.sourceItems().stream()
-                            .map(MaterialRequirementSourceItemView::sourceOrderId)
-                            .distinct()
-                            .count();
             return List.of(
                     new MaterialRequirementDraftSummaryView(
                             requirement.requirementId(),
                             requirement.createdAt(),
-                            requirement.sourceItems().size(),
-                            Math.toIntExact(orderCount)));
+                            requirement.version(),
+                            requirement.sourceItems().stream()
+                                    .map(
+                                            item ->
+                                                    new MaterialRequirementDraftSourceSummaryView(
+                                                            item.sourceOrderId(),
+                                                            item.sourceOrderItemId(),
+                                                            item.requestedProductQuantity()))
+                                    .toList()));
+        }
+
+        @Override
+        public MaterialRequirementView saveMaterialRequirementDraftQuantities(
+                UUID requirementId,
+                List<MaterialRequirementLineQuantityView> lineQuantities,
+                long expectedVersion) {
+            if (requirement == null || !requirement.requirementId().equals(requirementId)) {
+                throw new IllegalArgumentException("Material requirement not found: " + requirementId);
+            }
+            Map<UUID, BigDecimal> byLine = new HashMap<>();
+            for (MaterialRequirementLineQuantityView qty : lineQuantities) {
+                byLine.put(qty.lineId(), qty.quantity());
+            }
+            List<MaterialRequirementLineView> lines = new ArrayList<>();
+            for (MaterialRequirementLineView line : requirement.lines()) {
+                BigDecimal next = byLine.getOrDefault(line.lineId(), line.quantity());
+                lines.add(
+                        new MaterialRequirementLineView(
+                                line.lineId(),
+                                line.materialReferenceId(),
+                                line.materialCode(),
+                                line.materialName(),
+                                line.color(),
+                                line.unitOfMeasure(),
+                                line.lengthMm(),
+                                line.requiredQuantity(),
+                                next,
+                                line.sourceOrderItemIds(),
+                                line.technologicalPieceCount()));
+            }
+            requirement =
+                    new MaterialRequirementView(
+                            requirement.requirementId(),
+                            requirement.sourceItems(),
+                            requirement.destinationWarehouseId(),
+                            requirement.createdAt(),
+                            requirement.updatedAt(),
+                            requirement.version() + 1,
+                            requirement.status(),
+                            requirement.submittedAt(),
+                            requirement.submittedBy(),
+                            lines);
+            return requirement;
+        }
+
+        @Override
+        public void deleteMaterialRequirementDraft(UUID requirementId, long expectedVersion) {
+            if (requirement != null
+                    && requirement.requirementId().equals(requirementId)
+                    && requirement.version() == expectedVersion
+                    && requirement.status() == MaterialRequirementStatusView.DRAFT) {
+                requirement = null;
+                return;
+            }
+            throw new IllegalStateException(
+                    "MaterialRequirementNotDeletable: cannot delete " + requirementId);
         }
 
         @Override

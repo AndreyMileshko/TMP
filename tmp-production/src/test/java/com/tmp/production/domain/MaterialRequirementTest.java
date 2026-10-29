@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,49 @@ class MaterialRequirementTest {
         assertEquals(T1, edited.updatedAt());
         assertEquals(0, edited.lines().getFirst().quantity().compareTo(bd(25)));
         assertEquals(0, edited.lines().getFirst().requiredQuantity().compareTo(bd(28)));
+    }
+
+    @Test
+    void changeLineQuantitiesUpdatesAllProvidedLinesAtomically() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemA = SourceOrderItemId.generate();
+        SourceOrderItemId itemB = SourceOrderItemId.generate();
+        MaterialRequirementLine lineA =
+                MaterialRequirementLine.create(
+                        MaterialReferenceId.generate(),
+                        "MAT-1",
+                        "Material 1",
+                        "WHITE",
+                        "PCS",
+                        null,
+                        bd(10),
+                        List.of(MaterialRequirementLineContribution.of(orderId, itemA, bd(10))));
+        MaterialRequirementLine lineB =
+                MaterialRequirementLine.create(
+                        MaterialReferenceId.generate(),
+                        "MAT-2",
+                        "Material 2",
+                        "BLACK",
+                        "PCS",
+                        null,
+                        bd(20),
+                        List.of(MaterialRequirementLineContribution.of(orderId, itemB, bd(20))));
+        MaterialRequirement requirement =
+                MaterialRequirement.create(
+                        PROD,
+                        T0,
+                        List.of(
+                                MaterialRequirementSourceItem.of(orderId, itemA, 1L),
+                                MaterialRequirementSourceItem.of(orderId, itemB, 1L)),
+                        List.of(lineA, lineB));
+
+        MaterialRequirement edited =
+                requirement.changeLineQuantities(
+                        Map.of(lineA.lineId(), bd(3), lineB.lineId(), bd(7)), T1);
+
+        assertEquals(0L, edited.version());
+        assertEquals(0, edited.lines().get(0).quantity().compareTo(bd(3)));
+        assertEquals(0, edited.lines().get(1).quantity().compareTo(bd(7)));
     }
 
     @Test

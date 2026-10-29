@@ -25,6 +25,7 @@ import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -219,6 +220,38 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                         MaterialRequirementLineId.of(lineId),
                         quantity,
                         expectedVersion));
+    }
+
+    @Override
+    public MaterialRequirementView saveMaterialRequirementDraftQuantities(
+            UUID requirementId,
+            List<MaterialRequirementLineQuantityView> lineQuantities,
+            long expectedVersion) {
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
+        Objects.requireNonNull(requirementId, "requirementId");
+        Objects.requireNonNull(lineQuantities, "lineQuantities");
+        if (lineQuantities.isEmpty()) {
+            throw new IllegalArgumentException("lineQuantities must not be empty");
+        }
+        Map<MaterialRequirementLineId, BigDecimal> quantities = new LinkedHashMap<>();
+        for (MaterialRequirementLineQuantityView line : lineQuantities) {
+            Objects.requireNonNull(line, "lineQuantity");
+            MaterialRequirementLineId lineId = MaterialRequirementLineId.of(line.lineId());
+            if (quantities.putIfAbsent(lineId, line.quantity()) != null) {
+                throw new IllegalArgumentException("Duplicate lineId in lineQuantities: " + lineId);
+            }
+        }
+        return map(
+                materialRequirementService.saveDraftQuantities(
+                        MaterialRequirementId.of(requirementId), quantities, expectedVersion));
+    }
+
+    @Override
+    public void deleteMaterialRequirementDraft(UUID requirementId, long expectedVersion) {
+        authorizationService.requirePermission(ProductionPermissions.PRODUCTION_CREATE_TRANSFER);
+        Objects.requireNonNull(requirementId, "requirementId");
+        materialRequirementService.deleteDraft(
+                MaterialRequirementId.of(requirementId), expectedVersion);
     }
 
     @Override
@@ -491,16 +524,20 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
     }
 
     private MaterialRequirementDraftSummaryView mapDraftSummary(MaterialRequirement requirement) {
-        long orderCount =
+        List<MaterialRequirementDraftSourceSummaryView> sources =
                 requirement.sourceItems().stream()
-                        .map(MaterialRequirementSourceItem::sourceOrderId)
-                        .distinct()
-                        .count();
+                        .map(
+                                item ->
+                                        new MaterialRequirementDraftSourceSummaryView(
+                                                item.sourceOrderId().value(),
+                                                item.sourceOrderItemId().value(),
+                                                item.requestedProductQuantity()))
+                        .toList();
         return new MaterialRequirementDraftSummaryView(
                 requirement.requirementId().value(),
                 requirement.createdAt(),
-                requirement.sourceItems().size(),
-                Math.toIntExact(orderCount));
+                requirement.version(),
+                sources);
     }
 
     private MaterialRequirementSourceItemView map(MaterialRequirementSourceItem item) {

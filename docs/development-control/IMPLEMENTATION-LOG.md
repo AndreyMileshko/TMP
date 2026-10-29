@@ -1,4 +1,25 @@
-﻿## B3-MA-13-02-FIX1 — Controlled V54 + pilot backfill — 2026-10-20
+﻿## Pilot — Material Request Draft Lifecycle & UI FIX — 2026-10-29
+
+**Date:** 2026-10-29
+**Base HEAD:** `689e4a8fd073e87d21b1e179443a7a7c526cd122`
+**Status:** CODE DONE — focused tests PASS; pilot/stage DBs untouched; no Flyway; no commit / no push
+
+### Implemented
+
+- Whole-draft **Сохранить**: `saveMaterialRequirementDraftQuantities` (atomic multi-line, same `requirementId`, optimistic version)
+- **Отправить на склад** flushes current editor quantities then submits
+- Cancel/X on provisional (never-saved) prepare DRAFT → physical `deleteMaterialRequirementDraft`
+- Physical DRAFT delete API/repo (no DISCARDED status); refuses SUBMITTED / submission artifacts
+- Draft list: order / positions / products columns; double-click open; **Удалить черновик** with confirm
+- Existing pilot orphan drafts left unchanged for manual cleanup after acceptance
+
+### Out of scope
+
+- SUBMITTED requirement cancellation; pilot data deletion; commit/push
+
+---
+
+## B3-MA-13-02-FIX1 — Controlled V54 + pilot backfill — 2026-10-20
 
 **Date:** 2026-10-20
 **Base HEAD:** `88ba6700a20ba84db5cf7ee6bf96679b4afa0035`

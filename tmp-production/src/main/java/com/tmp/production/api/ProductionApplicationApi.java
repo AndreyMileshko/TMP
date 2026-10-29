@@ -74,6 +74,22 @@ public interface ProductionApplicationApi {
             UUID requirementId, UUID lineId, BigDecimal quantity, long expectedVersion);
 
     /**
+     * Atomically persists all provided DRAFT line request quantities for one Material Requirement
+     * with optimistic concurrency. Does not submit Warehouse Demand or move stock.
+     */
+    MaterialRequirementView saveMaterialRequirementDraftQuantities(
+            UUID requirementId,
+            List<MaterialRequirementLineQuantityView> lineQuantities,
+            long expectedVersion);
+
+    /**
+     * Physically deletes a DRAFT Material Requirement and its owned child rows. Refuses SUBMITTED
+     * requirements and requirements with submission artifacts. Requires
+     * {@code production.transfer.create}.
+     */
+    void deleteMaterialRequirementDraft(UUID requirementId, long expectedVersion);
+
+    /**
      * Submits a DRAFT Material Requirement to the Warehouse (Stage 3.5.10): automatic source
      * routing + grouped DRAFT Transfer Documents in one ACID transaction. Idempotent for an
      * already-SUBMITTED requirement. Does not move physical stock.
@@ -338,24 +354,56 @@ public interface ProductionApplicationApi {
         }
     }
 
+    /** One source product row inside a DRAFT list summary (UUIDs for reopen / label resolution). */
+    record MaterialRequirementDraftSourceSummaryView(
+            UUID sourceOrderId, UUID sourceOrderItemId, long requestedProductQuantity) {
+        public MaterialRequirementDraftSourceSummaryView {
+            Objects.requireNonNull(sourceOrderId, "sourceOrderId");
+            Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
+            if (requestedProductQuantity <= 0L) {
+                throw new IllegalArgumentException(
+                        "requestedProductQuantity must be > 0: " + requestedProductQuantity);
+            }
+        }
+    }
+
     /**
-     * Human-facing DRAFT list row. {@code requirementId} is for reopen API only — UI must not
-     * display it.
+     * Human-facing DRAFT list row. {@code requirementId} / source UUIDs are for API reopen and label
+     * resolution only — UI must not display raw UUIDs.
      */
     record MaterialRequirementDraftSummaryView(
             UUID requirementId,
             Instant createdAt,
-            int sourceItemCount,
-            int orderCount) {
+            long version,
+            List<MaterialRequirementDraftSourceSummaryView> sources) {
         public MaterialRequirementDraftSummaryView {
             Objects.requireNonNull(requirementId, "requirementId");
             Objects.requireNonNull(createdAt, "createdAt");
-            if (sourceItemCount <= 0) {
-                throw new IllegalArgumentException("sourceItemCount must be > 0");
+            Objects.requireNonNull(sources, "sources");
+            if (sources.isEmpty()) {
+                throw new IllegalArgumentException("sources must not be empty");
             }
-            if (orderCount <= 0) {
-                throw new IllegalArgumentException("orderCount must be > 0");
-            }
+            sources = List.copyOf(sources);
+        }
+
+        public int sourceItemCount() {
+            return sources.size();
+        }
+
+        public int orderCount() {
+            return (int)
+                    sources.stream()
+                            .map(MaterialRequirementDraftSourceSummaryView::sourceOrderId)
+                            .distinct()
+                            .count();
+        }
+    }
+
+    /** One editable DRAFT line quantity for whole-draft Save. */
+    record MaterialRequirementLineQuantityView(UUID lineId, BigDecimal quantity) {
+        public MaterialRequirementLineQuantityView {
+            Objects.requireNonNull(lineId, "lineId");
+            Objects.requireNonNull(quantity, "quantity");
         }
     }
 

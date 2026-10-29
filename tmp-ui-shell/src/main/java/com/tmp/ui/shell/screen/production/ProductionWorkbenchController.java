@@ -1,7 +1,6 @@
 package com.tmp.ui.shell.screen.production;
 
 import com.tmp.order.api.OrderId;
-import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementDraftSummaryView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineProductionStockView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionApplicationApi.QuantityModeView;
@@ -1071,21 +1070,31 @@ public final class ProductionWorkbenchController
                 viewModel.setErrorMessage(ProductionUiErrorMapper.text(ex));
                 return;
             }
-            openMaterialRequirementDraft(prepared, true);
+            openMaterialRequirementDraft(prepared, true, true);
             return;
         }
     }
 
     private void openMaterialDrafts() {
-        List<MaterialRequirementDraftSummaryView> drafts;
+        List<MaterialRequestDialogSupport.DraftListRow> drafts;
         try {
-            drafts = viewModel.listMaterialRequirementDrafts();
+            drafts = viewModel.materialRequirementDraftListRows();
         } catch (RuntimeException ex) {
             viewModel.setErrorMessage(ProductionUiErrorMapper.text(ex));
             return;
         }
         MaterialRequestDialogSupport.DraftListOutcome outcome =
-                MaterialRequestDialogSupport.showDraftList(drafts);
+                MaterialRequestDialogSupport.showDraftList(
+                        drafts,
+                        row -> {
+                            try {
+                                viewModel.deleteMaterialRequirementDraft(
+                                        row.requirementId(), row.draft().version());
+                                return Optional.empty();
+                            } catch (RuntimeException ex) {
+                                return Optional.of(ProductionUiErrorMapper.text(ex));
+                            }
+                        });
         if (outcome.openRequirementId().isEmpty()) {
             return;
         }
@@ -1100,10 +1109,16 @@ public final class ProductionWorkbenchController
             MaterialRequestDialogSupport.showValidation("Черновик больше недоступен.");
             return;
         }
-        openMaterialRequirementDraft(requirement.get(), viewModel.canRequestMaterialsProperty().get());
+        openMaterialRequirementDraft(
+                requirement.get(), viewModel.canRequestMaterialsProperty().get(), false);
     }
 
-    private void openMaterialRequirementDraft(MaterialRequirementView requirement, boolean canMutate) {
+    /**
+     * @param provisional when {@code true}, Cancel/X without an explicit Save physically deletes
+     *     the prepare-created DRAFT so it does not remain actionable.
+     */
+    private void openMaterialRequirementDraft(
+            MaterialRequirementView requirement, boolean canMutate, boolean provisional) {
         java.util.concurrent.atomic.AtomicReference<MaterialRequirementView> current =
                 new java.util.concurrent.atomic.AtomicReference<>(requirement);
         List<String> sources = viewModel.materialRequirementSourceSummary(requirement);
@@ -1115,20 +1130,20 @@ public final class ProductionWorkbenchController
             viewModel.setErrorMessage(ProductionUiErrorMapper.text(ex));
             return;
         }
-        MaterialRequestDialogSupport.Step2Action action =
+        MaterialRequestDialogSupport.Step2Outcome outcome =
                 MaterialRequestDialogSupport.showStep2(
                         requirement,
                         productionStock,
                         sources,
                         canMutate,
-                        row -> {
+                        !provisional,
+                        rows -> {
                             try {
                                 MaterialRequirementView latest = current.get();
                                 MaterialRequirementView saved =
-                                        viewModel.changeMaterialRequirementLineQuantity(
+                                        viewModel.saveMaterialRequirementDraftQuantities(
                                                 latest.requirementId(),
-                                                row.lineId(),
-                                                row.quantity(),
+                                                rows,
                                                 latest.version());
                                 current.set(saved);
                                 return Optional.of(saved);
@@ -1147,26 +1162,52 @@ public final class ProductionWorkbenchController
                                 return Optional.empty();
                             }
                         },
-                        draft -> {
+                        rows -> {
                             try {
+                                MaterialRequirementView latest = current.get();
+                                MaterialRequirementView flushed =
+                                        viewModel.saveMaterialRequirementDraftQuantities(
+                                                latest.requirementId(),
+                                                rows,
+                                                latest.version());
+                                current.set(flushed);
                                 SubmitMaterialRequirementResultView result =
                                         viewModel.submitMaterialRequirement(
-                                                draft.requirementId(), draft.version());
+                                                flushed.requirementId(), flushed.version());
                                 MaterialRequirementView submitted =
                                         viewModel
                                                 .getMaterialRequirement(result.requirementId())
-                                                .orElse(draft);
+                                                .orElse(flushed);
                                 viewModel.afterSuccessfulMaterialSubmit(submitted);
                                 MaterialRequestDialogSupport.showInfo(
                                         MaterialRequestDialogSupport.STEP2_TITLE,
                                         ProductionUiErrorMapper.MATERIAL_SUBMIT_SUCCESS_HINT);
                                 return Optional.empty();
                             } catch (RuntimeException ex) {
+                                if (ProductionUiErrorMapper.isMaterialDraftConflict(ex)) {
+                                    Optional<MaterialRequirementView> reloaded =
+                                            viewModel.getMaterialRequirement(
+                                                    current.get().requirementId());
+                                    reloaded.ifPresent(current::set);
+                                }
                                 return Optional.of(ProductionUiErrorMapper.text(ex));
                             }
                         });
-        if (action == MaterialRequestDialogSupport.Step2Action.SUBMITTED) {
+        if (outcome.action() == MaterialRequestDialogSupport.Step2Action.SUBMITTED) {
             viewModel.refresh();
+            return;
+        }
+        if (provisional && !outcome.explicitlySaved()) {
+            MaterialRequirementView latest = current.get();
+            try {
+                viewModel.deleteMaterialRequirementDraft(
+                        latest.requirementId(), latest.version());
+            } catch (RuntimeException ex) {
+                MaterialRequestDialogSupport.showValidation(
+                        ProductionUiErrorMapper.MATERIAL_DRAFT_CANCEL_CLEANUP_FAILED
+                                + "\n"
+                                + ProductionUiErrorMapper.text(ex));
+            }
         }
     }
 

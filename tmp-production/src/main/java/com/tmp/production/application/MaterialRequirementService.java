@@ -246,9 +246,22 @@ public final class MaterialRequirementService {
             MaterialRequirementLineId lineId,
             BigDecimal quantity,
             long expectedVersion) {
-        Objects.requireNonNull(id, "id");
         Objects.requireNonNull(lineId, "lineId");
         Objects.requireNonNull(quantity, "quantity");
+        return saveDraftQuantities(id, Map.of(lineId, quantity), expectedVersion);
+    }
+
+    /**
+     * Atomically persists all provided DRAFT line request quantities under the same
+     * {@code requirementId} with optimistic {@code expectedVersion}. One repository save — not
+     * multiple independently committed line updates.
+     */
+    public MaterialRequirement saveDraftQuantities(
+            MaterialRequirementId id,
+            Map<MaterialRequirementLineId, BigDecimal> quantitiesByLineId,
+            long expectedVersion) {
+        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(quantitiesByLineId, "quantitiesByLineId");
         MaterialRequirement requirement =
                 requirementRepository
                         .findById(id)
@@ -260,8 +273,17 @@ public final class MaterialRequirementService {
             throw new MaterialRequirementOptimisticLockException(id, expectedVersion);
         }
         MaterialRequirement edited =
-                requirement.changeLineQuantity(lineId, quantity, clock.instant());
+                requirement.changeLineQuantities(quantitiesByLineId, clock.instant());
         return requirementRepository.save(edited);
+    }
+
+    /**
+     * Physically deletes a DRAFT Material Requirement and its owned child rows. Does not soft-delete
+     * or retain draft history.
+     */
+    public void deleteDraft(MaterialRequirementId id, long expectedVersion) {
+        Objects.requireNonNull(id, "id");
+        requirementRepository.deleteDraft(id, expectedVersion);
     }
 
     private long resolveProductQuantity(

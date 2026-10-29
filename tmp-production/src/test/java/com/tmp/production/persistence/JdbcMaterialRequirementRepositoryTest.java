@@ -8,6 +8,7 @@ import com.tmp.production.domain.MaterialReferenceId;
 import com.tmp.production.domain.MaterialRequirement;
 import com.tmp.production.domain.MaterialRequirementLine;
 import com.tmp.production.domain.MaterialRequirementLineContribution;
+import com.tmp.production.domain.MaterialRequirementNotDeletableException;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialRequirementSourceItem;
 import com.tmp.production.domain.MaterialRequirementStatus;
@@ -185,6 +186,49 @@ class JdbcMaterialRequirementRepositoryTest {
         assertEquals(1L, loaded.version());
         assertEquals(Optional.of("user-1"), loaded.submittedBy());
         assertTrue(repository.findByIdForUpdate(loaded.requirementId()).isPresent());
+    }
+
+    @Test
+    void deleteDraftPhysicallyRemovesHeaderAndOwnedRows() {
+        MaterialRequirement created = repository.save(sampleRequirement(BigDecimal.TEN));
+        UUID requirementId = created.requirementId().value();
+        UUID lineId = created.lines().getFirst().lineId().value();
+
+        repository.deleteDraft(created.requirementId(), created.version());
+
+        assertTrue(repository.findById(created.requirementId()).isEmpty());
+        assertEquals(
+                0,
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM production.material_requirements WHERE id = ?",
+                        Integer.class,
+                        requirementId));
+        assertEquals(
+                0,
+                jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM production.material_requirement_lines WHERE id = ?",
+                        Integer.class,
+                        lineId));
+        assertEquals(
+                0,
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM production.material_requirement_source_items
+                        WHERE requirement_id = ?
+                        """,
+                        Integer.class,
+                        requirementId));
+    }
+
+    @Test
+    void deleteDraftRejectsSubmittedRequirement() {
+        MaterialRequirement created = repository.save(sampleRequirement(BigDecimal.TEN));
+        MaterialRequirement submitted = repository.markSubmitted(created.submit("user-1", T0));
+
+        assertThrows(
+                MaterialRequirementNotDeletableException.class,
+                () -> repository.deleteDraft(submitted.requirementId(), submitted.version()));
+        assertTrue(repository.findById(submitted.requirementId()).isPresent());
     }
 
     private static MaterialRequirement sampleRequirement(BigDecimal quantity) {

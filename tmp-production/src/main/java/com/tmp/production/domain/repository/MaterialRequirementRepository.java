@@ -58,4 +58,15 @@ public interface MaterialRequirementRepository {
      * SUBMITTED rows.
      */
     List<MaterialRequirement> findDraftsNewestFirst();
+
+    /**
+     * Physically deletes a DRAFT Material Requirement and its owned child rows in one local
+     * transaction using optimistic {@code expectedVersion}. Refuses SUBMITTED requirements and
+     * requirements that already have submission artifacts.
+     *
+     * @throws MaterialRequirementOptimisticLockException on version conflict or missing row
+     * @throws com.tmp.production.domain.MaterialRequirementNotDeletableException when status is not
+     *     DRAFT or submission artifacts exist
+     */
+    void deleteDraft(MaterialRequirementId id, long expectedVersion);
 }

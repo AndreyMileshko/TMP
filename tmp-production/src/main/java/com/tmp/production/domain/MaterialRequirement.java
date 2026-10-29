@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -165,22 +166,39 @@ public final class MaterialRequirement {
      */
     public MaterialRequirement changeLineQuantity(
             MaterialRequirementLineId lineId, BigDecimal quantity, Instant updatedAt) {
+        return changeLineQuantities(Map.of(lineId, quantity), updatedAt);
+    }
+
+    /**
+     * Atomically replaces request quantities for every provided line id. Every key must identify an
+     * existing line; omitted lines keep their current quantity. Domain keeps the same optimistic
+     * {@code version}; the repository increments it on successful save. Product coverage on
+     * {@link #sourceItems()} is unchanged.
+     */
+    public MaterialRequirement changeLineQuantities(
+            Map<MaterialRequirementLineId, BigDecimal> quantitiesByLineId, Instant updatedAt) {
         ensureEditable();
-        Objects.requireNonNull(lineId, "lineId");
-        Objects.requireNonNull(quantity, "quantity");
+        Objects.requireNonNull(quantitiesByLineId, "quantitiesByLineId");
         Objects.requireNonNull(updatedAt, "updatedAt");
-        List<MaterialRequirementLine> next = new ArrayList<>(lines.size());
-        boolean found = false;
+        if (quantitiesByLineId.isEmpty()) {
+            throw new IllegalArgumentException("quantitiesByLineId must not be empty");
+        }
+        Set<MaterialRequirementLineId> known = new HashSet<>();
         for (MaterialRequirementLine line : lines) {
-            if (line.lineId().equals(lineId)) {
-                next.add(line.changeQuantity(quantity));
-                found = true;
-            } else {
-                next.add(line);
+            known.add(line.lineId());
+        }
+        for (Map.Entry<MaterialRequirementLineId, BigDecimal> entry :
+                quantitiesByLineId.entrySet()) {
+            Objects.requireNonNull(entry.getKey(), "lineId");
+            Objects.requireNonNull(entry.getValue(), "quantity");
+            if (!known.contains(entry.getKey())) {
+                throw new IllegalArgumentException("Unknown requirement lineId: " + entry.getKey());
             }
         }
-        if (!found) {
-            throw new IllegalArgumentException("Unknown requirement lineId: " + lineId);
+        List<MaterialRequirementLine> next = new ArrayList<>(lines.size());
+        for (MaterialRequirementLine line : lines) {
+            BigDecimal updated = quantitiesByLineId.get(line.lineId());
+            next.add(updated == null ? line : line.changeQuantity(updated));
         }
         return new MaterialRequirement(
                 requirementId,

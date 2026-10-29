@@ -12,6 +12,7 @@ import com.tmp.ui.shell.order.DecimalUiFormat;
 import com.tmp.ui.shell.theme.TmpTheme;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -61,7 +62,7 @@ public final class MaterialRequestDialogSupport {
     public static final String SUBMIT_BUTTON = "Отправить на склад";
     public static final String SAVE_LINE_BUTTON = "Сохранить";
     public static final String CANCEL_BUTTON = "Отмена";
-    public static final String OPEN_DRAFT_BUTTON = "Открыть";
+    public static final String DELETE_DRAFT_BUTTON = "Удалить черновик";
     public static final String DRAFT_LIST_TITLE = "Черновики запросов материалов";
     public static final String COLUMN_ARTICLE = "Артикул";
     public static final String COLUMN_NAME = "Наименование";
@@ -70,13 +71,19 @@ public final class MaterialRequestDialogSupport {
     public static final String COLUMN_REQUIRED = "Требуется";
     public static final String COLUMN_ON_PRODUCTION = "На производстве";
     public static final String COLUMN_TO_REQUEST = "К запросу";
+    public static final String COLUMN_DRAFT_CREATED = "Создан";
+    public static final String COLUMN_DRAFT_ORDERS = "Заказ";
+    public static final String COLUMN_DRAFT_POSITIONS = "Позиции";
+    public static final String COLUMN_DRAFT_PRODUCTS = "Изделия";
     public static final String STOCK_INFO_HINT =
             "Остаток на производстве показан справочно. Он общий для всех заказов и не уменьшает"
                     + " количество к запросу.";
     public static final String REQUEST_QUANTITY_RANGE_MESSAGE =
             "Количество к запросу должно быть не меньше 0.";
-    public static final String QUANTITY_SAVED_MESSAGE = "Количество сохранено.";
-    public static final String SELECT_LINE_MESSAGE = "Выберите строку материала для сохранения.";
+    public static final String DRAFT_SAVED_MESSAGE = "Черновик сохранён.";
+    public static final String DELETE_DRAFT_CONFIRM_TITLE = "Удалить черновик?";
+    public static final String DELETE_DRAFT_CONFIRM_HEADER =
+            "Черновик будет удалён безвозвратно.";
 
     private static final DateTimeFormatter DRAFT_WHEN =
             DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
@@ -100,6 +107,36 @@ public final class MaterialRequestDialogSupport {
     public enum Step2Action {
         CLOSED,
         SUBMITTED
+    }
+
+    public record Step2Outcome(Step2Action action, boolean explicitlySaved) {
+        public static Step2Outcome closed(boolean explicitlySaved) {
+            return new Step2Outcome(Step2Action.CLOSED, explicitlySaved);
+        }
+
+        public static Step2Outcome submitted(boolean explicitlySaved) {
+            return new Step2Outcome(Step2Action.SUBMITTED, explicitlySaved);
+        }
+    }
+
+    /** Display row for the saved-drafts table (bound to exact {@code requirementId}). */
+    public record DraftListRow(
+            MaterialRequirementDraftSummaryView draft,
+            String createdLabel,
+            String ordersLabel,
+            String positionsLabel,
+            String productsLabel) {
+        public DraftListRow {
+            Objects.requireNonNull(draft, "draft");
+            createdLabel = createdLabel == null ? "" : createdLabel;
+            ordersLabel = ordersLabel == null ? "" : ordersLabel;
+            positionsLabel = positionsLabel == null ? "" : positionsLabel;
+            productsLabel = productsLabel == null ? "" : productsLabel;
+        }
+
+        public UUID requirementId() {
+            return draft.requirementId();
+        }
     }
 
     public record DraftListOutcome(Optional<UUID> openRequirementId) {
@@ -202,11 +239,15 @@ public final class MaterialRequestDialogSupport {
                 + (product == null || product.isBlank() ? "" : " (" + product + ")");
     }
 
+    public static String formatDraftCreatedAt(Instant createdAt) {
+        Objects.requireNonNull(createdAt, "createdAt");
+        return DRAFT_WHEN.format(createdAt.atZone(ZoneId.systemDefault()).toLocalDateTime());
+    }
+
+    /** Compact fallback caption used by focused unit tests. */
     public static String draftListCaption(MaterialRequirementDraftSummaryView draft) {
         Objects.requireNonNull(draft, "draft");
-        String when =
-                DRAFT_WHEN.format(draft.createdAt().atZone(ZoneId.systemDefault()).toLocalDateTime());
-        return when
+        return formatDraftCreatedAt(draft.createdAt())
                 + "\n"
                 + draft.sourceItemCount()
                 + " "
@@ -223,6 +264,19 @@ public final class MaterialRequestDialogSupport {
 
     private static String pluralOrders(int count) {
         return count == 1 ? "заказ" : "заказа";
+    }
+
+    public static Optional<String> validateAllRequestQuantities(
+            List<MaterialRequestDraftLineRow> rows) {
+        Objects.requireNonNull(rows, "rows");
+        for (MaterialRequestDraftLineRow row : rows) {
+            Optional<String> validation =
+                    validateRequestQuantity(row.quantity(), row.requiredQuantity());
+            if (validation.isPresent()) {
+                return validation;
+            }
+        }
+        return Optional.empty();
     }
 
     public static Step1Outcome showStep1(List<MaterialRequestQuantityRow> rows) {
@@ -302,20 +356,22 @@ public final class MaterialRequestDialogSupport {
         return Step1Outcome.next(List.copyOf(table.getItems()));
     }
 
-    public static Step2Action showStep2(
+    public static Step2Outcome showStep2(
             MaterialRequirementView requirement,
             List<MaterialRequirementLineProductionStockView> productionStock,
             List<String> sourceSummaryLines,
             boolean canMutate,
-            Function<MaterialRequestDraftLineRow, Optional<MaterialRequirementView>> saveLine,
-            Function<MaterialRequirementView, Optional<String>> submit) {
+            boolean alreadySaved,
+            Function<List<MaterialRequestDraftLineRow>, Optional<MaterialRequirementView>> saveDraft,
+            Function<List<MaterialRequestDraftLineRow>, Optional<String>> submit) {
         Objects.requireNonNull(requirement, "requirement");
         Objects.requireNonNull(productionStock, "productionStock");
         Objects.requireNonNull(sourceSummaryLines, "sourceSummaryLines");
-        Objects.requireNonNull(saveLine, "saveLine");
+        Objects.requireNonNull(saveDraft, "saveDraft");
         Objects.requireNonNull(submit, "submit");
 
         MaterialRequirementView[] current = {requirement};
+        boolean[] explicitlySaved = {alreadySaved};
         List<MaterialRequirementLineProductionStockView> stockSnapshot = List.copyOf(productionStock);
         List<MaterialRequestDraftLineRow> lineRows = toLineRows(requirement, stockSnapshot);
 
@@ -388,41 +444,24 @@ public final class MaterialRequestDialogSupport {
                     javafx.event.ActionEvent.ACTION,
                     event -> {
                         event.consume();
-                        MaterialRequestDraftLineRow selected =
-                                table.getSelectionModel().getSelectedItem();
-                        if (selected == null) {
-                            messageLabel.setText(SELECT_LINE_MESSAGE);
-                            messageLabel.getStyleClass().remove("tmp-message-success");
-                            if (!messageLabel.getStyleClass().contains("tmp-message-error")) {
-                                messageLabel.getStyleClass().add("tmp-message-error");
-                            }
-                            return;
-                        }
                         Optional<String> validation =
-                                validateRequestQuantity(
-                                        selected.quantity(), selected.requiredQuantity());
+                                validateAllRequestQuantities(table.getItems());
                         if (validation.isPresent()) {
-                            messageLabel.setText(validation.get());
-                            messageLabel.getStyleClass().remove("tmp-message-success");
-                            if (!messageLabel.getStyleClass().contains("tmp-message-error")) {
-                                messageLabel.getStyleClass().add("tmp-message-error");
-                            }
+                            showStep2Error(messageLabel, validation.get());
                             return;
                         }
                         saveButton.setDisable(true);
                         submitButton.setDisable(true);
                         try {
-                            Optional<MaterialRequirementView> saved = saveLine.apply(selected);
+                            Optional<MaterialRequirementView> saved =
+                                    saveDraft.apply(List.copyOf(table.getItems()));
                             if (saved.isPresent()) {
                                 current[0] = saved.get();
+                                explicitlySaved[0] = true;
                                 table.setItems(
                                         FXCollections.observableArrayList(
                                                 toLineRows(saved.get(), stockSnapshot)));
-                                messageLabel.setText(QUANTITY_SAVED_MESSAGE);
-                                messageLabel.getStyleClass().remove("tmp-message-error");
-                                if (!messageLabel.getStyleClass().contains("tmp-message-success")) {
-                                    messageLabel.getStyleClass().add("tmp-message-success");
-                                }
+                                showStep2Success(messageLabel, DRAFT_SAVED_MESSAGE);
                             }
                         } finally {
                             saveButton.setDisable(false);
@@ -433,19 +472,23 @@ public final class MaterialRequestDialogSupport {
                     javafx.event.ActionEvent.ACTION,
                     event -> {
                         event.consume();
+                        Optional<String> validation =
+                                validateAllRequestQuantities(table.getItems());
+                        if (validation.isPresent()) {
+                            showStep2Error(messageLabel, validation.get());
+                            return;
+                        }
                         saveButton.setDisable(true);
                         submitButton.setDisable(true);
                         try {
-                            Optional<String> failure = submit.apply(current[0]);
+                            Optional<String> failure =
+                                    submit.apply(List.copyOf(table.getItems()));
                             if (failure.isEmpty()) {
+                                explicitlySaved[0] = true;
                                 dialog.setResult(submitType);
                                 dialog.close();
                             } else {
-                                messageLabel.setText(failure.get());
-                                messageLabel.getStyleClass().remove("tmp-message-success");
-                                if (!messageLabel.getStyleClass().contains("tmp-message-error")) {
-                                    messageLabel.getStyleClass().add("tmp-message-error");
-                                }
+                                showStep2Error(messageLabel, failure.get());
                             }
                         } finally {
                             saveButton.setDisable(false);
@@ -471,53 +514,134 @@ public final class MaterialRequestDialogSupport {
 
         Optional<ButtonType> result = dialog.showAndWait();
         if (result.isPresent() && result.get() == submitType) {
-            return Step2Action.SUBMITTED;
+            return Step2Outcome.submitted(explicitlySaved[0]);
         }
-        return Step2Action.CLOSED;
+        return Step2Outcome.closed(explicitlySaved[0]);
     }
 
-    public static DraftListOutcome showDraftList(List<MaterialRequirementDraftSummaryView> drafts) {
+    private static void showStep2Error(Label messageLabel, String message) {
+        messageLabel.setText(message);
+        messageLabel.getStyleClass().remove("tmp-message-success");
+        if (!messageLabel.getStyleClass().contains("tmp-message-error")) {
+            messageLabel.getStyleClass().add("tmp-message-error");
+        }
+    }
+
+    private static void showStep2Success(Label messageLabel, String message) {
+        messageLabel.setText(message);
+        messageLabel.getStyleClass().remove("tmp-message-error");
+        if (!messageLabel.getStyleClass().contains("tmp-message-success")) {
+            messageLabel.getStyleClass().add("tmp-message-success");
+        }
+    }
+
+    public static DraftListOutcome showDraftList(
+            List<DraftListRow> drafts,
+            Function<DraftListRow, Optional<String>> deleteDraft) {
         Objects.requireNonNull(drafts, "drafts");
+        Objects.requireNonNull(deleteDraft, "deleteDraft");
         Dialog<ButtonType> dialog = new Dialog<>();
         TmpTheme.apply(dialog.getDialogPane());
         dialog.setTitle(DRAFT_LIST_TITLE);
 
-        TableView<MaterialRequirementDraftSummaryView> table = new TableView<>();
+        TableView<DraftListRow> table = new TableView<>();
         table.setPlaceholder(new Label("Нет данных"));
         table.setItems(FXCollections.observableArrayList(drafts));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        table.setPrefHeight(280);
-        TableColumn<MaterialRequirementDraftSummaryView, String> caption =
-                new TableColumn<>("Черновик");
-        caption.setCellValueFactory(
-                c -> new SimpleStringProperty(draftListCaption(c.getValue())));
-        table.getColumns().add(caption);
+        table.setPrefHeight(320);
+        table.getColumns()
+                .addAll(
+                        draftListStringColumn(COLUMN_DRAFT_CREATED, 140, DraftListRow::createdLabel),
+                        draftListStringColumn(COLUMN_DRAFT_ORDERS, 140, DraftListRow::ordersLabel),
+                        draftListStringColumn(
+                                COLUMN_DRAFT_POSITIONS, 120, DraftListRow::positionsLabel),
+                        draftListStringColumn(
+                                COLUMN_DRAFT_PRODUCTS, 90, DraftListRow::productsLabel));
 
-        ButtonType openType = new ButtonType(OPEN_DRAFT_BUTTON, ButtonBar.ButtonData.OK_DONE);
+        ButtonType deleteType = new ButtonType(DELETE_DRAFT_BUTTON, ButtonBar.ButtonData.LEFT);
         ButtonType cancelType = new ButtonType(CANCEL_BUTTON, ButtonBar.ButtonData.CANCEL_CLOSE);
-        dialog.getDialogPane().getButtonTypes().addAll(openType, cancelType);
-        Button openButton = (Button) dialog.getDialogPane().lookupButton(openType);
-        openButton.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+        dialog.getDialogPane().getButtonTypes().addAll(deleteType, cancelType);
+        Button deleteButton = (Button) dialog.getDialogPane().lookupButton(deleteType);
+        deleteButton.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+        deleteButton.addEventFilter(
+                javafx.event.ActionEvent.ACTION,
+                event -> {
+                    event.consume();
+                    DraftListRow selected = table.getSelectionModel().getSelectedItem();
+                    if (selected == null) {
+                        return;
+                    }
+                    if (!confirmDeleteDraft(selected)) {
+                        return;
+                    }
+                    Optional<String> failure = deleteDraft.apply(selected);
+                    if (failure.isPresent()) {
+                        showValidation(failure.get());
+                        return;
+                    }
+                    table.getItems().remove(selected);
+                });
 
         Label empty =
                 new Label(
                         drafts.isEmpty()
                                 ? "Нет сохранённых черновиков запросов материалов."
-                                : "");
+                                : "Откройте черновик двойным щелчком.");
+        empty.setWrapText(true);
+        UUID[] openId = {null};
+        table.setOnMouseClicked(
+                event -> {
+                    if (event.getClickCount() == 2
+                            && table.getSelectionModel().getSelectedItem() != null) {
+                        openId[0] = table.getSelectionModel().getSelectedItem().requirementId();
+                        dialog.setResult(cancelType);
+                        dialog.close();
+                    }
+                });
+
         VBox content = new VBox(8, empty, table);
         content.setPadding(new Insets(8));
         dialog.getDialogPane().setContent(content);
-        dialog.getDialogPane().setPrefWidth(480);
+        dialog.getDialogPane().setPrefWidth(640);
 
-        Optional<ButtonType> result = dialog.showAndWait();
-        if (result.isEmpty() || result.get() != openType) {
-            return DraftListOutcome.cancelled();
+        dialog.showAndWait();
+        if (openId[0] != null) {
+            return DraftListOutcome.open(openId[0]);
         }
-        MaterialRequirementDraftSummaryView selected = table.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            return DraftListOutcome.cancelled();
-        }
-        return DraftListOutcome.open(selected.requirementId());
+        return DraftListOutcome.cancelled();
+    }
+
+    public static boolean confirmDeleteDraft(DraftListRow row) {
+        Objects.requireNonNull(row, "row");
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        TmpTheme.apply(alert.getDialogPane());
+        alert.setTitle(DELETE_DRAFT_CONFIRM_TITLE);
+        alert.setHeaderText(DELETE_DRAFT_CONFIRM_HEADER);
+        Label content =
+                new Label(
+                        "Заказ: "
+                                + row.ordersLabel()
+                                + "\nПозиции: "
+                                + row.positionsLabel()
+                                + "\nИзделия: "
+                                + row.productsLabel()
+                                + "\n\nУдалить выбранный черновик?");
+        content.setWrapText(true);
+        content.setMaxWidth(480);
+        alert.getDialogPane().setContent(content);
+        ButtonType delete = new ButtonType(DELETE_DRAFT_BUTTON, ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancel = new ButtonType(CANCEL_BUTTON, ButtonBar.ButtonData.CANCEL_CLOSE);
+        alert.getButtonTypes().setAll(delete, cancel);
+        Optional<ButtonType> result = alert.showAndWait();
+        return result.isPresent() && result.get() == delete;
+    }
+
+    private static TableColumn<DraftListRow, String> draftListStringColumn(
+            String title, double pref, Function<DraftListRow, String> value) {
+        TableColumn<DraftListRow, String> column = new TableColumn<>(title);
+        column.setPrefWidth(pref);
+        column.setCellValueFactory(c -> new SimpleStringProperty(value.apply(c.getValue())));
+        return column;
     }
 
     public static void showInfo(String title, String message) {

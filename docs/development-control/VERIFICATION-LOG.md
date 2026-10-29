@@ -2,6 +2,28 @@
 
 ## Latest result
 
+**Date:** 2026-10-29
+**Scope:** Pilot — Material Request Draft Lifecycle & UI FIX
+**Overall:** PASS (focused automated); manual pilot GUI PENDING
+**Migration:** none (still V54); **tmp_pilot** / **tmp_gui_stage5** not written
+**Base HEAD:** `689e4a8fd073e87d21b1e179443a7a7c526cd122`
+**Working tree:** dirty (implementation); **no commit / no push**
+
+### Checks
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD match | PASS |
+| Pilot DRAFT rows unchanged (2 orphans remain) | PASS |
+| Flyway still V54 | PASS |
+| `MaterialRequirementTest` / `MaterialRequirementServiceTest` / `DefaultProductionApplicationApiTest` | PASS |
+| `JdbcMaterialRequirementRepositoryTest` (Testcontainers) incl. physical delete | PASS |
+| `MaterialRequestPhase5ViewModelTest` / `MaterialRequestDialogSupportFix4Test` | PASS |
+| Manual pilot GUI acceptance | PENDING |
+
+---
+## Previous result
+
 **Date:** 2026-10-20
 **Scope:** B3-MA-13-02-FIX1 — Controlled V54 deployment + pilot ready_date backfill
 **Overall:** PARTIAL (checkpoints A–E PASS; manual GUI Order List/Details PENDING)
