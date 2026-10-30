@@ -53,6 +53,15 @@ public final class ReleaseDialogSupport {
     public static final String CANCEL_BUTTON = "Отмена";
     public static final String DETAILS_BUTTON = "Подробнее";
 
+    /** Step 2 plan/fact column headers (stable order for tests and layout). */
+    public static final List<String> STEP2_COLUMN_HEADERS =
+            List.of("Заказ", "Артикул", "Материал", "План", "Факт");
+
+    /** Preferred Step 2 dialog width — fits article + material name without clipping. */
+    public static final double STEP2_DIALOG_PREF_WIDTH = 860;
+
+    public static final double STEP2_DIALOG_MIN_WIDTH = 720;
+
     private ReleaseDialogSupport() {}
 
     public record Step1Outcome(boolean proceed, List<ReleaseQuantityRow> rows) {
@@ -353,7 +362,13 @@ public final class ReleaseDialogSupport {
         dialog.showAndWait();
     }
 
-    public static Step2Outcome showStep2(List<ReleaseMaterialRow> materials, boolean canEdit) {
+    /**
+     * Builds Step 2 plan/fact dialog without showing it. Used by production UI and focused JavaFX
+     * column/layout tests. Article comes from {@link ReleaseMaterialRow#materialCode()} (planned
+     * material identity), never from the display name.
+     */
+    public static Step2DialogSession createStep2Dialog(
+            List<ReleaseMaterialRow> materials, boolean canEdit) {
         Objects.requireNonNull(materials, "materials");
         if (materials.isEmpty()) {
             throw new IllegalArgumentException("materials must not be empty");
@@ -363,21 +378,31 @@ public final class ReleaseDialogSupport {
         TmpTheme.apply(dialog.getDialogPane());
         dialog.setTitle(STEP2_TITLE);
         dialog.setHeaderText("План / факт расхода");
+        dialog.setResizable(true);
 
         TableView<ReleaseMaterialRow> table = new TableView<>();
         table.setItems(FXCollections.observableArrayList(materials));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         table.setPlaceholder(new Label("Нет данных"));
         table.setPrefHeight(300);
+        table.setMinWidth(STEP2_DIALOG_MIN_WIDTH - 48);
         table.getColumns()
                 .setAll(
-                        materialStringColumn("Заказ", 100, ReleaseMaterialRow::orderNumberLabel),
-                        materialStringColumn("Материал", 180, ReleaseMaterialRow::materialLabel),
-                        materialStringColumn("План", 80, ReleaseMaterialRow::plannedQuantity),
+                        materialStringColumn("Заказ", 100, 80, ReleaseMaterialRow::orderNumberLabel),
+                        materialStringColumn(
+                                "Артикул", 120, 100, ReleaseMaterialRow::materialCode),
+                        ProductionTableCells.tooltipStringColumn(
+                                "Материал",
+                                280,
+                                180,
+                                ReleaseMaterialRow::materialLabel),
+                        materialStringColumn("План", 90, 70, ReleaseMaterialRow::plannedQuantity),
                         actualQuantityColumn(canEdit));
 
         VBox root = new VBox(10, table);
         root.setPadding(new Insets(8));
+        root.setPrefWidth(STEP2_DIALOG_PREF_WIDTH - 40);
+        root.setMinWidth(STEP2_DIALOG_MIN_WIDTH - 40);
         VBox.setVgrow(table, Priority.ALWAYS);
 
         ButtonType nextType =
@@ -386,6 +411,8 @@ public final class ReleaseDialogSupport {
                 new ButtonType(CANCEL_BUTTON, ButtonBar.ButtonData.CANCEL_CLOSE);
         dialog.getDialogPane().getButtonTypes().setAll(nextType, cancelType);
         dialog.getDialogPane().setContent(root);
+        dialog.getDialogPane().setPrefWidth(STEP2_DIALOG_PREF_WIDTH);
+        dialog.getDialogPane().setMinWidth(STEP2_DIALOG_MIN_WIDTH);
 
         Button nextButton = (Button) dialog.getDialogPane().lookupButton(nextType);
         nextButton.addEventFilter(
@@ -398,11 +425,26 @@ public final class ReleaseDialogSupport {
                     }
                 });
 
-        Optional<ButtonType> result = dialog.showAndWait();
-        if (result.isEmpty() || result.get() != nextType) {
+        return new Step2DialogSession(dialog, table, nextType);
+    }
+
+    public static Step2Outcome showStep2(List<ReleaseMaterialRow> materials, boolean canEdit) {
+        Step2DialogSession session = createStep2Dialog(materials, canEdit);
+        Optional<ButtonType> result = session.dialog().showAndWait();
+        if (result.isEmpty() || result.get() != session.nextType()) {
             return Step2Outcome.cancelled();
         }
-        return Step2Outcome.next(List.copyOf(table.getItems()));
+        return Step2Outcome.next(List.copyOf(session.table().getItems()));
+    }
+
+    /** Step 2 dialog + table handle for layout/column regression without showAndWait. */
+    public record Step2DialogSession(
+            Dialog<ButtonType> dialog, TableView<ReleaseMaterialRow> table, ButtonType nextType) {
+        public Step2DialogSession {
+            Objects.requireNonNull(dialog, "dialog");
+            Objects.requireNonNull(table, "table");
+            Objects.requireNonNull(nextType, "nextType");
+        }
     }
 
     public static boolean showConfirmSummary(
@@ -544,9 +586,13 @@ public final class ReleaseDialogSupport {
     }
 
     private static TableColumn<ReleaseMaterialRow, String> materialStringColumn(
-            String title, double pref, Function<ReleaseMaterialRow, String> value) {
+            String title,
+            double pref,
+            double min,
+            Function<ReleaseMaterialRow, String> value) {
         TableColumn<ReleaseMaterialRow, String> column = new TableColumn<>(title);
         column.setPrefWidth(pref);
+        column.setMinWidth(min);
         column.setCellValueFactory(
                 data -> new SimpleStringProperty(value.apply(data.getValue())));
         return column;
@@ -554,7 +600,8 @@ public final class ReleaseDialogSupport {
 
     private static TableColumn<ReleaseMaterialRow, String> actualQuantityColumn(boolean canEdit) {
         TableColumn<ReleaseMaterialRow, String> column = new TableColumn<>("Факт");
-        column.setPrefWidth(90);
+        column.setPrefWidth(100);
+        column.setMinWidth(80);
         column.setCellFactory(
                 col ->
                         new TableCell<>() {

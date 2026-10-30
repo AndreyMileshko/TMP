@@ -416,10 +416,36 @@ class ReleasePhase7ViewModelTest {
         assertFalse(materials.isEmpty());
         ReleaseMaterialRow material = materials.getFirst();
         assertFalse(material.plannedQuantity().isBlank());
+        assertEquals("MAT-001", material.materialCode());
+        assertEquals(MAT, material.materialReferenceId());
+        assertEquals(ORDER_A, material.sourceOrderId());
+        String plannedBeforeEdit = material.plannedQuantity();
         material.setActualQuantity("9");
         assertEquals("9", material.actualQuantity());
+        assertEquals(plannedBeforeEdit, material.plannedQuantity());
+        assertEquals("MAT-001", material.materialCode());
+        assertEquals(MAT, material.materialReferenceId());
         Optional<String> validation = ReleaseDialogSupport.validatePlanFact(materials);
         assertTrue(validation.isEmpty());
+    }
+
+    @Test
+    void prepareReleaseMaterialRowsKeepsArticlePerOrderAndMaterial() {
+        seedOrders();
+        viewModel.loadTree();
+        viewModel.setItemSelected(new ProductionOrderItemRef(ORDER_A, ITEM_A1), true);
+        viewModel.setItemSelected(new ProductionOrderItemRef(ORDER_B, ITEM_B2), true);
+        var quantityRows = viewModel.loadReleaseStep1().rows();
+        List<ReleaseMaterialRow> materials = viewModel.prepareReleaseMaterialRows(quantityRows);
+        assertEquals(2, materials.size());
+        assertEquals(ORDER_A, materials.get(0).sourceOrderId());
+        assertEquals(ORDER_B, materials.get(1).sourceOrderId());
+        assertEquals(ITEM_A1, materials.get(0).sourceOrderItemId());
+        assertEquals(ITEM_B2, materials.get(1).sourceOrderItemId());
+        assertEquals("MAT-001", materials.get(0).materialCode());
+        assertEquals("MAT-001", materials.get(1).materialCode());
+        assertEquals(MAT, materials.get(0).materialReferenceId());
+        assertEquals(MAT, materials.get(1).materialReferenceId());
     }
 
     @Test
