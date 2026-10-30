@@ -439,6 +439,7 @@ class WarehouseWorkspaceViewModelTest {
                         "B-02",
                         UUID.randomUUID(),
                         "TR-77",
+                        List.of(),
                         UUID.randomUUID(),
                         "Иванов",
                         null);
@@ -456,6 +457,7 @@ class WarehouseWorkspaceViewModelTest {
         assertEquals("-3", row.quantityText());
         assertEquals("MAIN / A-01", row.sourceText());
         assertEquals("PROD / B-02", row.destinationText());
+        assertEquals("TR-77", row.originText());
         assertEquals("TR-77", row.documentText());
         assertEquals("Иванов", row.actorText());
         assertFalse(row.hasComment());
@@ -488,6 +490,7 @@ class WarehouseWorkspaceViewModelTest {
                         null,
                         null,
                         null,
+                        List.of(),
                         null,
                         null,
                         "Исправление остатка после пересчёта");
@@ -2914,6 +2917,7 @@ class WarehouseWorkspaceViewModelTest {
                 null,
                 null,
                 null,
+                List.of(),
                 null,
                 null,
                 null);

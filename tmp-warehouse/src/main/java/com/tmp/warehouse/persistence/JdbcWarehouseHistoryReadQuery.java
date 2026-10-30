@@ -276,6 +276,9 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                            send_alloc.document_id, recv_item.document_id, ret_item.document_id
                          )::text
                        ))::uuid AS document_id,
+                       (MIN(wo.origin_document_id::text))::uuid AS origin_document_id,
+                       MIN(wo.origin_document_number) AS origin_document_number,
+                       MIN(wo.origin_order_numbers) AS origin_order_numbers,
                        (MIN(wo.actor_user_id::text))::uuid AS actor_user_id,
                        MIN(wo.actor_login) AS actor_login,
                        MIN(wo.comment_text) AS comment_text
@@ -486,6 +489,9 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                 (UUID) rs.getObject("destination_cell_id"),
                 rs.getString("destination_cell_code"),
                 (UUID) rs.getObject("document_id"),
+                (UUID) rs.getObject("origin_document_id"),
+                rs.getString("origin_document_number"),
+                HistoryRow.decodeOriginOrderNumbers(rs.getString("origin_order_numbers")),
                 (UUID) rs.getObject("actor_user_id"),
                 rs.getString("actor_login"),
                 rs.getString("comment_text"));

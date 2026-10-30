@@ -55,10 +55,12 @@ class WarehouseWorkspaceHistoryJitterFxTest {
                                     "Ед.",
                                     "Откуда",
                                     "Куда",
+                                    "Основание",
                                     "Пользователь"),
                             headers);
                     assertFalse(headers.contains("Документ"));
                     assertFalse(headers.contains("Материал"));
+                    assertTrue(headers.contains("Основание"));
                     assertEquals(
                             TableView.UNCONSTRAINED_RESIZE_POLICY,
                             historyTable.getColumnResizePolicy());

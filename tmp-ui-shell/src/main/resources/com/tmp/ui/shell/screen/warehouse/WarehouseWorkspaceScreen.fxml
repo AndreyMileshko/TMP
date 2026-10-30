@@ -78,9 +78,10 @@
                         <TableColumn fx:id="historySizeColumn" text="Размер" prefWidth="90" minWidth="80"/>
                         <TableColumn fx:id="historyQuantityColumn" text="Кол-во" prefWidth="90" minWidth="85"/>
                         <TableColumn fx:id="historyUnitColumn" text="Ед." prefWidth="60" minWidth="55"/>
-                        <TableColumn fx:id="historySourceColumn" text="Откуда" prefWidth="180" minWidth="160"/>
-                        <TableColumn fx:id="historyDestinationColumn" text="Куда" prefWidth="180" minWidth="160"/>
-                        <TableColumn fx:id="historyActorColumn" text="Пользователь" prefWidth="120" minWidth="100"/>
+                        <TableColumn fx:id="historySourceColumn" text="Откуда" prefWidth="160" minWidth="140"/>
+                        <TableColumn fx:id="historyDestinationColumn" text="Куда" prefWidth="160" minWidth="140"/>
+                        <TableColumn fx:id="historyOriginColumn" text="Основание" prefWidth="220" minWidth="160"/>
+                        <TableColumn fx:id="historyActorColumn" text="Пользователь" prefWidth="110" minWidth="90"/>
                     </columns>
                 </TableView>
                 <Label fx:id="historyLoadingLabel" text="Загрузка..." styleClass="tmp-text-muted"

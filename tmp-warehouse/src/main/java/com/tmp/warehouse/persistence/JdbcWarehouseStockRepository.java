@@ -214,8 +214,10 @@ public final class JdbcWarehouseStockRepository {
                 INSERT INTO warehouse.warehouse_operations (
                     id, operation_type, status, warehouse_id, storage_cell_id, material_reference_id,
                     quantity, stock_state, version, created_at, updated_at,
-                    actor_user_id, actor_login, comment_text)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    actor_user_id, actor_login, comment_text,
+                    origin_document_type, origin_document_id, origin_document_number,
+                    origin_order_numbers)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 row.id().value(),
                 row.operationType().name(),
@@ -230,7 +232,11 @@ public final class JdbcWarehouseStockRepository {
                 Timestamp.from(row.updatedAt()),
                 row.actorUserId(),
                 row.actorLogin(),
-                row.commentText());
+                row.commentText(),
+                row.originDocumentType(),
+                row.originDocumentId(),
+                row.originDocumentNumber(),
+                row.originOrderNumbers());
         return row;
     }
 
@@ -285,6 +291,8 @@ public final class JdbcWarehouseStockRepository {
                 SELECT wo.id, wo.operation_type, wo.status, wo.warehouse_id, wo.storage_cell_id,
                        wo.quantity, wo.stock_state, wo.version, wo.created_at, wo.updated_at,
                        wo.actor_user_id, wo.actor_login, wo.comment_text,
+                       wo.origin_document_type, wo.origin_document_id, wo.origin_document_number,
+                       wo.origin_order_numbers,
                        mr.id AS material_id, mr.article, mr.name, mr.color, mr.size,
                        mr.unit_of_measure
                 FROM warehouse.warehouse_operations wo
@@ -334,6 +342,10 @@ public final class JdbcWarehouseStockRepository {
                 rs.getTimestamp("updated_at").toInstant(),
                 rs.getObject("actor_user_id", UUID.class),
                 rs.getString("actor_login"),
-                rs.getString("comment_text"));
+                rs.getString("comment_text"),
+                rs.getString("origin_document_type"),
+                rs.getObject("origin_document_id", UUID.class),
+                rs.getString("origin_document_number"),
+                rs.getString("origin_order_numbers"));
     }
 }

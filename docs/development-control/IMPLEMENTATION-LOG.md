@@ -1,4 +1,28 @@
-﻿## Pilot — Material Request Draft Lifecycle & UI FIX — 2026-10-29
+﻿## P1-4 — Durable Warehouse Consumption Traceability — 2026-10-30
+
+**Date:** 2026-10-30
+**Base HEAD:** `ccdea1454493e59d1c5ead4f518955d64752b19c`
+**Status:** CODE DONE — focused tests PASS; package pre-integration-test PASS; pilot/stage DBs untouched; Flyway V55 created but NOT applied to pilot/stage; no commit / no push
+
+### Implemented (Variant A)
+
+- Warehouse public `ConsumptionOrigin` + optional origin on `ConsumptionCommand`
+- Persist origin on `warehouse.warehouse_operations` (Flyway V55); History projects order + release
+- Production Release DRAFT id/number available before consume; stamps origin in same ADR-036 TX
+- Customer order number from OM Public Query (`CustomerOrderNumberQueryPort`); single-order per release call
+- UI Склад → История column «Основание» (`Заказ N · Выпуск PRODUCTION-RELEASE-…`)
+
+### Multi-order note
+
+Release API is single-order; multi-order UI loops `releaseProducts` per order — no shared multi-order consumption, no first-order inventing.
+
+### Out of scope
+
+- Pilot/stage migration or business ops; commit/push; RETURN direction UI fix
+
+---
+
+## Pilot — Material Request Draft Lifecycle & UI FIX — 2026-10-29
 
 **Date:** 2026-10-29
 **Base HEAD:** `689e4a8fd073e87d21b1e179443a7a7c526cd122`

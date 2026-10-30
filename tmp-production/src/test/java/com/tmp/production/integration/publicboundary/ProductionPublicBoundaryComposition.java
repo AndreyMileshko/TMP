@@ -27,6 +27,7 @@ import com.tmp.production.application.document.ProductionLaunchProcessor;
 import com.tmp.production.application.document.ProductionReleaseProcessor;
 import com.tmp.production.application.internal.ProductionCancellationDocumentService;
 import com.tmp.production.application.internal.ProductionReleaseDocumentService;
+import com.tmp.production.application.port.DefaultCustomerOrderNumberQueryAdapter;
 import com.tmp.production.application.port.DefaultOrderForProductionQueryAdapter;
 import com.tmp.production.application.port.DefaultOrderSpecificationQueryAdapter;
 import com.tmp.production.application.port.DefaultWarehouseAvailabilityQueryAdapter;
@@ -227,6 +228,7 @@ final class ProductionPublicBoundaryComposition {
                         warehouseQueryApi,
                         destination,
                         releaseDocumentService,
+                        new DefaultCustomerOrderNumberQueryAdapter(orderQueryService),
                         txManager,
                         clock);
         ProductionCancellationDocumentService cancellationDocumentService =

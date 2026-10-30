@@ -3,6 +3,7 @@ package com.tmp.warehouse.application;
 import com.tmp.security.api.AuthenticationService;
 import com.tmp.warehouse.domain.InvalidWarehouseStateException;
 import com.tmp.warehouse.domain.MaterialReference;
+import com.tmp.warehouse.domain.OperationOrigin;
 import com.tmp.warehouse.domain.StockPosition;
 import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StockState;
@@ -86,6 +87,21 @@ public final class WarehouseOperationEngine {
             StockState stockState,
             StockQuantity quantity,
             String commentText) {
+        return create(type, material, warehouseId, storageCellId, stockState, quantity, commentText, null);
+    }
+
+    /**
+     * Creates a DRAFT warehouse operation with optional comment and opaque origin metadata.
+     */
+    public WarehouseOperation create(
+            WarehouseOperationType type,
+            MaterialReference material,
+            WarehouseId warehouseId,
+            StorageCellId storageCellId,
+            StockState stockState,
+            StockQuantity quantity,
+            String commentText,
+            OperationOrigin origin) {
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(material, "material");
         Objects.requireNonNull(warehouseId, "warehouseId");
@@ -102,7 +118,8 @@ public final class WarehouseOperationEngine {
                                         storageCellId,
                                         stockState,
                                         quantity)
-                                .withComment(commentText));
+                                .withComment(commentText)
+                                .withOrigin(origin));
         return operations.create(draft);
     }
 

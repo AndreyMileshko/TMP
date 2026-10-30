@@ -520,6 +520,7 @@ class ProductionDomainEventsPostgresIT {
                 warehouseApi,
                 new ProductionDestinationWarehouse(PROD),
                 documentService,
+                orderId -> java.util.Optional.of("26106082"),
                 txManager,
                 CLOCK);
     }

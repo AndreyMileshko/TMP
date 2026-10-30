@@ -27,6 +27,8 @@ import com.tmp.production.application.document.ProductionLaunchProcessor;
 import com.tmp.production.application.document.ProductionReleaseProcessor;
 import com.tmp.production.application.internal.ProductionCancellationDocumentService;
 import com.tmp.production.application.internal.ProductionReleaseDocumentService;
+import com.tmp.production.application.port.CustomerOrderNumberQueryPort;
+import com.tmp.production.application.port.DefaultCustomerOrderNumberQueryAdapter;
 import com.tmp.production.application.port.DefaultOrderForProductionQueryAdapter;
 import com.tmp.production.application.port.DefaultOrderSpecificationQueryAdapter;
 import com.tmp.production.application.port.DefaultWarehouseAvailabilityQueryAdapter;
@@ -162,6 +164,11 @@ public class ProductionAutoConfiguration {
     @Bean
     OrderForProductionQueryPort orderForProductionQueryPort(OrderQueryService orderQueryService) {
         return new DefaultOrderForProductionQueryAdapter(orderQueryService);
+    }
+
+    @Bean
+    CustomerOrderNumberQueryPort customerOrderNumberQueryPort(OrderQueryService orderQueryService) {
+        return new DefaultCustomerOrderNumberQueryAdapter(orderQueryService);
     }
 
     @Bean
@@ -339,6 +346,7 @@ public class ProductionAutoConfiguration {
             ProductionDestinationWarehouse destinationWarehouse,
             DocumentEngine documentEngine,
             ProductionReleaseRepository releaseRepository,
+            CustomerOrderNumberQueryPort customerOrderNumberQueryPort,
             PlatformTransactionManager transactionManager,
             Clock clock) {
         ProductionReleaseDocumentService releaseDocumentService =
@@ -351,6 +359,7 @@ public class ProductionAutoConfiguration {
                 warehouseQueryApi,
                 destinationWarehouse,
                 releaseDocumentService,
+                customerOrderNumberQueryPort,
                 transactionManager,
                 clock);
     }

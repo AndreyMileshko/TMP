@@ -10,8 +10,10 @@ import com.tmp.production.application.ReleaseProductsResult.ConsumptionReference
 import com.tmp.production.application.ReleaseProductsResult.ItemResult;
 import com.tmp.production.application.ReleaseProductsResult.MaterialResult;
 import com.tmp.production.application.ReleaseProductsResult.PrepareReleasePreview;
+import com.tmp.production.application.document.ProductionReleaseProcessor;
 import com.tmp.production.application.internal.ProductionReleaseDocumentService;
 import com.tmp.production.application.internal.ProductionReleaseDocumentService.ProductionReleaseDocumentCommand;
+import com.tmp.production.application.port.CustomerOrderNumberQueryPort;
 import com.tmp.production.application.port.OrderSpecificationQueryPort.ResolvedMaterialLine;
 import com.tmp.production.application.port.WarehouseAvailabilityQueryPort;
 import com.tmp.production.application.port.WarehouseAvailabilityQueryPort.MaterialReferenceEntry;
@@ -26,6 +28,7 @@ import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import com.tmp.warehouse.api.WarehouseApi.ConsumptionCommand;
+import com.tmp.warehouse.api.WarehouseApi.ConsumptionOrigin;
 import com.tmp.warehouse.api.WarehouseApi.StockStateView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.OperationKind;
@@ -67,6 +70,7 @@ public final class ReleaseProductsService {
     private final WarehouseQueryApi warehouseQueryApi;
     private final ProductionDestinationWarehouse destinationWarehouse;
     private final ProductionReleaseDocumentService releaseDocumentService;
+    private final CustomerOrderNumberQueryPort customerOrderNumberQuery;
     private final ProductionOrderStateLockService stateLockService;
     private final ReleaseMaterialPlanBuilder planBuilder;
     private final OrderProductionViewCalculator viewCalculator;
@@ -81,6 +85,7 @@ public final class ReleaseProductsService {
             WarehouseQueryApi warehouseQueryApi,
             ProductionDestinationWarehouse destinationWarehouse,
             ProductionReleaseDocumentService releaseDocumentService,
+            CustomerOrderNumberQueryPort customerOrderNumberQuery,
             PlatformTransactionManager transactionManager,
             Clock clock) {
         this(
@@ -90,6 +95,7 @@ public final class ReleaseProductsService {
                 warehouseQueryApi,
                 destinationWarehouse,
                 releaseDocumentService,
+                customerOrderNumberQuery,
                 new ProductionOrderStateLockService(orderViewService),
                 new ReleaseMaterialPlanBuilder(),
                 new OrderProductionViewCalculator(),
@@ -104,6 +110,7 @@ public final class ReleaseProductsService {
             WarehouseQueryApi warehouseQueryApi,
             ProductionDestinationWarehouse destinationWarehouse,
             ProductionReleaseDocumentService releaseDocumentService,
+            CustomerOrderNumberQueryPort customerOrderNumberQuery,
             ProductionOrderStateLockService stateLockService,
             ReleaseMaterialPlanBuilder planBuilder,
             OrderProductionViewCalculator viewCalculator,
@@ -119,6 +126,8 @@ public final class ReleaseProductsService {
                 Objects.requireNonNull(destinationWarehouse, "destinationWarehouse");
         this.releaseDocumentService =
                 Objects.requireNonNull(releaseDocumentService, "releaseDocumentService");
+        this.customerOrderNumberQuery =
+                Objects.requireNonNull(customerOrderNumberQuery, "customerOrderNumberQuery");
         this.stateLockService = Objects.requireNonNull(stateLockService, "stateLockService");
         this.planBuilder = Objects.requireNonNull(planBuilder, "planBuilder");
         this.viewCalculator = Objects.requireNonNull(viewCalculator, "viewCalculator");
@@ -192,6 +201,7 @@ public final class ReleaseProductsService {
         DocumentMetadata draft =
                 releaseDocumentService.createDraft(
                         toDocumentCommand(command.sourceOrderId(), releasedAt, prepared));
+        ConsumptionOrigin consumptionOrigin = consumptionOriginFor(draft, command.sourceOrderId());
 
         List<ConsumptionReference> consumptionReferences = new ArrayList<>();
         UUID productionWarehouseId = destinationWarehouse.productionWarehouseId();
@@ -206,7 +216,8 @@ public final class ReleaseProductsService {
                                         usage.materialReferenceId(),
                                         allocation.quantity(),
                                         productionWarehouseId,
-                                        allocation.storageCellId()));
+                                        allocation.storageCellId(),
+                                        consumptionOrigin));
                 validateConsumptionResult(
                         usage.materialReferenceId(),
                         productionWarehouseId,
@@ -562,6 +573,28 @@ public final class ReleaseProductsService {
         }
         // OperationResult.quantity for CONSUMPTION is the post-operation stock level (Warehouse
         // public contract); confirmed consumption amount is allocation.quantity() from the command.
+    }
+
+    /**
+     * Builds opaque Warehouse origin metadata for this Release. One Production Release always
+     * belongs to exactly one customer order ({@code sourceOrderId}); multi-order UI workflows call
+     * {@link #releaseProducts} once per order, so consumption attribution never invents a first
+     * order from a multi-order set.
+     */
+    private ConsumptionOrigin consumptionOriginFor(DocumentMetadata draft, UUID sourceOrderId) {
+        String orderNumber =
+                customerOrderNumberQuery
+                        .findOrderNumber(SourceOrderId.of(sourceOrderId))
+                        .orElseThrow(
+                                () ->
+                                        new ReleaseProductsException(
+                                                "Customer order number unavailable for release of order "
+                                                        + sourceOrderId));
+        return new ConsumptionOrigin(
+                ProductionReleaseProcessor.DOCUMENT_TYPE_ID,
+                draft.id(),
+                draft.documentNumber(),
+                List.of(orderNumber));
     }
 
     private ProductionReleaseDocumentCommand toDocumentCommand(

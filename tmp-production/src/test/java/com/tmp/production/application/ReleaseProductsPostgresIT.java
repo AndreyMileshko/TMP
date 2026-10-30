@@ -81,6 +81,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -432,6 +433,42 @@ class ReleaseProductsPostgresIT {
     }
 
     @Test
+    void releasePersistsDurableConsumptionOriginLinkedToReleaseAndOrderNumber() {
+        ReleaseScenario scenario = prepareScenario(bd(20));
+        ReleaseProductsService service = newService(warehouseApi, releaseDocumentService);
+
+        ReleaseProductsResult first =
+                service.releaseProducts(releaseCommand(scenario, bd("5.100000"), List.of()));
+        ReleaseProductsResult second =
+                service.releaseProducts(releaseCommand(scenario, 2, bd("3.400000"), List.of()));
+
+        assertEquals(2, countPostedReleases());
+        assertEquals(2, countConsumptionOperations());
+        assertTrue(!first.documentId().equals(second.documentId()));
+        assertOriginForRelease(first);
+        assertOriginForRelease(second);
+    }
+
+    private void assertOriginForRelease(ReleaseProductsResult result) {
+        DocumentMetadata metadata = documentEngine.findById(result.documentId()).orElseThrow();
+        for (var ref : result.consumptionReferences()) {
+            Map<String, Object> row =
+                    jdbc.queryForMap(
+                            """
+                            SELECT origin_document_type, origin_document_id, origin_document_number,
+                                   origin_order_numbers
+                            FROM warehouse.warehouse_operations
+                            WHERE id = ?
+                            """,
+                            ref.operationId());
+            assertEquals("production.release", row.get("origin_document_type"));
+            assertEquals(result.documentId(), row.get("origin_document_id"));
+            assertEquals(metadata.documentNumber(), row.get("origin_document_number"));
+            assertEquals("[\"26106082\"]", row.get("origin_order_numbers"));
+        }
+    }
+
+    @Test
     void automaticMultiCellAllocationConsumesDeterministicallyAndRecordsHistory() {
         ReleaseScenario scenario = prepareScenario(bd(4));
         StorageCellId cellB =
@@ -524,6 +561,7 @@ class ReleaseProductsPostgresIT {
 
         assertEquals(0, countPostedReleases());
         assertEquals(0, countConsumptionOperations());
+        assertEquals(0, countOperationsWithOrigin());
         assertEquals(
                 0, availableProductionStock(scenario.material()).compareTo(stockBefore));
         assertEquals(
@@ -640,6 +678,7 @@ class ReleaseProductsPostgresIT {
                 warehouseApi,
                 new ProductionDestinationWarehouse(PROD),
                 documentService,
+                orderId -> Optional.of("26106082"),
                 txManager,
                 CLOCK);
     }
@@ -785,6 +824,17 @@ class ReleaseProductsPostgresIT {
                         """
                         SELECT COUNT(*) FROM warehouse.warehouse_movements
                         WHERE operation_type = 'CONSUMPTION'
+                        """,
+                        Integer.class);
+        return count == null ? 0 : count;
+    }
+
+    private int countOperationsWithOrigin() {
+        Integer count =
+                jdbc.queryForObject(
+                        """
+                        SELECT COUNT(*) FROM warehouse.warehouse_operations
+                        WHERE origin_document_id IS NOT NULL
                         """,
                         Integer.class);
         return count == null ? 0 : count;

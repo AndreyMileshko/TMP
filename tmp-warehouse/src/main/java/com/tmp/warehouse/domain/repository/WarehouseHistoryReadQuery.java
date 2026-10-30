@@ -1,5 +1,6 @@
 package com.tmp.warehouse.domain.repository;
 
+import com.tmp.warehouse.domain.OperationOriginOrderNumbersCodec;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Collection;
@@ -51,6 +52,9 @@ public interface WarehouseHistoryReadQuery {
             UUID destinationCellId,
             String destinationCellCode,
             UUID documentId,
+            UUID originDocumentId,
+            String originDocumentNumber,
+            List<String> originOrderNumbers,
             UUID actorUserId,
             String actorLogin,
             String commentText) {
@@ -66,8 +70,17 @@ public interface WarehouseHistoryReadQuery {
             Objects.requireNonNull(quantity, "quantity");
             materialColor = materialColor == null ? "" : materialColor;
             materialSize = materialSize == null ? "" : materialSize;
+            originOrderNumbers =
+                    originOrderNumbers == null ? List.of() : List.copyOf(originOrderNumbers);
             commentText =
                     commentText == null || commentText.isBlank() ? null : commentText.trim();
+        }
+
+        public static List<String> decodeOriginOrderNumbers(String encoded) {
+            if (encoded == null || encoded.isBlank()) {
+                return List.of();
+            }
+            return OperationOriginOrderNumbersCodec.decode(encoded);
         }
     }
 }

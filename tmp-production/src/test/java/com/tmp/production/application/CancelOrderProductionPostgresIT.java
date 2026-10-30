@@ -538,6 +538,7 @@ class CancelOrderProductionPostgresIT {
                 warehouseApi,
                 new ProductionDestinationWarehouse(PROD),
                 releaseDocumentService,
+                orderId -> java.util.Optional.of("26106082"),
                 txManager,
                 CLOCK);
     }

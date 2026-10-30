@@ -128,6 +128,7 @@ class ReleaseProductsServiceTest {
                         warehouseQueries,
                         new ProductionDestinationWarehouse(PROD),
                         releaseDocumentService,
+                        orderId -> java.util.Optional.of("26106082"),
                         new PassthroughTransactionManager(),
                         Clock.fixed(T0, ZoneOffset.UTC));
     }

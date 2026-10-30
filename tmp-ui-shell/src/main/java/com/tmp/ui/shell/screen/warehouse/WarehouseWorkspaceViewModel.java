@@ -204,6 +204,7 @@ public final class WarehouseWorkspaceViewModel {
         private final String quantityText;
         private final String sourceText;
         private final String destinationText;
+        private final String originText;
         private final String documentText;
         private final String actorText;
         private final String commentText;
@@ -220,6 +221,7 @@ public final class WarehouseWorkspaceViewModel {
                 String quantityText,
                 String sourceText,
                 String destinationText,
+                String originText,
                 String documentText,
                 String actorText,
                 String commentText) {
@@ -234,6 +236,7 @@ public final class WarehouseWorkspaceViewModel {
             this.quantityText = quantityText;
             this.sourceText = sourceText;
             this.destinationText = destinationText;
+            this.originText = originText;
             this.documentText = documentText;
             this.actorText = actorText;
             this.commentText = commentText == null || commentText.isBlank() ? null : commentText.trim();
@@ -258,9 +261,33 @@ public final class WarehouseWorkspaceViewModel {
                             view.destinationWarehouseName(),
                             view.destinationCellCode(),
                             allWarehousesMode),
+                    formatHistoryOrigin(view),
                     blankDash(view.documentNumber()),
                     blankDash(view.actorDisplayName()),
                     view.comment());
+        }
+
+        /**
+         * Formats the History «Основание» column. Production Release consumption shows order +
+         * release number; other operations show an existing document number when present.
+         */
+        static String formatHistoryOrigin(WarehouseHistoryEntryView view) {
+            Objects.requireNonNull(view, "view");
+            List<String> orderNumbers = view.originOrderNumbers();
+            String documentNumber = view.documentNumber();
+            boolean hasDocument =
+                    documentNumber != null && !documentNumber.isBlank();
+            if (orderNumbers != null && !orderNumbers.isEmpty() && hasDocument) {
+                String orderPart =
+                        orderNumbers.size() == 1
+                                ? "Заказ " + orderNumbers.getFirst()
+                                : "Заказы " + String.join(", ", orderNumbers);
+                return orderPart + " · Выпуск " + documentNumber.trim();
+            }
+            if (hasDocument) {
+                return documentNumber.trim();
+            }
+            return "—";
         }
 
         public UUID entryId() {
@@ -305,6 +332,10 @@ public final class WarehouseWorkspaceViewModel {
 
         public String destinationText() {
             return destinationText;
+        }
+
+        public String originText() {
+            return originText;
         }
 
         public String documentText() {

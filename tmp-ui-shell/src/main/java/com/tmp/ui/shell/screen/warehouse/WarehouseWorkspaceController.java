@@ -243,6 +243,9 @@ public final class WarehouseWorkspaceController
     private TableColumn<HistoryRow, String> historyDestinationColumn;
 
     @FXML
+    private TableColumn<HistoryRow, String> historyOriginColumn;
+
+    @FXML
     private TableColumn<HistoryRow, String> historyActorColumn;
 
     @FXML
@@ -1430,6 +1433,11 @@ public final class WarehouseWorkspaceController
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
                                 cell.getValue().destinationText()));
+        historyOriginColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().originText()));
+        historyOriginColumn.setCellFactory(column -> originHistoryTextCell());
         historyActorColumn.setCellValueFactory(
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
@@ -1507,9 +1515,10 @@ public final class WarehouseWorkspaceController
                                     + historyUnitColumn.getPrefWidth()
                                     + historySourceColumn.getPrefWidth()
                                     + historyDestinationColumn.getPrefWidth()
+                                    + historyOriginColumn.getPrefWidth()
                                     + historyActorColumn.getPrefWidth();
                     if (fixed <= 0) {
-                        fixed = 135 + 110 + 135 + 130 + 90 + 90 + 60 + 180 + 180 + 120;
+                        fixed = 135 + 110 + 135 + 130 + 90 + 90 + 60 + 160 + 160 + 220 + 110;
                     }
                     double nameWidth = Math.max(180, tableWidth - fixed - verticalScrollGutter);
                     historyNameColumn.setPrefWidth(nameWidth);
@@ -1601,6 +1610,26 @@ public final class WarehouseWorkspaceController
 
     private static TableCell<HistoryRow, String> centerAlignedHistoryTextCell() {
         return alignedHistoryTextCell(Pos.CENTER);
+    }
+
+    private static TableCell<HistoryRow, String> originHistoryTextCell() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setTooltip(null);
+                    return;
+                }
+                setText(item);
+                if (item.length() > 28 && !"—".equals(item)) {
+                    setTooltip(new Tooltip(item));
+                } else {
+                    setTooltip(null);
+                }
+            }
+        };
     }
 
     private static TableCell<HistoryRow, String> alignedHistoryTextCell(Pos alignment) {

@@ -1,6 +1,7 @@
 package com.tmp.warehouse.application;
 
 import com.tmp.warehouse.domain.InvalidWarehouseStateException;
+import com.tmp.warehouse.domain.OperationOrigin;
 import com.tmp.warehouse.domain.StockPosition;
 import com.tmp.warehouse.domain.StockQuantity;
 import com.tmp.warehouse.domain.StockState;
@@ -44,6 +45,7 @@ public final class WarehouseConsumptionService {
         StockQuantity targetQuantity =
                 StockQuantity.of(
                         existing.quantity().value().subtract(request.quantity().value()));
+        OperationOrigin origin = request.originOptional().orElse(null);
         WarehouseOperation draft =
                 operationEngine.create(
                         WarehouseOperationType.CONSUMPTION,
@@ -51,7 +53,9 @@ public final class WarehouseConsumptionService {
                         request.warehouseId(),
                         request.storageCellId(),
                         StockState.AVAILABLE,
-                        targetQuantity);
+                        targetQuantity,
+                        null,
+                        origin);
         return operationEngine.execute(draft.id());
     }
 

@@ -814,14 +814,16 @@ single ACID transaction
                 └── Production state changes
 ```
 
-Последовательность внутри одной транзакции:
+Последовательность внутри одной транзакции (P1-4 durable consumption origin):
 
-1. создаётся Warehouse-owned Consumption document;
-2. заполняются фактические количества;
-3. проводится Warehouse Consumption через Warehouse-owned Application/Document command;
-4. проводится Production Release через Production-owned document command;
-5. при любой ошибке любого участника откатывается вся транзакция;
+1. создаётся Production Release DRAFT (Document Engine assigns document UUID + number);
+2. Production resolves the customer order number via OM Public Query and builds opaque `ConsumptionOrigin` (document type `production.release`, draft id/number, order number list);
+3. проводится Warehouse Consumption через Warehouse public `consume` with that origin metadata (persisted on the Warehouse operation; informational only);
+4. проводится Production Release POST (same document id) через Production-owned document command;
+5. при любой ошибке любого участника откатывается вся транзакция (включая origin metadata);
 6. Domain Events публикуются только after-commit общего успешного commit.
+
+One Release call always belongs to one `sourceOrderId`. Multi-order UI workflows invoke `releaseProducts` per order; Warehouse must never invent cross-order attribution.
 
 Оба документа проводятся в одной транзакции. Production **не** становится владельцем Warehouse Consumption и **не** пишет в таблицы Warehouse. Warehouse command применяет только Warehouse business rules. Production command применяет только Production business rules. Application orchestration задаёт atomic application boundary, но не присваивает себе ownership данных другой Capability.
 
@@ -971,6 +973,7 @@ Order Management — владелец Order / Order Item / Revision / Specificat
 | 2.5 | §16: partial cancellation preserves RELEASED facts; Orders UI operational status «Частично выполнен» is a presentation/read-model, not a Production enum. |
 | 2.6 | Stage 3.5.0 Warehouse boundary alignment (ADR-037): TARGET Material Requirement → Warehouse routing; CURRENT IMPLEMENTATION (fixed mainWarehouse + recommendation formula + Production template) явно отделён; dual quantity / supply-warehouse choice superseded for target; plan/fact Release unchanged. |
 | 2.7 | §15.1.1 B3-MA-FIX2: `lineQuantity` = material norm **per one product**; plan/readiness = `Q × R` (cumulative); full close at `Q × N`; aligns Release/Readiness with Material Requirement per-product scaling. |
+| 2.8 | P1-4: §21 Release orchestration stamps Warehouse Consumption origin (Release draft id/number + customer order number via OM Public Query) before consume; same outer ACID TX; single-order attribution per release call. |
 
 ---
 

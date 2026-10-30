@@ -331,13 +331,22 @@ Transfer Document
 Production определяет:
 
 - что списывать;
-- сколько списывать (**фактическое** количество из Production Release plan/fact).
+- сколько списывать (**фактическое** количество из Production Release plan/fact);
+- opaque origin metadata for Production-triggered consumption (P1-4): source document type/id/number and attributed customer order number(s).
 
-Warehouse выполняет операцию и фиксирует результат в `Warehouse Movement`.
+Warehouse выполняет операцию и фиксирует результат в `Warehouse Movement`. Optional origin metadata is persisted on the Warehouse operation at consume time (same ACID transaction as stock mutation) and projected in History «Основание». Warehouse does **not** validate the referenced Production document, does **not** look up Order Management, and does **not** use origin for stock accounting or authorization.
+
+Attribution rules:
+
+- Production Release API is single-order (`sourceOrderId`); multi-order UI workflows call release once per order, so each consumption is attributed to exactly that order’s number.
+- Shared multi-order consumption is not produced by current architecture; if it ever is, origin must list **all** contributing order numbers — never an arbitrary first order.
+- Legacy CONSUMPTION rows without origin remain valid; History shows «—».
 
 Списание материалов для выпуска изделий допускается только со склада производства.
 
 Отрицательные остатки запрещены. При недостатке материала операция Consumption не проводится.
+
+Persistence (Flyway V55): nullable `origin_document_type`, `origin_document_id`, `origin_document_number`, `origin_order_numbers` (JSON array TEXT) on `warehouse.warehouse_operations`. No cross-module FK.
 
 ---
 
@@ -653,3 +662,4 @@ Warehouse выполняет только складскую часть опер
 | 1.15 | B3B-3C3 / ADR-038 amendment: Warehouse Tasks UI wires Supply Task — take-in-work → «Подготовить перемещение»; waiting-line table; prepare result messages; no new screen / Production receipt / Retry UX / migration. |
 | 1.16 | B3B-3C4 / ADR-038 amendment: focused dead-code cleanup + full regression; §15.2 marked historical vs B3 Demand SoT; B3 implementation complete; manual acceptance PENDING. |
 | 1.17 | B3-MA-FIX1: Transfer read model resolves MaterialReference article/name/UoM (never UUID as article); Warehouse Tasks order column via Demand/Demand-link composition (cross-order compose); UI action «Создать перемещение» + result messages; no migration. |
+| 1.18 | P1-4: durable opaque Consumption origin on Warehouse operations (V55); History «Основание»; Production supplies order number(s) + Release identity via public consume API; no cross-module FK; legacy rows show «—». |

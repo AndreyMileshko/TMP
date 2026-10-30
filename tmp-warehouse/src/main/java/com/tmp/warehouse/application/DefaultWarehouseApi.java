@@ -7,6 +7,7 @@ import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
 import com.tmp.warehouse.api.WarehouseApi;
+import com.tmp.warehouse.api.WarehouseApi.ConsumptionOrigin;
 import com.tmp.warehouse.api.WarehouseApi.CreateStorageCellCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
@@ -36,6 +37,7 @@ import com.tmp.warehouse.domain.InvalidWarehouseStateException;
 import com.tmp.warehouse.domain.MaterialReservationLink;
 import com.tmp.warehouse.domain.MaterialReference;
 import com.tmp.warehouse.domain.MaterialReferenceId;
+import com.tmp.warehouse.domain.OperationOrigin;
 import com.tmp.warehouse.domain.ReservationTargetReference;
 import com.tmp.warehouse.domain.ReservationTargetType;
 import com.tmp.warehouse.domain.StockPosition;
@@ -1094,7 +1096,8 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                                 requireMaterial(command.materialReferenceId()),
                                 StockQuantity.of(command.quantity()),
                                 WarehouseId.of(command.warehouseId()),
-                                StorageCellId.of(command.storageCellId())));
+                                StorageCellId.of(command.storageCellId()),
+                                toOperationOrigin(command.origin())));
         return toOperationResult(OperationKind.CONSUMPTION, completed);
     }
 
@@ -1607,8 +1610,13 @@ public final class DefaultWarehouseApi implements WarehouseApi {
 
     private WarehouseHistoryEntryView toHistoryEntryView(
             WarehouseHistoryReadQuery.HistoryRow row, Map<UUID, String> documentNumbers) {
+        String persistedOriginNumber = row.originDocumentNumber();
         String documentNumber =
-                row.documentId() == null ? null : documentNumbers.get(row.documentId());
+                persistedOriginNumber != null && !persistedOriginNumber.isBlank()
+                        ? persistedOriginNumber
+                        : row.documentId() == null ? null : documentNumbers.get(row.documentId());
+        UUID documentId =
+                row.originDocumentId() != null ? row.originDocumentId() : row.documentId();
         return new WarehouseHistoryEntryView(
                 row.entryId(),
                 row.occurredAt(),
@@ -1629,11 +1637,23 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 row.destinationWarehouseName(),
                 row.destinationCellId(),
                 row.destinationCellCode(),
-                row.documentId(),
+                documentId,
                 documentNumber,
+                row.originOrderNumbers(),
                 row.actorUserId(),
                 row.actorLogin(),
                 row.commentText());
+    }
+
+    private static OperationOrigin toOperationOrigin(ConsumptionOrigin origin) {
+        if (origin == null) {
+            return null;
+        }
+        return OperationOrigin.of(
+                origin.sourceDocumentType(),
+                origin.sourceDocumentId(),
+                origin.sourceDocumentNumber(),
+                origin.customerOrderNumbers());
     }
 
     private static String requireAdjustmentComment(ExecuteOperationCommand command) {

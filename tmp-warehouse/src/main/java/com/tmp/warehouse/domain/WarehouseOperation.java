@@ -27,6 +27,7 @@ public final class WarehouseOperation {
     private final UUID actorUserId;
     private final String actorLogin;
     private final String commentText;
+    private final OperationOrigin origin;
 
     private WarehouseOperation(
             WarehouseOperationId id,
@@ -40,7 +41,8 @@ public final class WarehouseOperation {
             long version,
             UUID actorUserId,
             String actorLogin,
-            String commentText) {
+            String commentText,
+            OperationOrigin origin) {
         this.id = id;
         this.type = type;
         this.status = status;
@@ -53,6 +55,7 @@ public final class WarehouseOperation {
         this.actorUserId = actorUserId;
         this.actorLogin = actorLogin;
         this.commentText = commentText;
+        this.origin = origin;
     }
 
     /**
@@ -168,6 +171,39 @@ public final class WarehouseOperation {
             UUID actorUserId,
             String actorLogin,
             String commentText) {
+        return rehydrate(
+                id,
+                type,
+                status,
+                material,
+                warehouseId,
+                storageCellId,
+                stockState,
+                quantity,
+                version,
+                actorUserId,
+                actorLogin,
+                commentText,
+                null);
+    }
+
+    /**
+     * Rehydrates a persisted operation including optional actor, comment and origin metadata.
+     */
+    public static WarehouseOperation rehydrate(
+            WarehouseOperationId id,
+            WarehouseOperationType type,
+            WarehouseOperationStatus status,
+            MaterialReference material,
+            WarehouseId warehouseId,
+            StorageCellId storageCellId,
+            StockState stockState,
+            StockQuantity quantity,
+            long version,
+            UUID actorUserId,
+            String actorLogin,
+            String commentText,
+            OperationOrigin origin) {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(status, "status");
@@ -191,7 +227,8 @@ public final class WarehouseOperation {
                 version,
                 actorUserId,
                 actorLogin,
-                normalizeOptionalComment(commentText));
+                normalizeOptionalComment(commentText),
+                origin);
     }
 
     /**
@@ -210,7 +247,8 @@ public final class WarehouseOperation {
                 version,
                 actorUserId,
                 actorLogin,
-                commentText);
+                commentText,
+                origin);
     }
 
     /**
@@ -229,7 +267,28 @@ public final class WarehouseOperation {
                 version,
                 actorUserId,
                 actorLogin,
-                normalizeOptionalComment(commentText));
+                normalizeOptionalComment(commentText),
+                origin);
+    }
+
+    /**
+     * Returns a copy with optional opaque origin metadata (null clears origin).
+     */
+    public WarehouseOperation withOrigin(OperationOrigin origin) {
+        return new WarehouseOperation(
+                id,
+                type,
+                status,
+                material,
+                warehouseId,
+                storageCellId,
+                stockState,
+                quantity,
+                version,
+                actorUserId,
+                actorLogin,
+                commentText,
+                origin);
     }
 
     /**
@@ -290,7 +349,8 @@ public final class WarehouseOperation {
                 version,
                 actorUserId,
                 actorLogin,
-                commentText);
+                commentText,
+                origin);
     }
 
     /**
@@ -310,7 +370,8 @@ public final class WarehouseOperation {
                 version,
                 actorUserId,
                 actorLogin,
-                commentText);
+                commentText,
+                origin);
     }
 
     private void requireMatchingPosition(StockPosition position) {
@@ -385,6 +446,10 @@ public final class WarehouseOperation {
 
     public Optional<String> commentText() {
         return Optional.ofNullable(commentText);
+    }
+
+    public Optional<OperationOrigin> origin() {
+        return Optional.ofNullable(origin);
     }
 
     @Override

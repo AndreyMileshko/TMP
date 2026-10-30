@@ -49,11 +49,65 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
         }
     }
 
+    /**
+     * Opaque origin of a Warehouse Consumption (informational metadata only).
+     *
+     * <p>Typically a Production Release document identity plus the customer order number(s)
+     * attributed by the caller. Warehouse persists and displays this data; it does not validate the
+     * referenced document and does not compute order attribution.
+     */
+    record ConsumptionOrigin(
+            String sourceDocumentType,
+            UUID sourceDocumentId,
+            String sourceDocumentNumber,
+            java.util.List<String> customerOrderNumbers) {
+
+        public ConsumptionOrigin {
+            java.util.Objects.requireNonNull(sourceDocumentType, "sourceDocumentType");
+            java.util.Objects.requireNonNull(sourceDocumentId, "sourceDocumentId");
+            java.util.Objects.requireNonNull(sourceDocumentNumber, "sourceDocumentNumber");
+            java.util.Objects.requireNonNull(customerOrderNumbers, "customerOrderNumbers");
+            sourceDocumentType = sourceDocumentType.trim();
+            sourceDocumentNumber = sourceDocumentNumber.trim();
+            if (sourceDocumentType.isEmpty()) {
+                throw new IllegalArgumentException("sourceDocumentType must not be blank");
+            }
+            if (sourceDocumentNumber.isEmpty()) {
+                throw new IllegalArgumentException("sourceDocumentNumber must not be blank");
+            }
+            if (customerOrderNumbers.isEmpty()) {
+                throw new IllegalArgumentException("customerOrderNumbers must not be empty");
+            }
+            java.util.ArrayList<String> normalized =
+                    new java.util.ArrayList<>(customerOrderNumbers.size());
+            for (String raw : customerOrderNumbers) {
+                if (raw == null || raw.isBlank()) {
+                    throw new IllegalArgumentException(
+                            "customerOrderNumbers entries must not be blank");
+                }
+                String trimmed = raw.trim();
+                if (!normalized.contains(trimmed)) {
+                    normalized.add(trimmed);
+                }
+            }
+            customerOrderNumbers = java.util.List.copyOf(normalized);
+        }
+    }
+
     record ConsumptionCommand(
             UUID materialReferenceId,
             java.math.BigDecimal quantity,
             UUID warehouseId,
-            UUID storageCellId) {
+            UUID storageCellId,
+            ConsumptionOrigin origin) {
+
+        public ConsumptionCommand(
+                UUID materialReferenceId,
+                java.math.BigDecimal quantity,
+                UUID warehouseId,
+                UUID storageCellId) {
+            this(materialReferenceId, quantity, warehouseId, storageCellId, null);
+        }
 
         public ConsumptionCommand {
             java.util.Objects.requireNonNull(materialReferenceId, "materialReferenceId");
@@ -1056,6 +1110,7 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             String destinationCellCode,
             UUID documentId,
             String documentNumber,
+            java.util.List<String> originOrderNumbers,
             UUID actorUserId,
             String actorDisplayName,
             String comment) {
@@ -1072,6 +1127,10 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             Objects.requireNonNull(quantity, "quantity");
             materialColor = materialColor == null ? "" : materialColor;
             materialSize = materialSize == null ? "" : materialSize;
+            originOrderNumbers =
+                    originOrderNumbers == null
+                            ? java.util.List.of()
+                            : java.util.List.copyOf(originOrderNumbers);
             comment = comment == null || comment.isBlank() ? null : comment.trim();
         }
     }

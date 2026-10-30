@@ -2,6 +2,28 @@
 
 ## Latest result
 
+**Date:** 2026-10-30
+**Scope:** P1-4 Durable Warehouse Consumption Traceability
+**Overall:** PASS (focused automated); manual pilot acceptance PENDING
+**Migration:** V55 created; **NOT applied** to **tmp_pilot** / **tmp_gui_stage5**
+**Base HEAD:** `ccdea1454493e59d1c5ead4f518955d64752b19c`
+**Working tree:** dirty (implementation); **no commit / no push**
+
+### Checks
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD match | PASS |
+| Preflight multi-order STOP | N/A (single-order release API; UI sequential) |
+| Warehouse origin Flyway + history IT (Testcontainers) | PASS |
+| `ReleaseProductsPostgresIT` / `ReleaseProductsServiceTest` | PASS (29) |
+| UI origin format + History jitter | PASS (8) |
+| `mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests` | PASS |
+| Pilot/stage DB writes | NOT PERFORMED |
+
+---
+## Previous result
+
 **Date:** 2026-10-29
 **Scope:** Pilot — Material Request Draft Lifecycle & UI FIX
 **Overall:** PASS (focused automated); manual pilot GUI PENDING
@@ -22,7 +44,7 @@
 | Manual pilot GUI acceptance | PENDING |
 
 ---
-## Previous result
+## Older result
 
 **Date:** 2026-10-20
 **Scope:** B3-MA-13-02-FIX1 — Controlled V54 deployment + pilot ready_date backfill

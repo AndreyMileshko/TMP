@@ -13,6 +13,7 @@ import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.SessionId;
 import com.tmp.security.api.SessionSummary;
 import com.tmp.security.api.UserId;
+import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseApi.ConsumptionCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateStorageCellCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateTransferDocumentCommand;
@@ -121,6 +122,65 @@ class WarehouseHistoryIntegrationTest {
     }
 
     @Test
+    void consumptionOriginIsDurableInHistoryAndLegacyRowsRemainReadable() {
+        UUID warehouseId = createWarehouse("WH-ORIG", "Origin WH");
+        assign(warehouseId);
+        UUID cell = createCell(warehouseId, "O-01");
+        bundle.api()
+                .receive(
+                        new ReceiptCommand(
+                                "ORIG-1",
+                                "Origin Material",
+                                "",
+                                "",
+                                "шт",
+                                new BigDecimal("20"),
+                                warehouseId,
+                                cell));
+        UUID materialId = materialId("ORIG-1");
+        UUID releaseId = UUID.fromString("fc704c2d-2c75-426d-9f6f-6d083ad425cd");
+        bundle.api()
+                .consume(
+                        new ConsumptionCommand(
+                                materialId,
+                                new BigDecimal("4"),
+                                warehouseId,
+                                cell,
+                                new WarehouseApi.ConsumptionOrigin(
+                                        "production.release",
+                                        releaseId,
+                                        "PRODUCTION-RELEASE-CCC06B9F",
+                                        List.of("26106082"))));
+        bundle.api()
+                .consume(
+                        new ConsumptionCommand(
+                                materialId, new BigDecimal("1"), warehouseId, cell));
+
+        WarehouseHistoryPage page = listAll(warehouseId);
+        List<WarehouseHistoryEntryView> consumptions =
+                page.content().stream()
+                        .filter(row -> "CONSUMPTION".equals(row.operationType()))
+                        .toList();
+        assertEquals(2, consumptions.size());
+
+        WarehouseHistoryEntryView withOrigin =
+                consumptions.stream()
+                        .filter(row -> !row.originOrderNumbers().isEmpty())
+                        .findFirst()
+                        .orElseThrow();
+        assertEquals(releaseId, withOrigin.documentId());
+        assertEquals("PRODUCTION-RELEASE-CCC06B9F", withOrigin.documentNumber());
+        assertEquals(List.of("26106082"), withOrigin.originOrderNumbers());
+
+        WarehouseHistoryEntryView legacy =
+                consumptions.stream()
+                        .filter(row -> row.originOrderNumbers().isEmpty())
+                        .findFirst()
+                        .orElseThrow();
+        assertTrue(legacy.documentId() == null || legacy.documentNumber() == null);
+    }
+
+    @Test
     void receiptMoveConsumptionAdjustmentAppearWithPhysicalQuantities() {
         UUID warehouseId = createWarehouse("WH-H1", "History One");
         assign(warehouseId);
@@ -171,6 +231,8 @@ class WarehouseHistoryIntegrationTest {
         WarehouseHistoryEntryView move = byType(page, "MOVE");
         WarehouseHistoryEntryView consumption = byType(page, "CONSUMPTION");
         WarehouseHistoryEntryView adjustment = byType(page, "ADJUSTMENT");
+        assertTrue(consumption.originOrderNumbers().isEmpty());
+        assertTrue(consumption.documentId() == null || consumption.documentNumber() == null);
         assertEquals("Приход", receipt.operationDisplayName());
         assertEquals(0, new BigDecimal("50").compareTo(receipt.quantity()));
         assertEquals("Перемещение", move.operationDisplayName());

@@ -1,6 +1,8 @@
 package com.tmp.warehouse.persistence;
 
 import com.tmp.warehouse.domain.MaterialReference;
+import com.tmp.warehouse.domain.OperationOrigin;
+import com.tmp.warehouse.domain.OperationOriginOrderNumbersCodec;
 import com.tmp.warehouse.domain.StockPosition;
 import com.tmp.warehouse.domain.StockPositionId;
 import com.tmp.warehouse.domain.StockQuantity;
@@ -207,7 +209,11 @@ public final class WarehousePersistenceModels {
             Instant updatedAt,
             UUID actorUserId,
             String actorLogin,
-            String commentText) {
+            String commentText,
+            String originDocumentType,
+            UUID originDocumentId,
+            String originDocumentNumber,
+            String originOrderNumbers) {
 
         public WarehouseOperationRow {
             Objects.requireNonNull(id, "id");
@@ -225,6 +231,7 @@ public final class WarehousePersistenceModels {
         public static WarehouseOperationRow fromDomain(
                 WarehouseOperation operation, Instant createdAt, Instant updatedAt) {
             Objects.requireNonNull(operation, "operation");
+            OperationOrigin origin = operation.origin().orElse(null);
             return new WarehouseOperationRow(
                     operation.id(),
                     operation.type(),
@@ -239,10 +246,28 @@ public final class WarehousePersistenceModels {
                     updatedAt,
                     operation.actorUserId().orElse(null),
                     operation.actorLogin().orElse(null),
-                    operation.commentText().orElse(null));
+                    operation.commentText().orElse(null),
+                    origin == null ? null : origin.documentType(),
+                    origin == null ? null : origin.documentId(),
+                    origin == null ? null : origin.documentNumber(),
+                    origin == null
+                            ? null
+                            : OperationOriginOrderNumbersCodec.encode(origin.orderNumbers()));
         }
 
         public WarehouseOperation toDomain() {
+            OperationOrigin origin = null;
+            if (originDocumentType != null
+                    && originDocumentId != null
+                    && originDocumentNumber != null
+                    && originOrderNumbers != null) {
+                origin =
+                        OperationOrigin.of(
+                                originDocumentType,
+                                originDocumentId,
+                                originDocumentNumber,
+                                OperationOriginOrderNumbersCodec.decode(originOrderNumbers));
+            }
             return WarehouseOperation.rehydrate(
                     id,
                     operationType,
@@ -255,7 +280,8 @@ public final class WarehousePersistenceModels {
                     version,
                     actorUserId,
                     actorLogin,
-                    commentText);
+                    commentText,
+                    origin);
         }
     }
 }
