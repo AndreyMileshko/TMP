@@ -60,9 +60,14 @@ public final class ProductionWorkbenchVisualStyles {
     public static final double COL_REMAINING_PREF = 100;
     public static final double COL_REMAINING_MAX = 110;
 
+    /** Material requests coverage column ("Учтено: X/Y"). */
+    public static final double COL_MATERIAL_REQUESTS_MIN = 175;
+    public static final double COL_MATERIAL_REQUESTS_PREF = 185;
+    public static final double COL_MATERIAL_REQUESTS_MAX = 195;
+
     /**
      * Reserved for vertical scrollbar so show/hide does not reflow every column (Warehouse Stocks
-     * pattern). Also leaves a small margin compatible with a future materials-request column.
+     * pattern).
      */
     public static final double TREE_VERTICAL_SCROLL_GUTTER = 18;
 

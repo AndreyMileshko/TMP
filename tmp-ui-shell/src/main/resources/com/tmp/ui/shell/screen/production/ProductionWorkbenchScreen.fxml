@@ -70,6 +70,8 @@
                                      prefWidth="120" minWidth="110" maxWidth="130"/>
                     <TreeTableColumn fx:id="treeRemainingColumn" text="Осталось"
                                      prefWidth="100" minWidth="90" maxWidth="110"/>
+                    <TreeTableColumn fx:id="treeMaterialRequestsColumn" text="Запросы материалов"
+                                     prefWidth="185" minWidth="175" maxWidth="195"/>
                 </columns>
             </TreeTableView>
         </StackPane>

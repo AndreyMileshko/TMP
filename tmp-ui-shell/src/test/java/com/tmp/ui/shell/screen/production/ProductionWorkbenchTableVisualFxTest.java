@@ -61,7 +61,7 @@ class ProductionWorkbenchTableVisualFxTest {
         assertTrue(fxml.contains("fx:id=\"treeStatusColumn\" text=\"Состояние\""));
         assertTrue(fxml.contains("fx:id=\"treeReleasedColumn\" text=\"Изготовлено\""));
         assertTrue(fxml.contains("fx:id=\"treeRemainingColumn\" text=\"Осталось\""));
-        assertFalse(fxml.contains("Запросы материалов"));
+        assertTrue(fxml.contains("fx:id=\"treeMaterialRequestsColumn\" text=\"Запросы материалов\""));
 
         int selected = fxml.indexOf("fx:id=\"treeSelectedColumn\"");
         int identity = fxml.indexOf("fx:id=\"treeIdentityColumn\"");
@@ -70,6 +70,7 @@ class ProductionWorkbenchTableVisualFxTest {
         int status = fxml.indexOf("fx:id=\"treeStatusColumn\"");
         int released = fxml.indexOf("fx:id=\"treeReleasedColumn\"");
         int remaining = fxml.indexOf("fx:id=\"treeRemainingColumn\"");
+        int materialRequests = fxml.indexOf("fx:id=\"treeMaterialRequestsColumn\"");
         assertTrue(
                 selected >= 0
                         && identity > selected
@@ -77,7 +78,8 @@ class ProductionWorkbenchTableVisualFxTest {
                         && quantity > secondary
                         && status > quantity
                         && released > status
-                        && remaining > released);
+                        && remaining > released
+                        && materialRequests > remaining);
 
         assertTrue(fxml.contains("prefWidth=\"64\""));
         assertTrue(fxml.contains("prefWidth=\"140\""));
@@ -97,7 +99,7 @@ class ProductionWorkbenchTableVisualFxTest {
                     assertTrue(
                             tree.getStyleClass()
                                     .contains(ProductionWorkbenchVisualStyles.TREE_STYLE));
-                    assertEquals(7, tree.getColumns().size());
+                    assertEquals(8, tree.getColumns().size());
                     assertEquals(
                             List.of(
                                     "",
@@ -106,7 +108,8 @@ class ProductionWorkbenchTableVisualFxTest {
                                     "Количество",
                                     "Состояние",
                                     "Изготовлено",
-                                    "Осталось"),
+                                    "Осталось",
+                                    "Запросы материалов"),
                             tree.getColumns().stream().map(TreeTableColumn::getText).toList());
 
                     assertEquals(64, tree.getColumns().get(0).getPrefWidth(), 0.1);
@@ -116,6 +119,7 @@ class ProductionWorkbenchTableVisualFxTest {
                     assertEquals(ProductionWorkbenchVisualStyles.COL_STATUS_PREF, tree.getColumns().get(4).getPrefWidth(), 0.1);
                     assertEquals(ProductionWorkbenchVisualStyles.COL_RELEASED_PREF, tree.getColumns().get(5).getPrefWidth(), 0.1);
                     assertEquals(ProductionWorkbenchVisualStyles.COL_REMAINING_PREF, tree.getColumns().get(6).getPrefWidth(), 0.1);
+                    assertEquals(ProductionWorkbenchVisualStyles.COL_MATERIAL_REQUESTS_PREF, tree.getColumns().get(7).getPrefWidth(), 0.1);
 
                     ProductionTreeNode order =
                             ProductionTreeNode.order(
@@ -123,6 +127,7 @@ class ProductionWorkbenchTableVisualFxTest {
                                     "25096174",
                                     "ООО Заказчик",
                                     OrderProductionViewStatus.NOT_ACCEPTED,
+                                    "—",
                                     "—",
                                     "—",
                                     "—",
@@ -137,6 +142,7 @@ class ProductionWorkbenchTableVisualFxTest {
                                     ItemProductionStateStatus.IN_PRODUCTION,
                                     "0",
                                     "6",
+                                    "—",
                                     1,
                                     true);
 

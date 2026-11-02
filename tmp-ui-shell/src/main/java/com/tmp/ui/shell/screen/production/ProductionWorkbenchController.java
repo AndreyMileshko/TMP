@@ -155,6 +155,9 @@ public final class ProductionWorkbenchController
     private TreeTableColumn<ProductionTreeNode, String> treeRemainingColumn;
 
     @FXML
+    private TreeTableColumn<ProductionTreeNode, String> treeMaterialRequestsColumn;
+
+    @FXML
     private Button backToTreeButton;
 
     @FXML
@@ -524,6 +527,12 @@ public final class ProductionWorkbenchController
                                 c.getValue() == null || c.getValue().getValue() == null
                                         ? ""
                                         : c.getValue().getValue().remainingLabel()));
+        treeMaterialRequestsColumn.setCellValueFactory(
+                c ->
+                        new SimpleStringProperty(
+                                c.getValue() == null || c.getValue().getValue() == null
+                                        ? ""
+                                        : c.getValue().getValue().materialRequestsLabel()));
 
         treeSelectedColumn.setSortable(false);
         treeSelectedColumn.setReorderable(false);
@@ -535,6 +544,7 @@ public final class ProductionWorkbenchController
         treeStatusColumn.setCellFactory(col -> statusTreeCell());
         treeReleasedColumn.setCellFactory(col -> plainTreeCell(ProductionTreeNode::releasedLabel));
         treeRemainingColumn.setCellFactory(col -> plainTreeCell(ProductionTreeNode::remainingLabel));
+        treeMaterialRequestsColumn.setCellFactory(col -> materialRequestsCoverageTreeCell());
 
         productionTree.setRowFactory(
                 table -> {
@@ -614,6 +624,13 @@ public final class ProductionWorkbenchController
         treeRemainingColumn.setPrefWidth(ProductionWorkbenchVisualStyles.COL_REMAINING_PREF);
         treeRemainingColumn.setMaxWidth(ProductionWorkbenchVisualStyles.COL_REMAINING_MAX);
 
+        treeMaterialRequestsColumn.setMinWidth(
+                ProductionWorkbenchVisualStyles.COL_MATERIAL_REQUESTS_MIN);
+        treeMaterialRequestsColumn.setPrefWidth(
+                ProductionWorkbenchVisualStyles.COL_MATERIAL_REQUESTS_PREF);
+        treeMaterialRequestsColumn.setMaxWidth(
+                ProductionWorkbenchVisualStyles.COL_MATERIAL_REQUESTS_MAX);
+
         Runnable redistribute = this::redistributeSecondaryColumnWidth;
         productionTree.widthProperty().addListener((obs, oldWidth, newWidth) -> redistribute.run());
         Platform.runLater(redistribute);
@@ -630,7 +647,8 @@ public final class ProductionWorkbenchController
                         + treeQuantityColumn.getPrefWidth()
                         + treeStatusColumn.getPrefWidth()
                         + treeReleasedColumn.getPrefWidth()
-                        + treeRemainingColumn.getPrefWidth();
+                        + treeRemainingColumn.getPrefWidth()
+                        + treeMaterialRequestsColumn.getPrefWidth();
         double next =
                 ProductionWorkbenchVisualStyles.secondaryFlexPrefWidth(tableWidth, fixed);
         if (Math.abs(treeSecondaryColumn.getPrefWidth() - next) > 0.5) {
@@ -669,6 +687,25 @@ public final class ProductionWorkbenchController
                 String text = value.apply(getTreeTableRow().getItem());
                 setText(text);
                 setTooltip(ProductionTableCells.fullTextTooltip(text));
+            }
+        };
+    }
+
+    private TreeTableCell<ProductionTreeNode, String> materialRequestsCoverageTreeCell() {
+        return new TreeTableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || getTreeTableRow() == null || getTreeTableRow().getItem() == null) {
+                    setText(null);
+                    setTooltip(null);
+                    return;
+                }
+                String text = getTreeTableRow().getItem().materialRequestsLabel();
+                setText(text);
+                setTooltip(
+                        ProductionTableCells.fullTextTooltip(
+                                MaterialRequestCoverageLabels.tooltipFor(text)));
             }
         };
     }

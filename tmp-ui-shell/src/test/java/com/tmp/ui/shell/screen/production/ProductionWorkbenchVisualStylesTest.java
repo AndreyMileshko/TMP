@@ -66,6 +66,7 @@ class ProductionWorkbenchVisualStylesTest {
                         "—",
                         "—",
                         "—",
+                        "—",
                         List.of());
         ProductionTreeNode item =
                 ProductionTreeNode.item(
@@ -77,6 +78,7 @@ class ProductionWorkbenchVisualStylesTest {
                         ItemProductionStateStatus.PARTIALLY_RELEASED,
                         "1",
                         "1",
+                        "—",
                         1,
                         true);
 
@@ -104,7 +106,8 @@ class ProductionWorkbenchVisualStylesTest {
                         + ProductionWorkbenchVisualStyles.COL_QUANTITY_PREF
                         + ProductionWorkbenchVisualStyles.COL_STATUS_PREF
                         + ProductionWorkbenchVisualStyles.COL_RELEASED_PREF
-                        + ProductionWorkbenchVisualStyles.COL_REMAINING_PREF;
+                        + ProductionWorkbenchVisualStyles.COL_REMAINING_PREF
+                        + ProductionWorkbenchVisualStyles.COL_MATERIAL_REQUESTS_PREF;
         double at1650 = ProductionWorkbenchVisualStyles.secondaryFlexPrefWidth(1600, fixed);
         assertTrue(at1650 > 500, "secondary should absorb most leftover at ~1650px");
         assertEquals(

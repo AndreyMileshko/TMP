@@ -1,4 +1,45 @@
-## Stage 3 — Production Workbench Responsive Column Width Fix — 2026-11-02
+## Stage 3 — Material Requests Column Width Polish — 2026-11-02
+
+**Date:** 2026-11-02
+**Base HEAD:** `1f5f7a626564d12ead851ea53ae7c95d3f855eef`
+**Status:** CODE DONE — layout-only; focused UI tests PASS; package PASS; no DB writes; no commit / no push
+
+### Change
+- `COL_MATERIAL_REQUESTS` 140/155/180 → **175/185/195** (FXML aligned)
+- Flex secondary absorbs the reduction; narrow windows keep horizontal scroll
+- Coverage values/tooltips/business logic unchanged
+
+---## Stage 3 — Material Request Coverage Column Label Correction — 2026-11-02
+
+**Date:** 2026-11-02
+**Base HEAD:** `1f5f7a626564d12ead851ea53ae7c95d3f855eef`
+**Status:** CODE DONE — presentation-only; focused tests PASS; package PASS; pilot launched; no commit / no push
+
+### Change
+- Cell label `Первично: X/Y` → `Учтено: X/Y`
+- Russian explanatory tooltip: X = cumulative submitted MR product coverage (not unique physically supplied products)
+- Authoritative coverage API/calculation unchanged; no repeated-request classification
+
+---## Stage 3 — Production Workbench Material Request Coverage Column — 2026-11-02
+
+**Date:** 2026-11-02
+**Base HEAD:** `1f5f7a626564d12ead851ea53ae7c95d3f855eef`
+**Status:** CODE DONE — focused UI tests PASS; package pending/done in VERIFICATION-LOG; pilot/stage DBs read-only only; no Flyway; no commit / no push
+
+### Authoritative source
+- `ProductionApplicationApi.getMaterialRequirementProductCoverage` → `submittedProductCoverage` / `orderedQuantity`
+- SQL: SUM(`requested_product_quantity`) for SUBMITTED + `counts_toward_product_coverage=TRUE` (once per MR source item, not per material line)
+- Display X/Y uses historical submitted coverage, not `requestableProductQuantity`
+
+### UI
+- TreeTable column «Запросы материалов»: `Первично: X/Y` or `—`
+- Parent aggregates child submitted/ordered sums
+- No repeated-request fabrication (classification absent)
+
+### Out of scope
+Repeated-request checkbox/workflow; eligibility redesign; DB writes; commit/push
+
+---## Stage 3 — Production Workbench Responsive Column Width Fix — 2026-11-02
 
 **Date:** 2026-11-02
 **Base HEAD:** `067d51a90fc56a21fdca4a2915ef41f26d8b55c1`

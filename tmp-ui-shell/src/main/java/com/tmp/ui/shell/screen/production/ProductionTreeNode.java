@@ -27,6 +27,7 @@ public final class ProductionTreeNode {
     private final String statusLabel;
     private final String releasedLabel;
     private final String remainingLabel;
+    private final String materialRequestsLabel;
     private final OrderProductionViewStatus orderStatus;
     private final ItemProductionStateStatus itemStatus;
     private final int displayIndex;
@@ -43,6 +44,7 @@ public final class ProductionTreeNode {
             String statusLabel,
             String releasedLabel,
             String remainingLabel,
+            String materialRequestsLabel,
             OrderProductionViewStatus orderStatus,
             ItemProductionStateStatus itemStatus,
             int displayIndex,
@@ -57,6 +59,7 @@ public final class ProductionTreeNode {
         this.statusLabel = statusLabel;
         this.releasedLabel = releasedLabel;
         this.remainingLabel = remainingLabel;
+        this.materialRequestsLabel = materialRequestsLabel;
         this.orderStatus = orderStatus;
         this.itemStatus = itemStatus;
         this.displayIndex = displayIndex;
@@ -72,6 +75,7 @@ public final class ProductionTreeNode {
             String quantityLabel,
             String releasedLabel,
             String remainingLabel,
+            String materialRequestsLabel,
             List<ProductionOrderItemRef> selectableChildRefs) {
         Objects.requireNonNull(sourceOrderId, "sourceOrderId");
         Objects.requireNonNull(orderNumber, "orderNumber");
@@ -87,6 +91,7 @@ public final class ProductionTreeNode {
                 ProductionPresentationLabels.orderStatus(status),
                 blankToDash(releasedLabel),
                 blankToDash(remainingLabel),
+                blankToDash(materialRequestsLabel),
                 status,
                 null,
                 0,
@@ -103,6 +108,7 @@ public final class ProductionTreeNode {
             ItemProductionStateStatus itemStatus,
             String releasedLabel,
             String remainingLabel,
+            String materialRequestsLabel,
             int displayIndex,
             boolean selectable) {
         Objects.requireNonNull(sourceOrderId, "sourceOrderId");
@@ -118,6 +124,7 @@ public final class ProductionTreeNode {
                 ProductionPresentationLabels.itemStatus(itemStatus),
                 blankToDash(releasedLabel),
                 blankToDash(remainingLabel),
+                blankToDash(materialRequestsLabel),
                 null,
                 itemStatus,
                 displayIndex,
@@ -174,6 +181,10 @@ public final class ProductionTreeNode {
 
     public String remainingLabel() {
         return remainingLabel;
+    }
+
+    public String materialRequestsLabel() {
+        return materialRequestsLabel;
     }
 
     public Optional<OrderProductionViewStatus> orderStatus() {

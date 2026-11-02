@@ -3,6 +3,26 @@
 ## Latest result
 
 **Date:** 2026-11-02
+**Scope:** Stage 3 Production Workbench Material Request Coverage Column
+**Overall:** PASS (focused automated)
+**Migration:** none; **tmp_pilot** READ-ONLY; **tmp_gui_stage5** untouched
+**Base HEAD:** `1f5f7a626564d12ead851ea53ae7c95d3f855eef`
+**Working tree:** dirty; **no commit / no push**
+
+### Checks
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD match | PASS |
+| Focused UI tests (41) | PASS |
+| Pilot RO 26106082 / 26106075 | 3/5 and 1/1 |
+| Pilot/stage writes | NOT PERFORMED |
+
+---
+
+## Previous result
+
+**Date:** 2026-11-02
 **Scope:** Stage 3 Production Workbench Responsive Column Width Fix
 **Overall:** PASS (focused automated); manual visual re-check recommended
 **Migration:** none; **tmp_pilot** / **tmp_gui_stage5** not written

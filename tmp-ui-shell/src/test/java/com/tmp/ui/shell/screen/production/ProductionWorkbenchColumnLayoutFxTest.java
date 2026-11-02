@@ -62,7 +62,7 @@ class ProductionWorkbenchColumnLayoutFxTest {
         assertTrue(actualTreeWidth > 0, "tree width must be realized at " + sceneWidth);
 
         List<TreeTableColumn<ProductionTreeNode, ?>> cols = tree.getColumns();
-        assertEquals(7, cols.size());
+        assertEquals(8, cols.size());
         assertEquals("", cols.get(0).getText());
         assertEquals("Заказ / Позиция", cols.get(1).getText());
         assertEquals("Изделие / Заказчик", cols.get(2).getText());
@@ -70,6 +70,7 @@ class ProductionWorkbenchColumnLayoutFxTest {
         assertEquals("Состояние", cols.get(4).getText());
         assertEquals("Изготовлено", cols.get(5).getText());
         assertEquals("Осталось", cols.get(6).getText());
+        assertEquals("Запросы материалов", cols.get(7).getText());
 
         assertEquals(
                 ProductionWorkbenchVisualStyles.COL_CHECKBOX_PREF, cols.get(0).getPrefWidth(), 0.1);
@@ -83,6 +84,10 @@ class ProductionWorkbenchColumnLayoutFxTest {
                 ProductionWorkbenchVisualStyles.COL_RELEASED_PREF, cols.get(5).getPrefWidth(), 0.1);
         assertEquals(
                 ProductionWorkbenchVisualStyles.COL_REMAINING_PREF, cols.get(6).getPrefWidth(), 0.1);
+        assertEquals(
+                ProductionWorkbenchVisualStyles.COL_MATERIAL_REQUESTS_PREF,
+                cols.get(7).getPrefWidth(),
+                0.1);
 
         double fixed =
                 cols.get(0).getPrefWidth()
@@ -90,7 +95,8 @@ class ProductionWorkbenchColumnLayoutFxTest {
                         + cols.get(3).getPrefWidth()
                         + cols.get(4).getPrefWidth()
                         + cols.get(5).getPrefWidth()
-                        + cols.get(6).getPrefWidth();
+                        + cols.get(6).getPrefWidth()
+                        + cols.get(7).getPrefWidth();
         double expectedSecondary =
                 ProductionWorkbenchVisualStyles.secondaryFlexPrefWidth(actualTreeWidth, fixed);
         assertEquals(
@@ -104,27 +110,43 @@ class ProductionWorkbenchColumnLayoutFxTest {
             used += col.getWidth() > 1 ? col.getWidth() : col.getPrefWidth();
         }
         double unused = actualTreeWidth - used;
-        assertTrue(
-                unused <= ProductionWorkbenchVisualStyles.TREE_MAX_UNUSED_TRAILING,
-                "unused trailing space too large at sceneWidth="
-                        + sceneWidth
-                        + " treeWidth="
-                        + actualTreeWidth
-                        + " used="
-                        + used
-                        + " unused="
-                        + unused);
-        assertTrue(unused >= -2.0, "columns should not overflow table width");
-
-        if (actualTreeWidth >= 1100) {
+        double minFitWidth =
+                fixed
+                        + ProductionWorkbenchVisualStyles.COL_SECONDARY_MIN
+                        + ProductionWorkbenchVisualStyles.TREE_VERTICAL_SCROLL_GUTTER;
+        if (actualTreeWidth >= minFitWidth) {
             assertTrue(
-                    cols.get(2).getPrefWidth() > cols.get(6).getPrefWidth() * 3,
-                    "secondary flex must dominate leftover space");
+                    unused <= ProductionWorkbenchVisualStyles.TREE_MAX_UNUSED_TRAILING,
+                    "unused trailing space too large at sceneWidth="
+                            + sceneWidth
+                            + " treeWidth="
+                            + actualTreeWidth
+                            + " used="
+                            + used
+                            + " unused="
+                            + unused);
+            assertTrue(unused >= -2.0, "columns should not overflow table width");
+            assertTrue(
+                    cols.get(2).getPrefWidth()
+                            > ProductionWorkbenchVisualStyles.COL_MATERIAL_REQUESTS_PREF,
+                    "secondary flex must remain wider than material-requests");
+            if (actualTreeWidth >= 1500) {
+                assertTrue(
+                        cols.get(2).getPrefWidth() > cols.get(6).getPrefWidth() * 3,
+                        "at wide desktops secondary flex must dominate leftover space");
+            }
+        } else {
+            assertEquals(
+                    ProductionWorkbenchVisualStyles.COL_SECONDARY_MIN,
+                    cols.get(2).getPrefWidth(),
+                    0.1,
+                    "narrow viewport keeps secondary at minimum; horizontal scroll expected");
         }
 
         assertHeaderReadable(cols.get(3), "Количество");
         assertHeaderReadable(cols.get(5), "Изготовлено");
         assertHeaderReadable(cols.get(6), "Осталось");
+        assertHeaderReadable(cols.get(7), "Запросы материалов");
 
         Stage stage = (Stage) root.getScene().getWindow();
         stage.close();

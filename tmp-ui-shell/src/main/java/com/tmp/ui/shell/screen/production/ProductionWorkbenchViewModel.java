@@ -241,6 +241,8 @@ public final class ProductionWorkbenchViewModel {
 
     private ScreenMode screenMode = ScreenMode.TREE;
     private List<LoadedProductionOrder> authoritativeOrders = List.of();
+    /** Cached authoritative MR product coverage keyed by source order item id. */
+    private Map<UUID, MaterialRequirementProductCoverageView> materialCoverageByItemId = Map.of();
     private final Set<UUID> expandedOrderIds = new LinkedHashSet<>();
 
     private UUID currentOrderId;
@@ -1877,6 +1879,7 @@ public final class ProductionWorkbenchViewModel {
         }
 
         authoritativeOrders = List.copyOf(loaded);
+        materialCoverageByItemId = loadMaterialCoverageByItem(authoritativeOrders);
         treeSelection.retainOnly(selectableRefs);
         Set<UUID> stillPresent = new HashSet<>();
         for (LoadedProductionOrder order : loaded) {
@@ -1938,6 +1941,27 @@ public final class ProductionWorkbenchViewModel {
                 orderReleased = Long.toString(order.facts.releasedQuantity());
                 orderRemaining = Long.toString(order.facts.activeProductionQuantity());
             }
+
+            long submittedSum = 0L;
+            long orderedSum = 0L;
+            List<ProductionTreeNode> itemNodes = new ArrayList<>();
+            for (LoadedProductionItem loadedItem : order.items) {
+                MaterialRequirementProductCoverageView coverage =
+                        materialCoverageByItemId.get(loadedItem.item.orderItemId().value());
+                long submitted =
+                        coverage == null ? 0L : coverage.submittedProductCoverage();
+                long ordered =
+                        resolveOrderedQuantityForCoverage(
+                                loadedItem, order.orderedQuantityFallback, coverage);
+                submittedSum += submitted;
+                orderedSum += ordered;
+                itemNodes.add(
+                        buildItemTreeNode(
+                                loadedItem,
+                                order.orderedQuantityFallback,
+                                MaterialRequestCoverageLabels.formatPrimary(submitted, ordered)));
+            }
+
             ProductionTreeNode orderNode =
                     ProductionTreeNode.order(
                             order.orderId,
@@ -1947,12 +1971,9 @@ public final class ProductionWorkbenchViewModel {
                             orderQty,
                             orderReleased,
                             orderRemaining,
+                            MaterialRequestCoverageLabels.formatAggregated(submittedSum, orderedSum),
                             selectableChildRefs);
 
-            List<ProductionTreeNode> itemNodes = new ArrayList<>();
-            for (LoadedProductionItem loadedItem : order.items) {
-                itemNodes.add(buildItemTreeNode(loadedItem, order.orderedQuantityFallback));
-            }
             models.add(
                     new TreeOrderModel(
                             orderNode, itemNodes, expandedOrderIds.contains(order.orderId)));
@@ -1961,7 +1982,9 @@ public final class ProductionWorkbenchViewModel {
     }
 
     private ProductionTreeNode buildItemTreeNode(
-            LoadedProductionItem loadedItem, Map<UUID, Long> orderedFallback) {
+            LoadedProductionItem loadedItem,
+            Map<UUID, Long> orderedFallback,
+            String materialRequestsLabel) {
         OrderItemDto item = loadedItem.item;
         ItemProductionStateView state = loadedItem.state;
         String position =
@@ -1990,8 +2013,44 @@ public final class ProductionWorkbenchViewModel {
                 state == null ? null : state.status(),
                 released,
                 remaining,
+                materialRequestsLabel,
                 loadedItem.index1Based,
                 isItemSelectable(loadedItem));
+    }
+
+    private static long resolveOrderedQuantityForCoverage(
+            LoadedProductionItem loadedItem,
+            Map<UUID, Long> orderedFallback,
+            MaterialRequirementProductCoverageView coverage) {
+        if (loadedItem.state != null) {
+            return loadedItem.state.orderedQuantity();
+        }
+        if (coverage != null && coverage.orderedQuantity() > 0L) {
+            return coverage.orderedQuantity();
+        }
+        Long fallback = orderedFallback.get(loadedItem.item.orderItemId().value());
+        return fallback == null ? 0L : fallback;
+    }
+
+    private Map<UUID, MaterialRequirementProductCoverageView> loadMaterialCoverageByItem(
+            List<LoadedProductionOrder> loaded) {
+        List<MaterialRequirementSourceItemRefView> refs = new ArrayList<>();
+        for (LoadedProductionOrder order : loaded) {
+            for (LoadedProductionItem item : order.items) {
+                refs.add(
+                        new MaterialRequirementSourceItemRefView(
+                                order.orderId, item.item.orderItemId().value()));
+            }
+        }
+        if (refs.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, MaterialRequirementProductCoverageView> byItem = new HashMap<>();
+        for (MaterialRequirementProductCoverageView row :
+                applicationApi.getMaterialRequirementProductCoverage(refs)) {
+            byItem.put(row.sourceOrderItemId(), row);
+        }
+        return Map.copyOf(byItem);
     }
 
     private void updateTreeEmptyStateMessage(List<LoadedProductionOrder> visible) {
