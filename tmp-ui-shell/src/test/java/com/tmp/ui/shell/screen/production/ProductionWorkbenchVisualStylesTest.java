@@ -97,6 +97,27 @@ class ProductionWorkbenchVisualStylesTest {
     }
 
     @Test
+    void secondaryFlexAbsorbsLeftoverWidthWithoutStretchingNumericColumns() {
+        double fixed =
+                ProductionWorkbenchVisualStyles.COL_CHECKBOX_PREF
+                        + ProductionWorkbenchVisualStyles.COL_IDENTITY_PREF
+                        + ProductionWorkbenchVisualStyles.COL_QUANTITY_PREF
+                        + ProductionWorkbenchVisualStyles.COL_STATUS_PREF
+                        + ProductionWorkbenchVisualStyles.COL_RELEASED_PREF
+                        + ProductionWorkbenchVisualStyles.COL_REMAINING_PREF;
+        double at1650 = ProductionWorkbenchVisualStyles.secondaryFlexPrefWidth(1600, fixed);
+        assertTrue(at1650 > 500, "secondary should absorb most leftover at ~1650px");
+        assertEquals(
+                1600 - fixed - ProductionWorkbenchVisualStyles.TREE_VERTICAL_SCROLL_GUTTER,
+                at1650,
+                0.01);
+        assertEquals(
+                ProductionWorkbenchVisualStyles.COL_SECONDARY_MIN,
+                ProductionWorkbenchVisualStyles.secondaryFlexPrefWidth(400, fixed),
+                0.01);
+    }
+
+    @Test
     void scopedCssDefinesGridSeparatorsAndRowTintsWithoutGlobalLeak() throws Exception {
         String css;
         try (var in =

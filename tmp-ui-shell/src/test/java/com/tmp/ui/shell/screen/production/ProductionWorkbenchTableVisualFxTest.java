@@ -80,9 +80,9 @@ class ProductionWorkbenchTableVisualFxTest {
                         && remaining > released);
 
         assertTrue(fxml.contains("prefWidth=\"64\""));
-        assertTrue(fxml.contains("prefWidth=\"150\""));
-        assertTrue(fxml.contains("prefWidth=\"320\""));
-        assertTrue(fxml.contains("prefWidth=\"190\""));
+        assertTrue(fxml.contains("prefWidth=\"140\""));
+        assertTrue(fxml.contains("prefWidth=\"200\""));
+        assertTrue(fxml.contains("prefWidth=\"200\""));
     }
 
     @Test
@@ -110,12 +110,12 @@ class ProductionWorkbenchTableVisualFxTest {
                             tree.getColumns().stream().map(TreeTableColumn::getText).toList());
 
                     assertEquals(64, tree.getColumns().get(0).getPrefWidth(), 0.1);
-                    assertEquals(150, tree.getColumns().get(1).getPrefWidth(), 0.1);
-                    assertEquals(320, tree.getColumns().get(2).getPrefWidth(), 0.1);
-                    assertEquals(72, tree.getColumns().get(3).getPrefWidth(), 0.1);
-                    assertEquals(190, tree.getColumns().get(4).getPrefWidth(), 0.1);
-                    assertEquals(72, tree.getColumns().get(5).getPrefWidth(), 0.1);
-                    assertEquals(72, tree.getColumns().get(6).getPrefWidth(), 0.1);
+                    assertEquals(ProductionWorkbenchVisualStyles.COL_IDENTITY_PREF, tree.getColumns().get(1).getPrefWidth(), 0.1);
+                    assertTrue(tree.getColumns().get(2).getPrefWidth() >= ProductionWorkbenchVisualStyles.COL_SECONDARY_MIN);
+                    assertEquals(ProductionWorkbenchVisualStyles.COL_QUANTITY_PREF, tree.getColumns().get(3).getPrefWidth(), 0.1);
+                    assertEquals(ProductionWorkbenchVisualStyles.COL_STATUS_PREF, tree.getColumns().get(4).getPrefWidth(), 0.1);
+                    assertEquals(ProductionWorkbenchVisualStyles.COL_RELEASED_PREF, tree.getColumns().get(5).getPrefWidth(), 0.1);
+                    assertEquals(ProductionWorkbenchVisualStyles.COL_REMAINING_PREF, tree.getColumns().get(6).getPrefWidth(), 0.1);
 
                     ProductionTreeNode order =
                             ProductionTreeNode.order(

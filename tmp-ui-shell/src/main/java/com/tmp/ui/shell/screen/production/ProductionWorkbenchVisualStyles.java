@@ -27,7 +27,64 @@ public final class ProductionWorkbenchVisualStyles {
     public static final String STATUS_RELEASED = "tmp-status-dot-success";
     public static final String STATUS_CANCELLED = "tmp-status-dot-danger";
 
+    /** Comfortable checkbox + disclosure column. */
+    public static final double COL_CHECKBOX_MIN = 56;
+    public static final double COL_CHECKBOX_PREF = 64;
+    public static final double COL_CHECKBOX_MAX = 72;
+
+    /** Compact order/position identity. */
+    public static final double COL_IDENTITY_MIN = 110;
+    public static final double COL_IDENTITY_PREF = 140;
+    public static final double COL_IDENTITY_MAX = 180;
+
+    /** Flex column — absorbs leftover table width. */
+    public static final double COL_SECONDARY_MIN = 200;
+
+    /** Numeric headers must remain readable ("Количество"). */
+    public static final double COL_QUANTITY_MIN = 100;
+    public static final double COL_QUANTITY_PREF = 110;
+    public static final double COL_QUANTITY_MAX = 120;
+
+    /** Status dot + full meaningful caption. */
+    public static final double COL_STATUS_MIN = 180;
+    public static final double COL_STATUS_PREF = 200;
+    public static final double COL_STATUS_MAX = 240;
+
+    /** Numeric header "Изготовлено". */
+    public static final double COL_RELEASED_MIN = 110;
+    public static final double COL_RELEASED_PREF = 120;
+    public static final double COL_RELEASED_MAX = 130;
+
+    /** Numeric header "Осталось". */
+    public static final double COL_REMAINING_MIN = 90;
+    public static final double COL_REMAINING_PREF = 100;
+    public static final double COL_REMAINING_MAX = 110;
+
+    /**
+     * Reserved for vertical scrollbar so show/hide does not reflow every column (Warehouse Stocks
+     * pattern). Also leaves a small margin compatible with a future materials-request column.
+     */
+    public static final double TREE_VERTICAL_SCROLL_GUTTER = 18;
+
+    /**
+     * Maximum unused trailing space allowed at normal desktop widths after redistribution (gutter +
+     * rounding slack).
+     */
+    public static final double TREE_MAX_UNUSED_TRAILING = 28;
+
     private ProductionWorkbenchVisualStyles() {}
+
+    /**
+     * Preferred width for the flex secondary column given the current table width and fixed sibling
+     * preferred widths. Never below {@link #COL_SECONDARY_MIN}.
+     */
+    public static double secondaryFlexPrefWidth(double tableWidth, double fixedColumnsPrefWidth) {
+        if (tableWidth <= 0 || fixedColumnsPrefWidth < 0) {
+            return COL_SECONDARY_MIN;
+        }
+        return Math.max(
+                COL_SECONDARY_MIN, tableWidth - fixedColumnsPrefWidth - TREE_VERTICAL_SCROLL_GUTTER);
+    }
 
     public static String rowStyleClass(ProductionTreeNode node) {
         Objects.requireNonNull(node, "node");

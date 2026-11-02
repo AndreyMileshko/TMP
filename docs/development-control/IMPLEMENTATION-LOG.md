@@ -1,4 +1,22 @@
-﻿## Stage 3 — Production Workbench Table UX Polish — 2026-11-02
+## Stage 3 — Production Workbench Responsive Column Width Fix — 2026-11-02
+
+**Date:** 2026-11-02
+**Base HEAD:** `067d51a90fc56a21fdca4a2915ef41f26d8b55c1`
+**Status:** CODE DONE — focused layout FX tests PASS; package PASS; pilot/stage DBs untouched; no Flyway; no commit / no push
+
+### Root cause
+`UNCONSTRAINED_RESIZE_POLICY` with fixed preferred widths (~940 px) left large empty trailing space; numeric column maxWidth 88 truncated headers.
+
+### Fix
+- Keep UNCONSTRAINED; flex leftover width into «Изделие / Заказчик» via width listener (Warehouse Stocks pattern)
+- Widen Количество / Изготовлено / Осталось / Состояние prefs so headers remain readable
+- Identity stays compact; checkbox comfortable; gutter reserved for scrollbar / future materials column
+
+### Out of scope
+Materials-request column; business rules; DB; commit/push
+
+---
+## Stage 3 — Production Workbench Table UX Polish — 2026-11-02
 
 **Date:** 2026-11-02
 **Base HEAD:** `6c171831681cdf29edc4534bfe372aaf27805a3c`

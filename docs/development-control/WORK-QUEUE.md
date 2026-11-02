@@ -1,4 +1,4 @@
-﻿# TMP Work Queue
+# TMP Work Queue
 
 ## ???????
 
@@ -12486,6 +12486,19 @@ Stage 3.5.12 = COMPLETE.
 
 ---
 
+
+## Stage3-PROD-WB-COL-WIDTH — Production Workbench Responsive Column Width Fix
+
+**Status:** DONE (code + focused layout tests + package)
+**Date:** 2026-11-02
+**Base HEAD:** `067d51a90fc56a21fdca4a2915ef41f26d8b55c1`
+**Module:** `tmp-ui-shell` (Production Workbench LEVEL 1 tree widths only)
+**Goal:** Eliminate large unused trailing space; readable numeric headers; flex extra width into «Изделие / Заказчик».
+**Commit:** NONE
+**Push:** NONE
+**DB:** untouched
+
+---
 ## Stage3-PROD-WB-TABLE-UX — Production Workbench Table UX Polish
 
 **Status:** DONE (code + focused tests + package); manual visual acceptance PENDING

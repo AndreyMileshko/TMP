@@ -18,6 +18,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
@@ -581,33 +582,60 @@ public final class ProductionWorkbenchController
         rebuildTree(viewModel.visibleTreeProperty().get());
     }
 
+    /**
+     * UNCONSTRAINED fixed prefs for non-flex columns; leftover viewport width goes to «Изделие /
+     * Заказчик» (Warehouse Stocks name-column pattern). Avoids FLEX_LAST stretching «Осталось».
+     */
     private void configureTreeColumnWidths() {
-        treeSelectedColumn.setMinWidth(56);
-        treeSelectedColumn.setPrefWidth(64);
-        treeSelectedColumn.setMaxWidth(72);
+        treeSelectedColumn.setMinWidth(ProductionWorkbenchVisualStyles.COL_CHECKBOX_MIN);
+        treeSelectedColumn.setPrefWidth(ProductionWorkbenchVisualStyles.COL_CHECKBOX_PREF);
+        treeSelectedColumn.setMaxWidth(ProductionWorkbenchVisualStyles.COL_CHECKBOX_MAX);
 
-        treeIdentityColumn.setMinWidth(110);
-        treeIdentityColumn.setPrefWidth(150);
-        treeIdentityColumn.setMaxWidth(200);
+        treeIdentityColumn.setMinWidth(ProductionWorkbenchVisualStyles.COL_IDENTITY_MIN);
+        treeIdentityColumn.setPrefWidth(ProductionWorkbenchVisualStyles.COL_IDENTITY_PREF);
+        treeIdentityColumn.setMaxWidth(ProductionWorkbenchVisualStyles.COL_IDENTITY_MAX);
 
-        treeSecondaryColumn.setMinWidth(200);
-        treeSecondaryColumn.setPrefWidth(320);
+        treeSecondaryColumn.setMinWidth(ProductionWorkbenchVisualStyles.COL_SECONDARY_MIN);
+        treeSecondaryColumn.setPrefWidth(ProductionWorkbenchVisualStyles.COL_SECONDARY_MIN);
 
-        treeQuantityColumn.setMinWidth(56);
-        treeQuantityColumn.setPrefWidth(72);
-        treeQuantityColumn.setMaxWidth(88);
+        treeQuantityColumn.setMinWidth(ProductionWorkbenchVisualStyles.COL_QUANTITY_MIN);
+        treeQuantityColumn.setPrefWidth(ProductionWorkbenchVisualStyles.COL_QUANTITY_PREF);
+        treeQuantityColumn.setMaxWidth(ProductionWorkbenchVisualStyles.COL_QUANTITY_MAX);
 
-        treeStatusColumn.setMinWidth(150);
-        treeStatusColumn.setPrefWidth(190);
-        treeStatusColumn.setMaxWidth(240);
+        treeStatusColumn.setMinWidth(ProductionWorkbenchVisualStyles.COL_STATUS_MIN);
+        treeStatusColumn.setPrefWidth(ProductionWorkbenchVisualStyles.COL_STATUS_PREF);
+        treeStatusColumn.setMaxWidth(ProductionWorkbenchVisualStyles.COL_STATUS_MAX);
 
-        treeReleasedColumn.setMinWidth(56);
-        treeReleasedColumn.setPrefWidth(72);
-        treeReleasedColumn.setMaxWidth(88);
+        treeReleasedColumn.setMinWidth(ProductionWorkbenchVisualStyles.COL_RELEASED_MIN);
+        treeReleasedColumn.setPrefWidth(ProductionWorkbenchVisualStyles.COL_RELEASED_PREF);
+        treeReleasedColumn.setMaxWidth(ProductionWorkbenchVisualStyles.COL_RELEASED_MAX);
 
-        treeRemainingColumn.setMinWidth(56);
-        treeRemainingColumn.setPrefWidth(72);
-        treeRemainingColumn.setMaxWidth(88);
+        treeRemainingColumn.setMinWidth(ProductionWorkbenchVisualStyles.COL_REMAINING_MIN);
+        treeRemainingColumn.setPrefWidth(ProductionWorkbenchVisualStyles.COL_REMAINING_PREF);
+        treeRemainingColumn.setMaxWidth(ProductionWorkbenchVisualStyles.COL_REMAINING_MAX);
+
+        Runnable redistribute = this::redistributeSecondaryColumnWidth;
+        productionTree.widthProperty().addListener((obs, oldWidth, newWidth) -> redistribute.run());
+        Platform.runLater(redistribute);
+    }
+
+    private void redistributeSecondaryColumnWidth() {
+        double tableWidth = productionTree.getWidth();
+        if (tableWidth <= 0) {
+            return;
+        }
+        double fixed =
+                treeSelectedColumn.getPrefWidth()
+                        + treeIdentityColumn.getPrefWidth()
+                        + treeQuantityColumn.getPrefWidth()
+                        + treeStatusColumn.getPrefWidth()
+                        + treeReleasedColumn.getPrefWidth()
+                        + treeRemainingColumn.getPrefWidth();
+        double next =
+                ProductionWorkbenchVisualStyles.secondaryFlexPrefWidth(tableWidth, fixed);
+        if (Math.abs(treeSecondaryColumn.getPrefWidth() - next) > 0.5) {
+            treeSecondaryColumn.setPrefWidth(next);
+        }
     }
 
     private void ensureProductionWorkbenchStylesheet() {

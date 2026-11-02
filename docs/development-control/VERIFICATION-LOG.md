@@ -1,6 +1,25 @@
-﻿# TMP Verification Log
+# TMP Verification Log
 
 ## Latest result
+
+**Date:** 2026-11-02
+**Scope:** Stage 3 Production Workbench Responsive Column Width Fix
+**Overall:** PASS (focused automated); manual visual re-check recommended
+**Migration:** none; **tmp_pilot** / **tmp_gui_stage5** not written
+**Base HEAD:** `067d51a90fc56a21fdca4a2915ef41f26d8b55c1`
+**Working tree:** dirty (UI layout fix); **no commit / no push**
+
+### Checks
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD match | PASS |
+| `ProductionWorkbenchColumnLayoutFxTest` (1024/1280/1650) | PASS |
+| Visual styles + table visual FX | PASS |
+| `mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests` | PASS |
+| Pilot/stage DB writes | NOT PERFORMED |
+
+---## Previous result
 
 **Date:** 2026-11-02
 **Scope:** Stage 3 Production Workbench Table UX Polish

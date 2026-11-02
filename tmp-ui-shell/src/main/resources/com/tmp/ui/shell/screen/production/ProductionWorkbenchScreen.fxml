@@ -59,17 +59,17 @@
                     <TreeTableColumn fx:id="treeSelectedColumn" text="" prefWidth="64" minWidth="56"
                                      maxWidth="72"/>
                     <TreeTableColumn fx:id="treeIdentityColumn" text="Заказ / Позиция"
-                                     prefWidth="150" minWidth="110" maxWidth="200"/>
+                                     prefWidth="140" minWidth="110" maxWidth="180"/>
                     <TreeTableColumn fx:id="treeSecondaryColumn" text="Изделие / Заказчик"
-                                     prefWidth="320" minWidth="200"/>
+                                     prefWidth="200" minWidth="200"/>
                     <TreeTableColumn fx:id="treeQuantityColumn" text="Количество"
-                                     prefWidth="72" minWidth="56" maxWidth="88"/>
+                                     prefWidth="110" minWidth="100" maxWidth="120"/>
                     <TreeTableColumn fx:id="treeStatusColumn" text="Состояние"
-                                     prefWidth="190" minWidth="150" maxWidth="240"/>
+                                     prefWidth="200" minWidth="180" maxWidth="240"/>
                     <TreeTableColumn fx:id="treeReleasedColumn" text="Изготовлено"
-                                     prefWidth="72" minWidth="56" maxWidth="88"/>
+                                     prefWidth="120" minWidth="110" maxWidth="130"/>
                     <TreeTableColumn fx:id="treeRemainingColumn" text="Осталось"
-                                     prefWidth="72" minWidth="56" maxWidth="88"/>
+                                     prefWidth="100" minWidth="90" maxWidth="110"/>
                 </columns>
             </TreeTableView>
         </StackPane>
