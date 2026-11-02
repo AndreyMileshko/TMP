@@ -12486,6 +12486,22 @@ Stage 3.5.12 = COMPLETE.
 
 ---
 
+## Stage3-PROD-WB-TABLE-UX — Production Workbench Table UX Polish
+
+**Status:** DONE (code + focused tests + package); manual visual acceptance PENDING
+**Stage:** UI Modernization / Production Workbench (post Stage 7)
+**Date:** 2026-11-02
+**Base HEAD:** `6c171831681cdf29edc4534bfe372aaf27805a3c`
+**Module:** `tmp-ui-shell` (Production Workbench LEVEL 1 tree only)
+**Goal:** Improve readability/visual consistency of Production Workbench table without changing business rules, data models, warehouse, or DB.
+**Done:** Status dots + «Ожидает производства»; scoped grid separators; order/item pastel row tints + selection override; column width reallocation; focused FX/unit tests; package.
+**Not done:** Interactive pilot GUI acceptance; «Запросы материалов» column (intentionally deferred).
+**Commit:** NONE
+**Push:** NONE
+**DB:** untouched (`tmp_pilot`, `tmp_gui_stage5`); no Flyway
+
+---
+
 ## B3-MA-13-02-FIX1 — Persist and Display Order Manufacturing Date
 
 **Status:** PARTIAL (DB deploy DONE; manual Order List/Details GUI PENDING)

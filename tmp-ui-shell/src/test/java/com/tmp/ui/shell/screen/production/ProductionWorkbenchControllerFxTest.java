@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.ui.shell.JavaFxTestSupport;
 import com.tmp.ui.shell.UiShellScreens;
+import com.tmp.ui.shell.theme.TmpTheme;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -150,7 +151,10 @@ class ProductionWorkbenchControllerFxTest {
                         new ProductionWorkbenchUiTestSupport.AllowAllAuthorization(),
                         new ProductionWorkbenchUiTestSupport.StubAuthentication()));
         Stage stage = new Stage();
-        stage.setScene(new Scene(root, 1200, 800));
+        Scene scene = new Scene(root, 1200, 800);
+        TmpTheme.apply(scene);
+        TmpTheme.addStylesheet(scene, ProductionWorkbenchVisualStyles.STYLESHEET);
+        stage.setScene(scene);
         stage.show();
         return root;
     }

@@ -2,6 +2,26 @@
 
 ## Latest result
 
+**Date:** 2026-11-02
+**Scope:** Stage 3 Production Workbench Table UX Polish
+**Overall:** PASS (focused automated); manual visual acceptance PENDING
+**Migration:** none; **tmp_pilot** / **tmp_gui_stage5** not written
+**Base HEAD:** `6c171831681cdf29edc4534bfe372aaf27805a3c`
+**Working tree:** dirty (UI implementation); **no commit / no push**
+
+### Checks
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD match | PASS (`6c17183…`) |
+| Focused Production Workbench UI tests (labels/styles/FX + existing VM/FX) | PASS (56) |
+| `mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests` | PASS |
+| Pilot/stage DB writes | NOT PERFORMED |
+| Flyway | NOT RUN / no new migration |
+
+---
+## Previous result
+
 **Date:** 2026-10-30
 **Scope:** P1-4 Durable Warehouse Consumption Traceability
 **Overall:** PASS (focused automated); manual pilot acceptance PENDING

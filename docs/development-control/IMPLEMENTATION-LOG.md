@@ -1,4 +1,24 @@
-﻿## P1-4 — Durable Warehouse Consumption Traceability — 2026-10-30
+﻿## Stage 3 — Production Workbench Table UX Polish — 2026-11-02
+
+**Date:** 2026-11-02
+**Base HEAD:** `6c171831681cdf29edc4534bfe372aaf27805a3c`
+**Status:** CODE DONE — focused UI tests PASS; package pre-integration-test PASS; pilot/stage DBs untouched; no Flyway; no commit / no push
+
+### Implemented (UI-only)
+
+- Status presentation aligned with Orders: bright `tmp-status-dot-*` + caption via `OperationalStatusIndicator`
+- `NOT_ACCEPTED` / missing item state label → **«Ожидает производства»** (presentation-only; backend enums unchanged)
+- Scoped `tmp-production-workbench.css` on LEVEL 1 `TreeTableView`: visible row/column separators, darker header preserved, order pastel orange / item pastel blue full-row tint, soft-green selection override
+- Column width reallocation (wider checkbox + secondary; narrower qty/released/remaining; status fits dot+label); `UNCONSTRAINED` resize leaves spare width for future «Запросы материалов»
+- Tooltips on identity/secondary/status; numeric columns not truncated via tooltip ellipsis path
+
+### Out of scope
+
+- Material-request column; business rules; DB/Flyway; commit/push; pilot GUI automation
+
+---
+
+## P1-4 — Durable Warehouse Consumption Traceability — 2026-10-30
 
 **Date:** 2026-10-30
 **Base HEAD:** `ccdea1454493e59d1c5ead4f518955d64752b19c`

@@ -1,0 +1,144 @@
+/*
+ * Production Workbench — LEVEL 1 TreeTable visual polish.
+ * Scoped to .tmp-production-workbench-tree only — does not affect other tables.
+ * Re-declares needed TMP tokens so lookups resolve when this sheet is attached
+ * to the TreeTableView (scene may already carry tmp-theme.css).
+ */
+
+.tmp-production-workbench-tree {
+    -tmp-surface: #FFFFFF;
+    -tmp-text: #1F2937;
+    -tmp-text-secondary: #667085;
+    -tmp-border: #D8E0E8;
+    -tmp-border-strong: #C5CFDA;
+    -tmp-table-header-bg: #E9EEF4;
+    -tmp-table-row-separator: #C5CFDA;
+    -tmp-table-column-separator: #E6EBF1;
+    -tmp-table-selection-bg: rgba(95, 170, 110, 0.18);
+    -tmp-table-selection-hover-bg: rgba(95, 170, 110, 0.28);
+
+    -tmp-prod-order-row-bg: #FFF4E8;
+    -tmp-prod-order-row-hover: #FFEBD6;
+    -tmp-prod-item-row-bg: #EAF3FB;
+    -tmp-prod-item-row-hover: #DCEAF8;
+
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: -tmp-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 0;
+    -fx-table-cell-border-color: -tmp-table-column-separator;
+}
+
+.tmp-production-workbench-tree .column-header-background {
+    -fx-background-color: -tmp-table-header-bg;
+    -fx-background-radius: 8 8 0 0;
+    -fx-border-color: transparent transparent -tmp-border-strong transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.tmp-production-workbench-tree .column-header,
+.tmp-production-workbench-tree .filler {
+    -fx-size: 36;
+    -fx-border-color: transparent -tmp-table-column-separator transparent transparent;
+    -fx-border-width: 0 1 0 0;
+    -fx-background-color: transparent;
+}
+
+.tmp-production-workbench-tree .column-header .label {
+    -fx-font-weight: bold;
+    -fx-text-fill: -tmp-text;
+    -fx-padding: 0 8 0 8;
+}
+
+/* Cells stay transparent so order/item row tint paints across the full row. */
+.tmp-production-workbench-tree .tree-table-row-cell.tmp-prod-row-order .tree-table-cell,
+.tmp-production-workbench-tree .tree-table-row-cell.tmp-prod-row-item .tree-table-cell {
+    -fx-background-color: transparent;
+}
+
+.tmp-production-workbench-tree .tree-table-row-cell {
+    -fx-background-color: -tmp-surface;
+    -fx-border-color: transparent transparent -tmp-table-row-separator transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-table-cell-border-color: -tmp-table-column-separator;
+    -fx-padding: 0;
+    -fx-cell-size: 36;
+}
+
+.tmp-production-workbench-tree .tree-table-row-cell:empty {
+    -fx-background-color: -tmp-surface;
+}
+
+.tmp-production-workbench-tree .tree-table-row-cell.tmp-prod-row-order,
+.tmp-production-workbench-tree .tree-table-row-cell.tmp-prod-row-order:odd {
+    -fx-background-color: -tmp-prod-order-row-bg;
+    -fx-border-color: transparent transparent -tmp-table-row-separator transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.tmp-production-workbench-tree .tree-table-row-cell.tmp-prod-row-order:hover {
+    -fx-background-color: -tmp-prod-order-row-hover;
+}
+
+.tmp-production-workbench-tree .tree-table-row-cell.tmp-prod-row-item,
+.tmp-production-workbench-tree .tree-table-row-cell.tmp-prod-row-item:odd {
+    -fx-background-color: -tmp-prod-item-row-bg;
+    -fx-border-color: transparent transparent -tmp-table-row-separator transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.tmp-production-workbench-tree .tree-table-row-cell.tmp-prod-row-item:hover {
+    -fx-background-color: -tmp-prod-item-row-hover;
+}
+
+/* Soft-green selection overrides order/item pastel tints. */
+.tmp-production-workbench-tree .tree-table-row-cell:filled:selected,
+.tmp-production-workbench-tree:focused .tree-table-row-cell:filled:selected,
+.tmp-production-workbench-tree .tree-table-row-cell.tmp-prod-row-order:filled:selected,
+.tmp-production-workbench-tree:focused .tree-table-row-cell.tmp-prod-row-order:filled:selected,
+.tmp-production-workbench-tree .tree-table-row-cell.tmp-prod-row-item:filled:selected,
+.tmp-production-workbench-tree:focused .tree-table-row-cell.tmp-prod-row-item:filled:selected {
+    -fx-background-color: -tmp-table-selection-bg;
+    -fx-table-cell-border-color: -tmp-table-column-separator;
+}
+
+.tmp-production-workbench-tree .tree-table-row-cell:filled:selected:hover,
+.tmp-production-workbench-tree:focused .tree-table-row-cell:filled:selected:hover,
+.tmp-production-workbench-tree .tree-table-row-cell.tmp-prod-row-order:filled:selected:hover,
+.tmp-production-workbench-tree:focused .tree-table-row-cell.tmp-prod-row-order:filled:selected:hover,
+.tmp-production-workbench-tree .tree-table-row-cell.tmp-prod-row-item:filled:selected:hover,
+.tmp-production-workbench-tree:focused .tree-table-row-cell.tmp-prod-row-item:filled:selected:hover {
+    -fx-background-color: -tmp-table-selection-hover-bg;
+}
+
+.tmp-production-workbench-tree .tree-table-row-cell:filled:selected .text,
+.tmp-production-workbench-tree:focused .tree-table-row-cell:filled:selected .text {
+    -fx-fill: -tmp-text;
+}
+
+.tmp-production-workbench-tree .tree-table-row-cell:filled:selected .tree-table-cell,
+.tmp-production-workbench-tree:focused .tree-table-row-cell:filled:selected .tree-table-cell,
+.tmp-production-workbench-tree .tree-table-row-cell:filled:selected .tmp-status-caption,
+.tmp-production-workbench-tree:focused .tree-table-row-cell:filled:selected .tmp-status-caption {
+    -fx-text-fill: -tmp-text;
+}
+
+.tmp-production-workbench-tree .tree-table-cell {
+    -fx-text-fill: -tmp-text;
+    -fx-padding: 0 8 0 8;
+    -fx-alignment: CENTER_LEFT;
+    -fx-border-color: transparent -tmp-table-column-separator transparent transparent;
+    -fx-border-width: 0 1 0 0;
+}
+
+.tmp-production-workbench-tree .placeholder .label {
+    -fx-text-fill: -tmp-text-secondary;
+    -fx-font-size: 13px;
+}
+
+.tmp-production-workbench-tree .scroll-bar:vertical,
+.tmp-production-workbench-tree .scroll-bar:horizontal {
+    -fx-background-color: transparent;
+}

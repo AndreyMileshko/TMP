@@ -1,5 +1,6 @@
 package com.tmp.ui.shell.screen.production;
 
+import com.tmp.production.api.ProductionQueryApi.ItemProductionStateStatus;
 import com.tmp.production.api.ProductionQueryApi.OrderProductionViewStatus;
 import java.util.List;
 import java.util.Objects;
@@ -27,6 +28,7 @@ public final class ProductionTreeNode {
     private final String releasedLabel;
     private final String remainingLabel;
     private final OrderProductionViewStatus orderStatus;
+    private final ItemProductionStateStatus itemStatus;
     private final int displayIndex;
     private final List<ProductionOrderItemRef> childRefs;
     private final boolean selectable;
@@ -42,6 +44,7 @@ public final class ProductionTreeNode {
             String releasedLabel,
             String remainingLabel,
             OrderProductionViewStatus orderStatus,
+            ItemProductionStateStatus itemStatus,
             int displayIndex,
             List<ProductionOrderItemRef> childRefs,
             boolean selectable) {
@@ -55,6 +58,7 @@ public final class ProductionTreeNode {
         this.releasedLabel = releasedLabel;
         this.remainingLabel = remainingLabel;
         this.orderStatus = orderStatus;
+        this.itemStatus = itemStatus;
         this.displayIndex = displayIndex;
         this.childRefs = List.copyOf(childRefs);
         this.selectable = selectable;
@@ -84,6 +88,7 @@ public final class ProductionTreeNode {
                 blankToDash(releasedLabel),
                 blankToDash(remainingLabel),
                 status,
+                null,
                 0,
                 selectableChildRefs,
                 !selectableChildRefs.isEmpty());
@@ -95,7 +100,7 @@ public final class ProductionTreeNode {
             String identityLabel,
             String productLabel,
             String quantityLabel,
-            String statusLabel,
+            ItemProductionStateStatus itemStatus,
             String releasedLabel,
             String remainingLabel,
             int displayIndex,
@@ -110,10 +115,11 @@ public final class ProductionTreeNode {
                 identityLabel,
                 blankToDash(productLabel),
                 blankToDash(quantityLabel),
-                blankToDash(statusLabel),
+                ProductionPresentationLabels.itemStatus(itemStatus),
                 blankToDash(releasedLabel),
                 blankToDash(remainingLabel),
                 null,
+                itemStatus,
                 displayIndex,
                 List.of(),
                 selectable);
@@ -172,6 +178,10 @@ public final class ProductionTreeNode {
 
     public Optional<OrderProductionViewStatus> orderStatus() {
         return Optional.ofNullable(orderStatus);
+    }
+
+    public Optional<ItemProductionStateStatus> itemStatus() {
+        return Optional.ofNullable(itemStatus);
     }
 
     public int displayIndex() {

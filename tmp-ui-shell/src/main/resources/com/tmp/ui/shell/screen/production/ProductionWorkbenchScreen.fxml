@@ -54,16 +54,22 @@
 
         <StackPane VBox.vgrow="ALWAYS">
             <TreeTableView fx:id="productionTree" showRoot="false" VBox.vgrow="ALWAYS"
-                           prefHeight="420">
+                           prefHeight="420" styleClass="tmp-production-workbench-tree">
                 <columns>
-                    <TreeTableColumn fx:id="treeSelectedColumn" text="" prefWidth="48" minWidth="48"
-                                     maxWidth="56"/>
-                    <TreeTableColumn fx:id="treeIdentityColumn" text="Заказ / Позиция" prefWidth="220"/>
-                    <TreeTableColumn fx:id="treeSecondaryColumn" text="Изделие / Заказчик" prefWidth="240"/>
-                    <TreeTableColumn fx:id="treeQuantityColumn" text="Количество" prefWidth="100"/>
-                    <TreeTableColumn fx:id="treeStatusColumn" text="Состояние" prefWidth="140"/>
-                    <TreeTableColumn fx:id="treeReleasedColumn" text="Изготовлено" prefWidth="100"/>
-                    <TreeTableColumn fx:id="treeRemainingColumn" text="Осталось" prefWidth="100"/>
+                    <TreeTableColumn fx:id="treeSelectedColumn" text="" prefWidth="64" minWidth="56"
+                                     maxWidth="72"/>
+                    <TreeTableColumn fx:id="treeIdentityColumn" text="Заказ / Позиция"
+                                     prefWidth="150" minWidth="110" maxWidth="200"/>
+                    <TreeTableColumn fx:id="treeSecondaryColumn" text="Изделие / Заказчик"
+                                     prefWidth="320" minWidth="200"/>
+                    <TreeTableColumn fx:id="treeQuantityColumn" text="Количество"
+                                     prefWidth="72" minWidth="56" maxWidth="88"/>
+                    <TreeTableColumn fx:id="treeStatusColumn" text="Состояние"
+                                     prefWidth="190" minWidth="150" maxWidth="240"/>
+                    <TreeTableColumn fx:id="treeReleasedColumn" text="Изготовлено"
+                                     prefWidth="72" minWidth="56" maxWidth="88"/>
+                    <TreeTableColumn fx:id="treeRemainingColumn" text="Осталось"
+                                     prefWidth="72" minWidth="56" maxWidth="88"/>
                 </columns>
             </TreeTableView>
         </StackPane>

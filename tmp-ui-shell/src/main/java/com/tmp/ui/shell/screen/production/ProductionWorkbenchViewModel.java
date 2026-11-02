@@ -1981,15 +1981,13 @@ public final class ProductionWorkbenchViewModel {
             released = "—";
             remaining = "—";
         }
-        String status =
-                ProductionPresentationLabels.itemStatus(state == null ? null : state.status());
         return ProductionTreeNode.item(
                 item.orderId().value(),
                 item.orderItemId().value(),
                 position,
                 productLabel,
                 quantity,
-                status,
+                state == null ? null : state.status(),
                 released,
                 remaining,
                 loadedItem.index1Based,

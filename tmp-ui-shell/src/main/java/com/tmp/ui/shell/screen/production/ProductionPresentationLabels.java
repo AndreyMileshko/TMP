@@ -22,7 +22,7 @@ public final class ProductionPresentationLabels {
     public static String orderStatus(OrderProductionViewStatus status) {
         Objects.requireNonNull(status, "status");
         return switch (status) {
-            case NOT_ACCEPTED -> "Не принят";
+            case NOT_ACCEPTED -> "Ожидает производства";
             case IN_PRODUCTION -> "В производстве";
             case MANUFACTURED -> "Изготовлен";
             case CANCELLED -> "Отменён";
@@ -31,7 +31,7 @@ public final class ProductionPresentationLabels {
 
     public static String itemStatus(ItemProductionStateStatus status) {
         if (status == null) {
-            return "Не принято";
+            return "Ожидает производства";
         }
         return switch (status) {
             case IN_PRODUCTION -> "В производстве";

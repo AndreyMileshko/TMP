@@ -6,6 +6,7 @@ import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
 import com.tmp.production.api.ProductionApplicationApi.QuantityModeView;
 import com.tmp.production.api.ProductionApplicationApi.SubmitMaterialRequirementResultView;
 import com.tmp.ui.shell.navigation.ViewModelAware;
+import com.tmp.ui.shell.order.worklist.OperationalStatusIndicator;
 import com.tmp.ui.shell.order.worklist.OrderListPeriod;
 import com.tmp.ui.shell.theme.TmpTheme;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -16,9 +17,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
+import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
@@ -477,8 +480,12 @@ public final class ProductionWorkbenchController
     private void bindProductionTree() {
         productionTree.setRoot(treeRoot);
         productionTree.setShowRoot(false);
-        productionTree.setColumnResizePolicy(
-                TreeTableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        productionTree.setColumnResizePolicy(TreeTableView.UNCONSTRAINED_RESIZE_POLICY);
+        if (!productionTree.getStyleClass().contains(ProductionWorkbenchVisualStyles.TREE_STYLE)) {
+            productionTree.getStyleClass().add(ProductionWorkbenchVisualStyles.TREE_STYLE);
+        }
+        ensureProductionWorkbenchStylesheet();
+        configureTreeColumnWidths();
 
         treeIdentityColumn.setCellValueFactory(
                 c ->
@@ -518,11 +525,33 @@ public final class ProductionWorkbenchController
                                         : c.getValue().getValue().remainingLabel()));
 
         treeSelectedColumn.setSortable(false);
+        treeSelectedColumn.setReorderable(false);
         treeSelectedColumn.setCellFactory(col -> new SelectionCheckCell());
+        treeIdentityColumn.setCellFactory(col -> tooltipTreeCell(ProductionTreeNode::identityLabel));
+        treeSecondaryColumn.setCellFactory(
+                col -> tooltipTreeCell(ProductionTreeNode::secondaryLabel));
+        treeQuantityColumn.setCellFactory(col -> plainTreeCell(ProductionTreeNode::quantityLabel));
+        treeStatusColumn.setCellFactory(col -> statusTreeCell());
+        treeReleasedColumn.setCellFactory(col -> plainTreeCell(ProductionTreeNode::releasedLabel));
+        treeRemainingColumn.setCellFactory(col -> plainTreeCell(ProductionTreeNode::remainingLabel));
 
         productionTree.setRowFactory(
                 table -> {
-                    TreeTableRow<ProductionTreeNode> row = new TreeTableRow<>();
+                    TreeTableRow<ProductionTreeNode> row =
+                            new TreeTableRow<>() {
+                                @Override
+                                protected void updateItem(ProductionTreeNode item, boolean empty) {
+                                    super.updateItem(item, empty);
+                                    ProductionWorkbenchVisualStyles.clearRowStyleClasses(this);
+                                    if (empty || item == null) {
+                                        return;
+                                    }
+                                    getStyleClass()
+                                            .add(
+                                                    ProductionWorkbenchVisualStyles.rowStyleClass(
+                                                            item));
+                                }
+                            };
                     row.addEventFilter(
                             MouseEvent.MOUSE_CLICKED,
                             event -> {
@@ -550,6 +579,111 @@ public final class ProductionWorkbenchController
                 .addListener((obs, oldValue, newValue) -> productionTree.refresh());
 
         rebuildTree(viewModel.visibleTreeProperty().get());
+    }
+
+    private void configureTreeColumnWidths() {
+        treeSelectedColumn.setMinWidth(56);
+        treeSelectedColumn.setPrefWidth(64);
+        treeSelectedColumn.setMaxWidth(72);
+
+        treeIdentityColumn.setMinWidth(110);
+        treeIdentityColumn.setPrefWidth(150);
+        treeIdentityColumn.setMaxWidth(200);
+
+        treeSecondaryColumn.setMinWidth(200);
+        treeSecondaryColumn.setPrefWidth(320);
+
+        treeQuantityColumn.setMinWidth(56);
+        treeQuantityColumn.setPrefWidth(72);
+        treeQuantityColumn.setMaxWidth(88);
+
+        treeStatusColumn.setMinWidth(150);
+        treeStatusColumn.setPrefWidth(190);
+        treeStatusColumn.setMaxWidth(240);
+
+        treeReleasedColumn.setMinWidth(56);
+        treeReleasedColumn.setPrefWidth(72);
+        treeReleasedColumn.setMaxWidth(88);
+
+        treeRemainingColumn.setMinWidth(56);
+        treeRemainingColumn.setPrefWidth(72);
+        treeRemainingColumn.setMaxWidth(88);
+    }
+
+    private void ensureProductionWorkbenchStylesheet() {
+        var resource =
+                ProductionWorkbenchController.class
+                        .getClassLoader()
+                        .getResource(ProductionWorkbenchVisualStyles.STYLESHEET);
+        if (resource == null) {
+            return;
+        }
+        String url = resource.toExternalForm();
+        if (!productionTree.getStylesheets().contains(url)) {
+            productionTree.getStylesheets().add(url);
+        }
+        if (titleLabel.getScene() != null) {
+            TmpTheme.addStylesheet(titleLabel.getScene(), ProductionWorkbenchVisualStyles.STYLESHEET);
+        }
+    }
+
+    private TreeTableCell<ProductionTreeNode, String> tooltipTreeCell(
+            Function<ProductionTreeNode, String> value) {
+        return new TreeTableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || getTreeTableRow() == null || getTreeTableRow().getItem() == null) {
+                    setText(null);
+                    setTooltip(null);
+                    return;
+                }
+                String text = value.apply(getTreeTableRow().getItem());
+                setText(text);
+                setTooltip(ProductionTableCells.fullTextTooltip(text));
+            }
+        };
+    }
+
+    private TreeTableCell<ProductionTreeNode, String> plainTreeCell(
+            Function<ProductionTreeNode, String> value) {
+        return new TreeTableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || getTreeTableRow() == null || getTreeTableRow().getItem() == null) {
+                    setText(null);
+                    setTooltip(null);
+                    return;
+                }
+                setText(value.apply(getTreeTableRow().getItem()));
+                setTooltip(null);
+            }
+        };
+    }
+
+    private TreeTableCell<ProductionTreeNode, String> statusTreeCell() {
+        return new TreeTableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || getTreeTableRow() == null || getTreeTableRow().getItem() == null) {
+                    setText(null);
+                    setGraphic(null);
+                    setTooltip(null);
+                    return;
+                }
+                ProductionTreeNode node = getTreeTableRow().getItem();
+                String caption = node.statusLabel();
+                setText(null);
+                setGraphic(
+                        OperationalStatusIndicator.create(
+                                caption,
+                                ProductionWorkbenchVisualStyles.statusDotStyleClass(node)));
+                setTooltip(ProductionTableCells.fullTextTooltip(caption));
+                setAlignment(Pos.CENTER_LEFT);
+            }
+        };
     }
 
     private void rebuildTree(List<ProductionWorkbenchViewModel.TreeOrderModel> models) {
