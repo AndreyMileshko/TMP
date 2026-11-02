@@ -88,6 +88,21 @@ class ProductionWorkbenchColumnLayoutFxTest {
                 ProductionWorkbenchVisualStyles.COL_MATERIAL_REQUESTS_PREF,
                 cols.get(7).getPrefWidth(),
                 0.1);
+        assertTrue(
+                ProductionWorkbenchVisualStyles.COL_MATERIAL_REQUESTS_PREF >= 240
+                        && ProductionWorkbenchVisualStyles.COL_MATERIAL_REQUESTS_PREF <= 260,
+                "material-requests preferred width must be ~240-260px");
+        assertTrue(
+                ProductionWorkbenchVisualStyles.COL_MATERIAL_REQUESTS_MIN >= 230,
+                "material-requests min must fit two-line coverage text");
+        assertTrue(
+                cols.get(7).getPrefWidth()
+                        >= MaterialRequestCoverageLabels.formatRepeated(2L, 2L).length() * 7.0,
+                "material-requests must fit 'Повторно: 2 изд. (2 запроса)'");
+        assertTrue(
+                cols.get(7).getPrefWidth()
+                        >= MaterialRequestCoverageLabels.formatPrimary(1L, 1L).length() * 7.0,
+                "material-requests must fit 'Учтено: 1/1'");
 
         double fixed =
                 cols.get(0).getPrefWidth()
@@ -126,14 +141,26 @@ class ProductionWorkbenchColumnLayoutFxTest {
                             + " unused="
                             + unused);
             assertTrue(unused >= -2.0, "columns should not overflow table width");
-            assertTrue(
-                    cols.get(2).getPrefWidth()
-                            > ProductionWorkbenchVisualStyles.COL_MATERIAL_REQUESTS_PREF,
-                    "secondary flex must remain wider than material-requests");
+            // Secondary remains the flex absorber; on mid-width windows it may be narrower than
+            // the widened material-requests column (~250px) while still above COL_SECONDARY_MIN.
             if (actualTreeWidth >= 1500) {
+                assertTrue(
+                        cols.get(2).getPrefWidth()
+                                > ProductionWorkbenchVisualStyles.COL_MATERIAL_REQUESTS_PREF,
+                        "at wide desktops secondary flex must exceed material-requests");
                 assertTrue(
                         cols.get(2).getPrefWidth() > cols.get(6).getPrefWidth() * 3,
                         "at wide desktops secondary flex must dominate leftover space");
+                double previousMrPref = 185.0;
+                double secondaryIfPreviousMr =
+                        ProductionWorkbenchVisualStyles.secondaryFlexPrefWidth(
+                                actualTreeWidth, fixed - cols.get(7).getPrefWidth() + previousMrPref);
+                double secondaryReduction =
+                        secondaryIfPreviousMr - cols.get(2).getPrefWidth();
+                assertTrue(
+                        secondaryReduction >= 60 && secondaryReduction <= 95,
+                        "Изделие/Заказчик should shrink ~70-90px vs prior MR width at wide desktop; was "
+                                + secondaryReduction);
             }
         } else {
             assertEquals(

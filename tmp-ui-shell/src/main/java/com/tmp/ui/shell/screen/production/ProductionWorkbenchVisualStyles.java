@@ -38,7 +38,7 @@ public final class ProductionWorkbenchVisualStyles {
     public static final double COL_IDENTITY_MAX = 180;
 
     /** Flex column — absorbs leftover table width. */
-    public static final double COL_SECONDARY_MIN = 200;
+    public static final double COL_SECONDARY_MIN = 120;
 
     /** Numeric headers must remain readable ("Количество"). */
     public static final double COL_QUANTITY_MIN = 100;
@@ -61,9 +61,9 @@ public final class ProductionWorkbenchVisualStyles {
     public static final double COL_REMAINING_MAX = 110;
 
     /** Material requests coverage column ("Учтено: X/Y"). */
-    public static final double COL_MATERIAL_REQUESTS_MIN = 175;
-    public static final double COL_MATERIAL_REQUESTS_PREF = 185;
-    public static final double COL_MATERIAL_REQUESTS_MAX = 195;
+    public static final double COL_MATERIAL_REQUESTS_MIN = 235;
+    public static final double COL_MATERIAL_REQUESTS_PREF = 250;
+    public static final double COL_MATERIAL_REQUESTS_MAX = 260;
 
     /**
      * Reserved for vertical scrollbar so show/hide does not reflow every column (Warehouse Stocks

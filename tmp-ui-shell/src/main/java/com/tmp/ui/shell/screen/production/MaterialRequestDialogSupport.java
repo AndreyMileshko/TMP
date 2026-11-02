@@ -81,6 +81,7 @@ public final class MaterialRequestDialogSupport {
     public static final String COLUMN_DRAFT_POSITIONS = "Позиции";
     public static final String COLUMN_DRAFT_PRODUCTS = "Изделия";
     public static final String COLUMN_REPEATED = "Повторно";
+    public static final String COLUMN_MAXIMUM = "Максимум";
     public static final String REPEATED_CHECKBOX_TOOLTIP =
             "Повторный запрос материалов: позволяет запросить материалы повторно в пределах"
                     + " заказанного количества изделий. Не увеличивает количество изделий в заказе"
@@ -106,8 +107,7 @@ public final class MaterialRequestDialogSupport {
     public static final String DELETE_DRAFT_CONFIRM_HEADER =
             "Черновик будет удалён безвозвратно.";
     public static final String NORMAL_ZERO_REQUESTABLE_MESSAGE =
-            "Для обычного запроса доступное количество равно 0. Включите «Повторно» или измените"
-                    + " выбор позиций.";
+            "Обычный запрос недоступен. Для дополнительного запроса включите «Повторно».";
 
     private static final DateTimeFormatter DRAFT_WHEN =
             DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
@@ -192,13 +192,7 @@ public final class MaterialRequestDialogSupport {
             long max = row.maximumProductQuantity();
             if (!row.repeatedRequest()) {
                 if (max <= 0L) {
-                    return Optional.of(
-                            NORMAL_ZERO_REQUESTABLE_MESSAGE
-                                    + " ("
-                                    + row.orderNumberLabel()
-                                    + " / "
-                                    + row.positionLabel()
-                                    + ").");
+                    return Optional.of(NORMAL_ZERO_REQUESTABLE_MESSAGE);
                 }
                 if (row.standardMode()) {
                     continue;
@@ -206,17 +200,21 @@ public final class MaterialRequestDialogSupport {
             }
             long requested = row.requestedProductQuantity();
             if (max <= 0L || requested < 1L || requested > max) {
-                return Optional.of(
-                        "Количество должно быть от 1 до "
-                                + Math.max(0L, max)
-                                + " для "
-                                + row.orderNumberLabel()
-                                + " / "
-                                + row.positionLabel()
-                                + ".");
+                return Optional.of(permittedQuantityRangeMessage(max));
             }
         }
         return Optional.empty();
+    }
+
+    /** Concise Russian range feedback for an invalid STEP 1 product quantity. */
+    public static String permittedQuantityRangeMessage(long maximumInclusive) {
+        return "Допустимое количество: от 1 до " + Math.max(0L, maximumInclusive) + ".";
+    }
+
+    /** Display value for the STEP 1 «Максимум» column for the current request type. */
+    public static String maximumColumnDisplay(MaterialRequestQuantityRow row) {
+        Objects.requireNonNull(row, "row");
+        return Long.toString(row.maximumProductQuantity());
     }
 
     public static boolean step1QuantitiesValid(List<MaterialRequestQuantityRow> rows) {
@@ -372,10 +370,7 @@ public final class MaterialRequestDialogSupport {
                         stringColumn("Позиция", 90, MaterialRequestQuantityRow::positionLabel),
                         stringColumn("Изделие", 180, MaterialRequestQuantityRow::productLabel),
                         stringColumn("Режим", 110, MaterialRequestQuantityRow::modeLabel),
-                        stringColumn(
-                                "Доступно запросить",
-                                130,
-                                row -> Long.toString(row.requestableProductQuantity())),
+                        stringColumn(COLUMN_MAXIMUM, 110, MaterialRequestDialogSupport::maximumColumnDisplay),
                         repeatedColumn(),
                         quantityColumn());
 
@@ -390,11 +385,10 @@ public final class MaterialRequestDialogSupport {
         Button nextButton = (Button) dialog.getDialogPane().lookupButton(nextType);
         Runnable refreshNextEnablement =
                 () -> {
-                    boolean valid = step1QuantitiesValid(table.getItems());
+                    Optional<String> validation = validateStep1Quantities(table.getItems());
+                    boolean valid = validation.isEmpty();
                     nextButton.setDisable(!valid);
-                    if (valid) {
-                        errorLabel.setText("");
-                    }
+                    errorLabel.setText(valid ? "" : validation.get());
                 };
         for (MaterialRequestQuantityRow row : table.getItems()) {
             row.requestedProductQuantityProperty()

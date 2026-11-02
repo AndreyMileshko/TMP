@@ -60,8 +60,8 @@
                                      maxWidth="72"/>
                     <TreeTableColumn fx:id="treeIdentityColumn" text="Заказ / Позиция"
                                      prefWidth="140" minWidth="110" maxWidth="180"/>
-                    <TreeTableColumn fx:id="treeSecondaryColumn" text="Изделие / Заказчик"
-                                     prefWidth="200" minWidth="200"/>
+                <TreeTableColumn fx:id="treeSecondaryColumn" text="Изделие / Заказчик"
+                                 prefWidth="120" minWidth="120"/>
                     <TreeTableColumn fx:id="treeQuantityColumn" text="Количество"
                                      prefWidth="110" minWidth="100" maxWidth="120"/>
                     <TreeTableColumn fx:id="treeStatusColumn" text="Состояние"
@@ -70,8 +70,8 @@
                                      prefWidth="120" minWidth="110" maxWidth="130"/>
                     <TreeTableColumn fx:id="treeRemainingColumn" text="Осталось"
                                      prefWidth="100" minWidth="90" maxWidth="110"/>
-                    <TreeTableColumn fx:id="treeMaterialRequestsColumn" text="Запросы материалов"
-                                     prefWidth="185" minWidth="175" maxWidth="195"/>
+                <TreeTableColumn fx:id="treeMaterialRequestsColumn" text="Запросы материалов"
+                                 prefWidth="250" minWidth="235" maxWidth="260"/>
                 </columns>
             </TreeTableView>
         </StackPane>

@@ -83,8 +83,11 @@ class ProductionWorkbenchTableVisualFxTest {
 
         assertTrue(fxml.contains("prefWidth=\"64\""));
         assertTrue(fxml.contains("prefWidth=\"140\""));
+        assertTrue(fxml.contains("prefWidth=\"120\""));
         assertTrue(fxml.contains("prefWidth=\"200\""));
-        assertTrue(fxml.contains("prefWidth=\"200\""));
+        assertTrue(fxml.contains("prefWidth=\"250\""));
+        assertTrue(fxml.contains("minWidth=\"235\""));
+        assertTrue(fxml.contains("maxWidth=\"260\""));
     }
 
     @Test

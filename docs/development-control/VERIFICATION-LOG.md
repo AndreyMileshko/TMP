@@ -3,6 +3,193 @@
 ## Latest result
 
 **Date:** 2026-11-02
+**Scope:** Final Repeated Material Request Acceptance + Complete Temporary Cleanup
+**Overall:** PASS
+**Base HEAD:** `805aaf6b2de7aeb468c29675c59d0ee05b0dcc59`
+**Working tree:** dirty (permanent Step1 Максимум + Workbench column layout + focused tests + docs); disposable E2E IT removed; **no commit / no push**
+
+### Final E2E DB verification (read-only on `tmp_pilot_repeated_e2e_20261102` before DROP)
+
+| Check | Result |
+|-------|--------|
+| Order 26106082: ordered=5 released=2 COUNTED=3; 1 SUBMITTED REPEATED qty=5; 1 Demand; 0 drafts; requestable=2 | PASS |
+| Labels 26106082: Учтено: 3/5 + Повторно: 5 изд. (1 запрос) | PASS |
+| Order 26106075: COUNTED=1; 2 SUBMITTED REPEATED; 2 Demands; requestable=0 | PASS |
+| Labels 26106075: Учтено: 1/1 + Повторно: 2 изд. (2 запроса) | PASS |
+| tmp_pilot V56, 0 REPEATED SI; tmp_gui_stage5 V54 | PASS |
+| Validation DB had 0 REPEATED business rows | PASS |
+
+### Cleanup
+
+| Action | Result |
+|--------|--------|
+| DROP `tmp_pilot_repeated_e2e_20261102` | DONE |
+| DROP `tmp_pilot_v56_validation_20261102` | DONE |
+| Stop isolated TMP.exe | N/A (already closed; 0 sessions) |
+| Remove TEMP e2e/v56 logs + launch logs | DONE |
+| Remove `RepeatedMaterialRequestIsolatedE2eIT` (hardcoded disposable DB) | DONE |
+| Preserve `tmp_pilot` / `tmp_gui_stage5` / `tmp_pilot_app` / backups / credentials.env | PASS |
+| Final DB inventory | `tmp_pilot`, `tmp_gui_stage5` only |
+
+---
+## Previous result
+
+**Date:** 2026-11-02
+**Scope:** Production Workbench — Material Requests column width adjustment
+**Overall:** PASS (focused layout FX tests + package)
+**Base HEAD:** `805aaf6b2de7aeb468c29675c59d0ee05b0dcc59`
+**Working tree:** dirty (prior Step1 Максимум + E2E IT + docs + this layout); **no commit / no push**
+**Migration / DB writes:** none (`tmp_pilot` V56; `tmp_gui_stage5` V54; disposable E2E/validation DBs untouched by this task)
+
+### Changes
+- `COL_MATERIAL_REQUESTS_*` → min 235 / pref 250 / max 260
+- `COL_SECONDARY_MIN` → 120 (flex absorber; ~65–80px less allocation at wide desktop vs prior MR pref 185)
+- FXML tree column widths aligned
+- Layout FX tests updated for 240–260 band, two-line/header fit, secondary shrink band
+
+### Checks
+
+| Check | Result |
+|-------|--------|
+| `ProductionWorkbenchColumnLayoutFxTest` | PASS |
+| `ProductionWorkbenchTableVisualFxTest` | PASS |
+| `ProductionWorkbenchVisualStylesTest` | PASS (7 tests total) |
+| `mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests` | PASS (`dist/jpackage/TMP` refreshed 2026-11-02 15:17–15:18) |
+| DB safety (no migrations / no business tx) | PASS |
+| Isolated E2E GUI left untouched (not restarted) | PASS (no TMP.exe running at verify time; package needs controlled restart for visual check) |
+
+### Cleanup inventory (DO NOT execute until manual acceptance complete)
+See agent final report. Disposable resources remain live for acceptance.
+
+---
+## Previous result
+
+**Date:** 2026-11-02
+**Scope:** Repeated Material Requests — Isolated End-to-End Acceptance
+**Overall:** PASS (service-level E2E + focused UI tests); interactive JavaFX GUI **NOT TESTED**
+**Base HEAD:** `805aaf6b2de7aeb468c29675c59d0ee05b0dcc59`
+**Working tree:** dirty (Step1 Максимум UX + E2E IT + docs); **no commit / no push**
+**E2E DB:** `tmp_pilot_repeated_e2e_20261102` (restored from fresh pilot dump; already V56; Flyway not reapplied)
+**Fresh backup:** `C:\Users\1\AppData\Local\TMP-Pilot\backups\tmp_pilot_20261102_145940.dump` (305052 bytes; TOC OK)
+**Mechanism:** `RepeatedMaterialRequestIsolatedE2eIT` (`-Dtmp.repeated.e2e=true`) → JDBC URL forced to E2E only; Flyway disabled; `current_database()` hard-stop
+
+### Checks
+
+| Check | Result |
+|-------|--------|
+| Isolation: never wrote `tmp_pilot` / `tmp_gui_stage5` / validation copy | PASS (pilot still V56 mr=10 dem=10 rep=0; stage V54; validation V56 rep=0) |
+| Order 26106075 Step1 max 0→1; invalid qty blocked | PASS (service + DialogSupport) |
+| Prepare REPEATED DRAFT qty=1; coverage FALSE; no Demand | PASS |
+| Save / reopen same id; kind label «Повторный запрос» | PASS |
+| Confirmation Cancel equivalent (no submit) | PASS (service); GUI Cancel **NOT TESTED** |
+| Submit → 1 Demand; idempotent resubmit no duplicate | PASS |
+| Coverage/Workbench `Учтено: 1/1` + `Повторно: 1 изд. (1 запрос)` then after 2nd `2 изд. (2 запроса)` | PASS |
+| Order 26106082 max 2/5; REPEATED DRAFT qty=5 not submitted | PASS |
+| Stock + production fingerprints unchanged on E2E | PASS |
+| Parent-row source-item vs document count nuance | NOT REPRODUCED (single-position order: rows=docs=2) |
+| Focused UI tests (38) | PASS |
+| Interactive JavaFX against E2E / real pilot | **NOT TESTED** |
+
+---
+
+## Previous result
+
+**Date:** 2026-11-02
+**Scope:** Material Request Step 1 — Dynamic «Максимум» column + invalid quantity feedback
+**Overall:** PASS (focused automated + package)
+**Base HEAD:** `805aaf6b2de7aeb468c29675c59d0ee05b0dcc59`
+**Working tree:** dirty (UX + docs); **no commit / no push**
+**Migration / DB writes:** none (`tmp_pilot` V56 and `tmp_gui_stage5` V54 untouched)
+
+### Checks
+
+| Check | Result |
+|-------|--------|
+| Column rename «Доступно запросить» → «Максимум» | PASS |
+| Display = requestable OFF / ordered ON; updates on checkbox | PASS |
+| Zero normal requestable message | PASS |
+| Invalid quantity range message (`Допустимое количество: от 1 до N.`) | PASS |
+| «Далее» disabled while invalid; STANDARD/FLEXIBLE preserved | PASS |
+| Focused tests (Step1Maximum + Phase2 + Phase5) | PASS (38) |
+| `mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests` | PASS |
+| Packaged app relaunch (Flyway off → `tmp_pilot`) | PASS (started after package) |
+
+---
+
+## Previous result
+
+**Date:** 2026-11-02
+**Deployment timestamp:** 2026-11-02 14:37:56 +07 (Flyway installed_on)
+**Scope:** Controlled Pilot Deployment — Flyway V56 on real `tmp_pilot`
+**Overall:** PASS (with remaining manual GUI steps)
+**Git HEAD:** `805aaf6b2de7aeb468c29675c59d0ee05b0dcc59`
+**Working tree:** dirty only `docs/development-control/VERIFICATION-LOG.md` (preserved; no commit / no push)
+**Target DB:** `tmp_pilot` only
+**Pre-deployment Flyway:** V55 SUCCESS (failed=0)
+**Post-deployment Flyway:** V56 SUCCESS (`production material requirement request kind`)
+**Fresh backup:** `C:\Users\1\AppData\Local\TMP-Pilot\backups\tmp_pilot_20261102_143606.dump` (304083 bytes; `pg_restore -l` OK; production/warehouse/order_management + flyway TOC present)
+**Mechanism:** `scripts/pilot/run-tmp-pilot.ps1 -ApplyMigrations` (packaged app max migration = V56; credentials JDBC → `tmp_pilot` @ localhost:55432 as `tmp_pilot_app`)
+
+### Checks
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD + V56 present in Git/package | PASS |
+| Effective JDBC target = `tmp_pilot` | PASS |
+| Pre: Flyway = V55; failed migrations = 0; no app sessions | PASS |
+| Fresh pre-deploy backup + TOC verify | PASS (`tmp_pilot_20261102_143606.dump`, 304083 bytes) |
+| Apply V56 once only | PASS (installed_rank 56 @ 14:37:56) |
+| Column `product_request_kind` + kind/coverage CHECKs | PASS |
+| Backfill COUNTED=14, REPEATED=0, LEGACY_EXCLUDED=0 | PASS |
+| Kind↔coverage consistency invariants | PASS |
+| Business fingerprints unchanged (MR/status/qty/demands/transfers/balances/releases/production) | PASS (0 mismatches) |
+| Orders 26106082 / 26106075 COUNTED; no REPEATED | PASS (82: 3 COUNTED; 75: 1 COUNTED SUBMITTED) |
+| Normal launch Flyway DISABLED; pool → `tmp_pilot` | PASS (`Started DesktopBootstrap`; Hikari `tmp-package-pool`; 10× `tmp_pilot_app`) |
+| Interactive login / Production Workbench GUI | **NOT TESTED** (desktop smoke pending manual) |
+| `tmp_gui_stage5` remains V54 | PASS |
+| Validation DB `tmp_pilot_v56_validation_20261102` intact at V56 | PASS |
+
+### Remaining manual verification
+
+1. Interactive pilot login with bootstrap admin from credentials.env
+2. Open Production Workbench read-only; confirm coverage/kind labels render
+3. Spot-check orders 26106082 / 26106075 in UI (no new MR/submit/warehouse actions)
+
+**Final deployment verdict:** **PASS** (schema + data integrity + app startup). Interactive Workbench GUI: NOT TESTED.
+
+---
+
+## Previous result
+
+**Date:** 2026-11-02
+**Scope:** V56 Pilot Migration Rehearsal on isolated database copy
+**Overall:** PASS (pre-deployment verification)
+**Base HEAD:** `805aaf6b2de7aeb468c29675c59d0ee05b0dcc59` (clean working tree)
+**Isolated DB:** `tmp_pilot_v56_validation_20261102` (restored from fresh pilot dump, then Flyway → V56)
+**Real DBs after task:** `tmp_pilot` = **V55**; `tmp_gui_stage5` = **V54** (read-only; no migrate)
+
+### Checks
+
+| Check | Result |
+|-------|--------|
+| Fresh `backup-tmp-pilot.ps1` + TOC verify | PASS (`tmp_pilot_20261102_142403.dump`, 304083 bytes) |
+| Restore into new isolated DB only | PASS |
+| Pre-migrate pilot vs copy fingerprints | PASS (0 mismatches) |
+| Flyway migrate V55→V56 on isolated copy only | PASS (1 migration) |
+| Backfill COUNTED=14, REPEATED=0, LEGACY=0 | PASS |
+| Business invariant fingerprints unchanged | PASS |
+| CHECK constraints (valid accept / invalid reject + ROLLBACK) | PASS |
+| Orders 26106082 / 26106075 remain COUNTED | PASS |
+| Packaged TMP launch JDBC → isolated V56 DB only | PASS (pool connected; Flyway disabled; stopped after smoke) |
+| V56 applied to real pilot/stage | **NOT PERFORMED** |
+
+**Recommendation:** **GO** for a separately authorized controlled pilot V56 deployment. This task did **not** deploy.
+
+---
+
+## Previous result
+
+**Date:** 2026-11-02
 **Scope:** Repeated Material Requests Phase 2 — JavaFX UX and Workbench Presentation
 **Overall:** PASS (focused automated)
 **Migration:** V56 present in tree (Phase 1); **NOT applied** to **tmp_pilot** (V55) / **tmp_gui_stage5** (V54)

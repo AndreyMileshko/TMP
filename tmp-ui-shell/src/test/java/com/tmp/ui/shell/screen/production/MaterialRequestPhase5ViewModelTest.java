@@ -285,8 +285,7 @@ class MaterialRequestPhase5ViewModelTest {
         row.setRequestedProductQuantity(0L);
 
         Optional<String> error = MaterialRequestDialogSupport.validateStep1Quantities(List.of(row));
-        assertTrue(error.isPresent());
-        assertTrue(error.get().contains("от 1 до 1"));
+        assertEquals("Допустимое количество: от 1 до 1.", error.orElseThrow());
     }
 
     @Test
@@ -304,8 +303,7 @@ class MaterialRequestPhase5ViewModelTest {
         row.setRequestedProductQuantity(2L);
 
         Optional<String> error = MaterialRequestDialogSupport.validateStep1Quantities(List.of(row));
-        assertTrue(error.isPresent());
-        assertTrue(error.get().contains("от 1 до 1"));
+        assertEquals("Допустимое количество: от 1 до 1.", error.orElseThrow());
     }
 
     @Test
