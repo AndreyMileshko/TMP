@@ -444,6 +444,32 @@ Master (CURRENT after B3-MA-FIX4B):
 
 Product coverage remains based on `MaterialRequirementSourceItem.requestedProductQuantity` and SUBMITTED rows with `counts_toward_product_coverage = TRUE` — independent of reduced material request quantities.
 
+### 13.1b Product request kind (COUNTED / REPEATED / LEGACY_EXCLUDED)
+
+Classification is **per Material Requirement source item** (`product_request_kind`), frozen at prepare:
+
+| Kind | Counts toward normal product coverage | Meaning |
+|------|----------------------------------------|---------|
+| `COUNTED` | yes (`counts_toward_product_coverage = TRUE`) | Normal material request |
+| `REPEATED` | no | Additional / repeated material request |
+| `LEGACY_EXCLUDED` | no | Historical V49 provenance only — **never** treated as repeated |
+
+**COUNTED** preserves existing STANDARD / FLEXIBLE rules and the authoritative requestable coverage formula.
+
+**REPEATED:**
+
+- explicit product quantity required for **both** STANDARD and FLEXIBLE (STANDARD quantity-mode exception for repeated only; order quantity mode itself is unchanged);
+- each repeated request independently allows `1..orderedQuantity` (no cumulative repeated ceiling);
+- may be prepared when normal requestable quantity is zero;
+- allowed for `IN_PRODUCTION` / `PARTIALLY_RELEASED` items; rejected for fully `RELEASED` / `CANCELLED`;
+- does not change ordered / launched / active / released production quantities or release eligibility;
+- does not reserve or consume normal product coverage;
+- mixed COUNTED + REPEATED source items may share one Material Requirement and one submit transaction.
+
+Warehouse remains unaware of product request kind: repeated requests create ordinary Demands via the existing Warehouse public API. Reject / return of transfers does not reclassify the Material Requirement.
+
+Workench display of repeated submitted metrics (`repeatedSubmittedProductQuantity` / `repeatedSubmittedRequestCount`) is Presentation Phase 2; the Application API exposes the batch fields alongside unchanged `submittedProductCoverage`.
+
 **B3-MA-06 CLOSED AS DESIGN:** production warehouse stock is common physical inventory without Order reservation; automatic subtraction does not occur. FIX4B only adds manual master override of request quantity. Future supplemental Warehouse request (from stock UI) is a separate phase — not implemented here.
 
 ## 13.2 Владение
@@ -974,6 +1000,7 @@ Order Management — владелец Order / Order Item / Revision / Specificat
 | 2.6 | Stage 3.5.0 Warehouse boundary alignment (ADR-037): TARGET Material Requirement → Warehouse routing; CURRENT IMPLEMENTATION (fixed mainWarehouse + recommendation formula + Production template) явно отделён; dual quantity / supply-warehouse choice superseded for target; plan/fact Release unchanged. |
 | 2.7 | §15.1.1 B3-MA-FIX2: `lineQuantity` = material norm **per one product**; plan/readiness = `Q × R` (cumulative); full close at `Q × N`; aligns Release/Readiness with Material Requirement per-product scaling. |
 | 2.8 | P1-4: §21 Release orchestration stamps Warehouse Consumption origin (Release draft id/number + customer order number via OM Public Query) before consume; same outer ACID TX; single-order attribution per release call. |
+| 2.9 | §13.1b: per–source-item `product_request_kind` (COUNTED / REPEATED / LEGACY_EXCLUDED); REPEATED bypasses normal coverage with per-request `1..orderedQuantity` ceiling (STANDARD may supply explicit qty only when repeated); Warehouse Demand API unchanged. |
 
 ---
 

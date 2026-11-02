@@ -4,25 +4,30 @@ package com.tmp.ui.shell.screen.production;
  * Presentation-only formatting for the Production Workbench material-requests column.
  *
  * <p>Uses the authoritative submitted product coverage metric ({@code submittedProductCoverage}),
- * not currently requestable capacity. Repeated-request lines are omitted until explicitly
- * persisted classification exists — zeros are never fabricated.
+ * not currently requestable capacity. Repeated-request lines use Phase 1 metrics {@code
+ * repeatedSubmittedProductQuantity} / {@code repeatedSubmittedRequestCount} — never fabricated.
+ *
+ * <p>Parent aggregation sums per-position product quantities and per-source-item repeated request
+ * counts from the coverage API. {@code repeatedSubmittedRequestCount} counts SUBMITTED REPEATED
+ * source-item rows (not necessarily unique Material Requirement documents).
  */
 public final class MaterialRequestCoverageLabels {
 
-    public static final String EMPTY = "\u2014";
-    public static final String COVERED_PREFIX = "\u0423\u0447\u0442\u0435\u043d\u043e: ";
+    public static final String EMPTY = "—";
+    public static final String COVERED_PREFIX = "Учтено: ";
+    public static final String REPEATED_PREFIX = "Повторно: ";
 
     /**
      * Russian explanation: X is cumulative submitted MR product coverage, not unique physically
      * supplied products.
      */
     public static final String COVERAGE_TOOLTIP =
-            "X \u2014 \u0441\u0443\u043c\u043c\u0430\u0440\u043d\u043e\u0435 \u043a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e \u0438\u0437\u0434\u0435\u043b\u0438\u0439, "
-                    + "\u0443\u0447\u0442\u0451\u043d\u043d\u044b\u0445 \u0432 \u043f\u043e\u0434\u0430\u043d\u043d\u044b\u0445 \u0437\u0430\u043f\u0440\u043e\u0441\u0430\u0445 \u043c\u0430\u0442\u0435\u0440\u0438\u0430\u043b\u043e\u0432 "
-                    + "(\u043d\u0430\u043a\u043e\u043f\u0438\u0442\u0435\u043b\u044c\u043d\u043e). "
-                    + "\u042d\u0442\u043e \u0443\u0447\u0451\u0442 \u043f\u043e\u043a\u0440\u044b\u0442\u0438\u044f, \u0430 \u043d\u0435 \u0447\u0438\u0441\u043b\u043e \u0443\u043d\u0438\u043a\u0430\u043b\u044c\u043d\u044b\u0445 "
-                    + "\u0444\u0438\u0437\u0438\u0447\u0435\u0441\u043a\u0438 \u043e\u0431\u0435\u0441\u043f\u0435\u0447\u0435\u043d\u043d\u044b\u0445 \u0438\u0437\u0434\u0435\u043b\u0438\u0439. "
-                    + "Y \u2014 \u0437\u0430\u043a\u0430\u0437\u0430\u043d\u043d\u043e\u0435 \u043a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e.";
+            "X — накопительное учтённое покрытие запросов материалов по изделиям"
+                    + " (сумма requested_product_quantity SUBMITTED COUNTED),"
+                    + " не уникальные физически поставленные изделия."
+                    + " Y — заказанное количество изделий позиции."
+                    + " «Повторно» — сумма SUBMITTED REPEATED запросов; M считает source-item"
+                    + " вхождения Phase 1 API, не обязательно уникальные документы MR.";
 
     private MaterialRequestCoverageLabels() {}
 
@@ -51,7 +56,76 @@ public final class MaterialRequestCoverageLabels {
         return formatPrimary(submittedSum, orderedSum);
     }
 
-    /** Tooltip text for the coverage column (explanation +/- visible cell value). */
+    /**
+     * Full cell label including optional second line for submitted repeated requests.
+     *
+     * <p>When {@code repeatedSubmittedRequestCount} and {@code repeatedSubmittedProductQuantity}
+     * are both zero, preserves the compact single-line primary format.
+     */
+    public static String format(
+            long submittedProductCoverage,
+            long orderedQuantity,
+            long repeatedSubmittedProductQuantity,
+            long repeatedSubmittedRequestCount) {
+        String primary = formatPrimary(submittedProductCoverage, orderedQuantity);
+        if (repeatedSubmittedProductQuantity <= 0L && repeatedSubmittedRequestCount <= 0L) {
+            return primary;
+        }
+        return primary
+                + "\n"
+                + formatRepeated(
+                        repeatedSubmittedProductQuantity, repeatedSubmittedRequestCount);
+    }
+
+    public static String formatAggregated(
+            long submittedSum,
+            long orderedSum,
+            long repeatedQtySum,
+            long repeatedCountSum) {
+        return format(submittedSum, orderedSum, repeatedQtySum, repeatedCountSum);
+    }
+
+    /**
+     * {@code Повторно: N изд. (M запросов)} where N is cumulative REPEATED product quantity and M is
+     * the Phase 1 submitted repeated source-item request count.
+     */
+    public static String formatRepeated(
+            long repeatedSubmittedProductQuantity, long repeatedSubmittedRequestCount) {
+        if (repeatedSubmittedProductQuantity < 0L) {
+            throw new IllegalArgumentException(
+                    "repeatedSubmittedProductQuantity must be >= 0: "
+                            + repeatedSubmittedProductQuantity);
+        }
+        if (repeatedSubmittedRequestCount < 0L) {
+            throw new IllegalArgumentException(
+                    "repeatedSubmittedRequestCount must be >= 0: "
+                            + repeatedSubmittedRequestCount);
+        }
+        return REPEATED_PREFIX
+                + repeatedSubmittedProductQuantity
+                + " изд. ("
+                + repeatedSubmittedRequestCount
+                + " "
+                + repeatedRequestsWord(repeatedSubmittedRequestCount)
+                + ")";
+    }
+
+    private static String repeatedRequestsWord(long count) {
+        long mod100 = count % 100L;
+        long mod10 = count % 10L;
+        if (mod100 >= 11L && mod100 <= 14L) {
+            return "запросов";
+        }
+        if (mod10 == 1L) {
+            return "запрос";
+        }
+        if (mod10 >= 2L && mod10 <= 4L) {
+            return "запроса";
+        }
+        return "запросов";
+    }
+
+    /** Tooltip text for the coverage column (explanation + / − visible cell value). */
     public static String tooltipFor(String cellLabel) {
         if (cellLabel == null || cellLabel.isBlank() || EMPTY.equals(cellLabel)) {
             return COVERAGE_TOOLTIP;
@@ -62,5 +136,10 @@ public final class MaterialRequestCoverageLabels {
     /** True when the label carries coverage text (not empty dash). */
     public static boolean hasCoverage(String label) {
         return label != null && label.startsWith(COVERED_PREFIX);
+    }
+
+    /** True when the label includes a repeated-request statistics line. */
+    public static boolean hasRepeated(String label) {
+        return label != null && label.contains(REPEATED_PREFIX);
     }
 }

@@ -11,6 +11,7 @@ import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialRequirementSourceItem;
 import com.tmp.production.domain.MaterialRequirementSourceItemKey;
 import com.tmp.production.domain.MaterialRequirementStatus;
+import com.tmp.production.domain.ProductRequestKind;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.repository.MaterialRequirementRepository;
@@ -170,6 +171,65 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                                     SourceOrderItemId.of(
                                             rs.getObject("source_order_item_id", UUID.class)));
                     result.put(key, rs.getLong("submitted_qty"));
+                },
+                args.toArray());
+        return Map.copyOf(result);
+    }
+
+    @Override
+    public Map<MaterialRequirementSourceItemKey, SubmittedRepeatedProductRequestStats>
+            sumSubmittedRepeatedProductRequests(
+                    Collection<MaterialRequirementSourceItemKey> keys) {
+        Objects.requireNonNull(keys, "keys");
+        Map<MaterialRequirementSourceItemKey, SubmittedRepeatedProductRequestStats> result =
+                new LinkedHashMap<>();
+        if (keys.isEmpty()) {
+            return result;
+        }
+        for (MaterialRequirementSourceItemKey key : keys) {
+            Objects.requireNonNull(key, "key");
+            result.put(key, SubmittedRepeatedProductRequestStats.zero());
+        }
+        List<MaterialRequirementSourceItemKey> keyList = List.copyOf(keys);
+        StringBuilder sql =
+                new StringBuilder(
+                        """
+                        SELECT si.source_order_id, si.source_order_item_id,
+                               COALESCE(SUM(si.requested_product_quantity), 0) AS submitted_qty,
+                               COUNT(*) AS request_count
+                        FROM production.material_requirement_source_items si
+                        JOIN production.material_requirements mr ON mr.id = si.requirement_id
+                        WHERE mr.status = 'SUBMITTED'
+                          AND si.product_request_kind = 'REPEATED'
+                          AND (
+                        """);
+        List<Object> args = new ArrayList<>();
+        for (int i = 0; i < keyList.size(); i++) {
+            if (i > 0) {
+                sql.append(" OR ");
+            }
+            sql.append("(si.source_order_id = ? AND si.source_order_item_id = ?)");
+            MaterialRequirementSourceItemKey key = keyList.get(i);
+            args.add(key.sourceOrderId().value());
+            args.add(key.sourceOrderItemId().value());
+        }
+        sql.append(
+                """
+                          )
+                        GROUP BY si.source_order_id, si.source_order_item_id
+                        """);
+        jdbcTemplate.query(
+                sql.toString(),
+                (rs) -> {
+                    MaterialRequirementSourceItemKey key =
+                            MaterialRequirementSourceItemKey.of(
+                                    SourceOrderId.of(rs.getObject("source_order_id", UUID.class)),
+                                    SourceOrderItemId.of(
+                                            rs.getObject("source_order_item_id", UUID.class)));
+                    result.put(
+                            key,
+                            new SubmittedRepeatedProductRequestStats(
+                                    rs.getLong("submitted_qty"), rs.getLong("request_count")));
                 },
                 args.toArray());
         return Map.copyOf(result);
@@ -431,14 +491,16 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                     """
                     INSERT INTO production.material_requirement_source_items (
                         requirement_id, source_order_id, source_order_item_id,
-                        requested_product_quantity, counts_toward_product_coverage)
-                    VALUES (?, ?, ?, ?, ?)
+                        requested_product_quantity, counts_toward_product_coverage,
+                        product_request_kind)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     """,
                     requirementId.value(),
                     item.sourceOrderId().value(),
                     item.sourceOrderItemId().value(),
                     item.requestedProductQuantity(),
-                    item.countsTowardProductCoverage());
+                    item.countsTowardProductCoverage(),
+                    item.productRequestKind().name());
         }
     }
 
@@ -446,7 +508,7 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
         return jdbcTemplate.query(
                 """
                 SELECT source_order_id, source_order_item_id, requested_product_quantity,
-                       counts_toward_product_coverage
+                       product_request_kind
                 FROM production.material_requirement_source_items
                 WHERE requirement_id = ?
                 ORDER BY source_order_id, source_order_item_id
@@ -457,7 +519,7 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                                 SourceOrderItemId.of(
                                         rs.getObject("source_order_item_id", UUID.class)),
                                 rs.getLong("requested_product_quantity"),
-                                rs.getBoolean("counts_toward_product_coverage")),
+                                ProductRequestKind.parse(rs.getString("product_request_kind"))),
                 requirementId.value());
     }
 

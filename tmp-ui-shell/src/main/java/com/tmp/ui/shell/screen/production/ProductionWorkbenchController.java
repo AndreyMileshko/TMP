@@ -51,6 +51,7 @@ import javafx.scene.control.TreeTableView;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.util.StringConverter;
 
@@ -693,16 +694,37 @@ public final class ProductionWorkbenchController
 
     private TreeTableCell<ProductionTreeNode, String> materialRequestsCoverageTreeCell() {
         return new TreeTableCell<>() {
+            private final Label multiLine = new Label();
+
+            {
+                multiLine.setWrapText(true);
+                multiLine.setStyle("-fx-text-overrun: clip;");
+            }
+
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
                 if (empty || getTreeTableRow() == null || getTreeTableRow().getItem() == null) {
                     setText(null);
+                    setGraphic(null);
                     setTooltip(null);
+                    if (getTreeTableRow() != null) {
+                        getTreeTableRow().setPrefHeight(Region.USE_COMPUTED_SIZE);
+                    }
                     return;
                 }
                 String text = getTreeTableRow().getItem().materialRequestsLabel();
-                setText(text);
+                boolean twoLine = text != null && text.indexOf('\n') >= 0;
+                if (twoLine) {
+                    multiLine.setText(text);
+                    setText(null);
+                    setGraphic(multiLine);
+                    getTreeTableRow().setPrefHeight(44);
+                } else {
+                    setGraphic(null);
+                    setText(text);
+                    getTreeTableRow().setPrefHeight(Region.USE_COMPUTED_SIZE);
+                }
                 setTooltip(
                         ProductionTableCells.fullTextTooltip(
                                 MaterialRequestCoverageLabels.tooltipFor(text)));
@@ -1321,6 +1343,8 @@ public final class ProductionWorkbenchController
         java.util.concurrent.atomic.AtomicReference<MaterialRequirementView> current =
                 new java.util.concurrent.atomic.AtomicReference<>(requirement);
         List<String> sources = viewModel.materialRequirementSourceSummary(requirement);
+        List<MaterialRequestDialogSupport.RepeatedSubmitConfirmRow> repeatedConfirmRows =
+                viewModel.materialRequirementRepeatedSubmitConfirmRows(requirement);
         List<MaterialRequirementLineProductionStockView> productionStock;
         try {
             productionStock =
@@ -1334,6 +1358,7 @@ public final class ProductionWorkbenchController
                         requirement,
                         productionStock,
                         sources,
+                        repeatedConfirmRows,
                         canMutate,
                         !provisional,
                         rows -> {

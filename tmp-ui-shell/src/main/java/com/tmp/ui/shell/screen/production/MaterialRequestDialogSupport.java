@@ -6,6 +6,7 @@ import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementLineVi
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementSourceItemView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementStatusView;
 import com.tmp.production.api.ProductionApplicationApi.MaterialRequirementView;
+import com.tmp.production.api.ProductionApplicationApi.ProductRequestKindView;
 import com.tmp.production.api.ProductionApplicationApi.QuantityModeView;
 import com.tmp.ui.shell.order.DecimalQuantityParser;
 import com.tmp.ui.shell.order.DecimalUiFormat;
@@ -24,19 +25,23 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -75,6 +80,22 @@ public final class MaterialRequestDialogSupport {
     public static final String COLUMN_DRAFT_ORDERS = "Заказ";
     public static final String COLUMN_DRAFT_POSITIONS = "Позиции";
     public static final String COLUMN_DRAFT_PRODUCTS = "Изделия";
+    public static final String COLUMN_REPEATED = "Повторно";
+    public static final String REPEATED_CHECKBOX_TOOLTIP =
+            "Повторный запрос материалов: позволяет запросить материалы повторно в пределах"
+                    + " заказанного количества изделий. Не увеличивает количество изделий в заказе"
+                    + " и не увеличивает количество, доступное к выпуску. Не расходует обычную"
+                    + " квоту покрытия материального запроса.";
+    public static final String KIND_COUNTED_LABEL = "Обычный запрос";
+    public static final String KIND_REPEATED_LABEL = "Повторный запрос";
+    public static final String KIND_LEGACY_LABEL = "Исторический запрос";
+    public static final String REPEATED_CONFIRM_TITLE = "ПОВТОРНЫЙ ЗАПРОС МАТЕРИАЛОВ";
+    public static final String REPEATED_CONFIRM_HEADER =
+            "Вы собираетесь повторно запросить материалы для следующих позиций:";
+    public static final String REPEATED_CONFIRM_EXPLANATION =
+            "Повторный запрос не изменяет количество изделий в заказе и не увеличивает"
+                    + " количество, доступное к выпуску.";
+    public static final String REPEATED_CONFIRM_ACCEPT = "Создать повторный запрос";
     public static final String STOCK_INFO_HINT =
             "Остаток на производстве показан справочно. Он общий для всех заказов и не уменьшает"
                     + " количество к запросу.";
@@ -84,6 +105,9 @@ public final class MaterialRequestDialogSupport {
     public static final String DELETE_DRAFT_CONFIRM_TITLE = "Удалить черновик?";
     public static final String DELETE_DRAFT_CONFIRM_HEADER =
             "Черновик будет удалён безвозвратно.";
+    public static final String NORMAL_ZERO_REQUESTABLE_MESSAGE =
+            "Для обычного запроса доступное количество равно 0. Включите «Повторно» или измените"
+                    + " выбор позиций.";
 
     private static final DateTimeFormatter DRAFT_WHEN =
             DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
@@ -149,18 +173,42 @@ public final class MaterialRequestDialogSupport {
         }
     }
 
+    /** One REPEATED source item listed in the submit confirmation dialog. */
+    public record RepeatedSubmitConfirmRow(
+            String orderNumberLabel, String positionLabel, long requestedProductQuantity) {
+        public RepeatedSubmitConfirmRow {
+            orderNumberLabel = orderNumberLabel == null ? "" : orderNumberLabel;
+            positionLabel = positionLabel == null ? "" : positionLabel;
+            if (requestedProductQuantity <= 0L) {
+                throw new IllegalArgumentException(
+                        "requestedProductQuantity must be > 0: " + requestedProductQuantity);
+            }
+        }
+    }
+
     public static Optional<String> validateStep1Quantities(List<MaterialRequestQuantityRow> rows) {
         Objects.requireNonNull(rows, "rows");
         for (MaterialRequestQuantityRow row : rows) {
-            if (row.standardMode()) {
-                continue;
+            long max = row.maximumProductQuantity();
+            if (!row.repeatedRequest()) {
+                if (max <= 0L) {
+                    return Optional.of(
+                            NORMAL_ZERO_REQUESTABLE_MESSAGE
+                                    + " ("
+                                    + row.orderNumberLabel()
+                                    + " / "
+                                    + row.positionLabel()
+                                    + ").");
+                }
+                if (row.standardMode()) {
+                    continue;
+                }
             }
             long requested = row.requestedProductQuantity();
-            long max = row.requestableProductQuantity();
-            if (requested < 1L || requested > max) {
+            if (max <= 0L || requested < 1L || requested > max) {
                 return Optional.of(
                         "Количество должно быть от 1 до "
-                                + max
+                                + Math.max(0L, max)
                                 + " для "
                                 + row.orderNumberLabel()
                                 + " / "
@@ -173,6 +221,26 @@ public final class MaterialRequestDialogSupport {
 
     public static boolean step1QuantitiesValid(List<MaterialRequestQuantityRow> rows) {
         return validateStep1Quantities(rows).isEmpty();
+    }
+
+    public static boolean requiresRepeatedSubmitConfirmation(
+            MaterialRequirementView requirement) {
+        Objects.requireNonNull(requirement, "requirement");
+        for (MaterialRequirementSourceItemView source : requirement.sourceItems()) {
+            if (source.productRequestKind() == ProductRequestKindView.REPEATED) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static String productRequestKindLabel(ProductRequestKindView kind) {
+        Objects.requireNonNull(kind, "kind");
+        return switch (kind) {
+            case COUNTED -> KIND_COUNTED_LABEL;
+            case REPEATED -> KIND_REPEATED_LABEL;
+            case LEGACY_EXCLUDED -> KIND_LEGACY_LABEL;
+        };
     }
 
     public static List<MaterialRequestDraftLineRow> toLineRows(
@@ -236,7 +304,9 @@ public final class MaterialRequestDialogSupport {
                 + " — "
                 + source.requestedProductQuantity()
                 + " изд."
-                + (product == null || product.isBlank() ? "" : " (" + product + ")");
+                + (product == null || product.isBlank() ? "" : " (" + product + ")")
+                + " · "
+                + productRequestKindLabel(source.productRequestKind());
     }
 
     public static String formatDraftCreatedAt(Instant createdAt) {
@@ -306,6 +376,7 @@ public final class MaterialRequestDialogSupport {
                                 "Доступно запросить",
                                 130,
                                 row -> Long.toString(row.requestableProductQuantity())),
+                        repeatedColumn(),
                         quantityColumn());
 
         Label errorLabel = new Label();
@@ -328,6 +399,12 @@ public final class MaterialRequestDialogSupport {
         for (MaterialRequestQuantityRow row : table.getItems()) {
             row.requestedProductQuantityProperty()
                     .addListener((obs, oldValue, newValue) -> refreshNextEnablement.run());
+            row.repeatedRequestProperty()
+                    .addListener(
+                            (obs, oldValue, newValue) -> {
+                                table.refresh();
+                                refreshNextEnablement.run();
+                            });
         }
         refreshNextEnablement.run();
         nextButton.addEventFilter(
@@ -347,7 +424,7 @@ public final class MaterialRequestDialogSupport {
         content.setPadding(new Insets(8));
         VBox.setVgrow(table, Priority.ALWAYS);
         dialog.getDialogPane().setContent(content);
-        dialog.getDialogPane().setPrefWidth(900);
+        dialog.getDialogPane().setPrefWidth(980);
 
         Optional<ButtonType> result = dialog.showAndWait();
         if (result.isEmpty() || result.get() != nextType) {
@@ -364,11 +441,33 @@ public final class MaterialRequestDialogSupport {
             boolean alreadySaved,
             Function<List<MaterialRequestDraftLineRow>, Optional<MaterialRequirementView>> saveDraft,
             Function<List<MaterialRequestDraftLineRow>, Optional<String>> submit) {
+        return showStep2(
+                requirement,
+                productionStock,
+                sourceSummaryLines,
+                List.of(),
+                canMutate,
+                alreadySaved,
+                saveDraft,
+                submit);
+    }
+
+    public static Step2Outcome showStep2(
+            MaterialRequirementView requirement,
+            List<MaterialRequirementLineProductionStockView> productionStock,
+            List<String> sourceSummaryLines,
+            List<RepeatedSubmitConfirmRow> repeatedConfirmRows,
+            boolean canMutate,
+            boolean alreadySaved,
+            Function<List<MaterialRequestDraftLineRow>, Optional<MaterialRequirementView>> saveDraft,
+            Function<List<MaterialRequestDraftLineRow>, Optional<String>> submit) {
         Objects.requireNonNull(requirement, "requirement");
         Objects.requireNonNull(productionStock, "productionStock");
         Objects.requireNonNull(sourceSummaryLines, "sourceSummaryLines");
+        Objects.requireNonNull(repeatedConfirmRows, "repeatedConfirmRows");
         Objects.requireNonNull(saveDraft, "saveDraft");
         Objects.requireNonNull(submit, "submit");
+        List<RepeatedSubmitConfirmRow> repeatedRows = List.copyOf(repeatedConfirmRows);
 
         MaterialRequirementView[] current = {requirement};
         boolean[] explicitlySaved = {alreadySaved};
@@ -477,6 +576,14 @@ public final class MaterialRequestDialogSupport {
                         if (validation.isPresent()) {
                             showStep2Error(messageLabel, validation.get());
                             return;
+                        }
+                        if (requiresRepeatedSubmitConfirmation(current[0])) {
+                            List<String> confirmLines =
+                                    repeatedConfirmDisplayLines(
+                                            repeatedRows, sourceSummaryLines);
+                            if (!confirmRepeatedSubmit(confirmLines)) {
+                                return;
+                            }
                         }
                         saveButton.setDisable(true);
                         submitButton.setDisable(true);
@@ -636,6 +743,67 @@ public final class MaterialRequestDialogSupport {
         return result.isPresent() && result.get() == delete;
     }
 
+    /**
+     * Confirmation before submitting a Material Requirement that contains at least one REPEATED
+     * source item. Cancel must not submit and must not persist pending Step 2 edits.
+     */
+    public static boolean confirmRepeatedSubmit(List<String> positionLines) {
+        Objects.requireNonNull(positionLines, "positionLines");
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        TmpTheme.apply(alert.getDialogPane());
+        alert.setTitle(REPEATED_CONFIRM_TITLE);
+        alert.setHeaderText(REPEATED_CONFIRM_HEADER);
+        StringBuilder body = new StringBuilder();
+        for (String line : positionLines) {
+            if (line == null || line.isBlank()) {
+                continue;
+            }
+            body.append("• ").append(line.trim()).append('\n');
+        }
+        body.append('\n').append(REPEATED_CONFIRM_EXPLANATION);
+        Label content = new Label(body.toString().trim());
+        content.setWrapText(true);
+        content.setMaxWidth(520);
+        alert.getDialogPane().setContent(content);
+        ButtonType accept =
+                new ButtonType(REPEATED_CONFIRM_ACCEPT, ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancel = new ButtonType(CANCEL_BUTTON, ButtonBar.ButtonData.CANCEL_CLOSE);
+        alert.getButtonTypes().setAll(accept, cancel);
+        Optional<ButtonType> result = alert.showAndWait();
+        return result.isPresent() && result.get() == accept;
+    }
+
+    public static String formatRepeatedConfirmRow(RepeatedSubmitConfirmRow row) {
+        Objects.requireNonNull(row, "row");
+        return row.orderNumberLabel()
+                + " / "
+                + row.positionLabel()
+                + " — "
+                + row.requestedProductQuantity()
+                + " изд.";
+    }
+
+    static List<String> repeatedConfirmDisplayLines(
+            List<RepeatedSubmitConfirmRow> repeatedRows, List<String> sourceSummaryLines) {
+        List<String> lines = new ArrayList<>();
+        if (repeatedRows != null) {
+            for (RepeatedSubmitConfirmRow row : repeatedRows) {
+                lines.add(formatRepeatedConfirmRow(row));
+            }
+        }
+        if (!lines.isEmpty()) {
+            return List.copyOf(lines);
+        }
+        if (sourceSummaryLines != null) {
+            for (String summary : sourceSummaryLines) {
+                if (summary != null && summary.contains(KIND_REPEATED_LABEL)) {
+                    lines.add(summary);
+                }
+            }
+        }
+        return List.copyOf(lines);
+    }
+
     private static TableColumn<DraftListRow, String> draftListStringColumn(
             String title, double pref, Function<DraftListRow, String> value) {
         TableColumn<DraftListRow, String> column = new TableColumn<>(title);
@@ -676,6 +844,51 @@ public final class MaterialRequestDialogSupport {
         return column;
     }
 
+    private static TableColumn<MaterialRequestQuantityRow, Boolean> repeatedColumn() {
+        TableColumn<MaterialRequestQuantityRow, Boolean> column = new TableColumn<>(COLUMN_REPEATED);
+        column.setPrefWidth(90);
+        column.setStyle("-fx-alignment: CENTER;");
+        column.setCellValueFactory(
+                c -> {
+                    MaterialRequestQuantityRow row = c.getValue();
+                    return row == null
+                            ? new SimpleBooleanProperty(false)
+                            : row.repeatedRequestProperty();
+                });
+        column.setCellFactory(
+                col ->
+                        new TableCell<>() {
+                            private final CheckBox checkBox = new CheckBox();
+
+                            {
+                                checkBox.setTooltip(new Tooltip(REPEATED_CHECKBOX_TOOLTIP));
+                                checkBox.setOnAction(
+                                        event -> {
+                                            MaterialRequestQuantityRow row = getTableRow() == null
+                                                    ? null
+                                                    : getTableRow().getItem();
+                                            if (row != null) {
+                                                row.setRepeatedRequest(checkBox.isSelected());
+                                            }
+                                        });
+                            }
+
+                            @Override
+                            protected void updateItem(Boolean item, boolean empty) {
+                                super.updateItem(item, empty);
+                                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                                    setGraphic(null);
+                                    return;
+                                }
+                                MaterialRequestQuantityRow row = getTableRow().getItem();
+                                checkBox.setSelected(row.repeatedRequest());
+                                setGraphic(checkBox);
+                                setAlignment(Pos.CENTER);
+                            }
+                        });
+        return column;
+    }
+
     private static TableColumn<MaterialRequestQuantityRow, String> quantityColumn() {
         TableColumn<MaterialRequestQuantityRow, String> column = new TableColumn<>("Количество");
         column.setPrefWidth(110);
@@ -694,7 +907,7 @@ public final class MaterialRequestDialogSupport {
                                                             || getTableRow().getItem() == null) {
                                                         return;
                                                     }
-                                                    applyFlexibleQuantityText(
+                                                    applyEditableQuantityText(
                                                             newValue, getTableRow().getItem());
                                                 });
                                 field.focusedProperty()
@@ -705,7 +918,7 @@ public final class MaterialRequestDialogSupport {
                                                             && getTableRow().getItem() != null) {
                                                         MaterialRequestQuantityRow row =
                                                                 getTableRow().getItem();
-                                                        if (!row.standardMode()) {
+                                                        if (row.quantityEditable()) {
                                                             syncing = true;
                                                             try {
                                                                 field.setText(
@@ -731,9 +944,9 @@ public final class MaterialRequestDialogSupport {
                                     return;
                                 }
                                 MaterialRequestQuantityRow row = getTableRow().getItem();
-                                if (row.standardMode()) {
+                                if (!row.quantityEditable()) {
                                     setGraphic(null);
-                                    setText(Long.toString(row.requestableProductQuantity()));
+                                    setText(Long.toString(row.maximumProductQuantity()));
                                 } else {
                                     syncing = true;
                                     try {
@@ -753,8 +966,8 @@ public final class MaterialRequestDialogSupport {
         return column;
     }
 
-    private static void applyFlexibleQuantityText(String text, MaterialRequestQuantityRow row) {
-        if (row == null || row.standardMode()) {
+    private static void applyEditableQuantityText(String text, MaterialRequestQuantityRow row) {
+        if (row == null || !row.quantityEditable()) {
             return;
         }
         if (text == null || text.isBlank()) {
@@ -843,9 +1056,15 @@ public final class MaterialRequestDialogSupport {
         }
     }
 
-    /** Test seam: STANDARD quantity is always requestable, never user-edited. */
+    /**
+     * Test seam / prepare helper: counted STANDARD uses authoritative requestable; repeated and
+     * FLEXIBLE use the explicit user quantity.
+     */
     public static long resolvedProductQuantityForPrepare(MaterialRequestQuantityRow row) {
         Objects.requireNonNull(row, "row");
+        if (row.repeatedRequest()) {
+            return row.requestedProductQuantity();
+        }
         if (row.quantityMode() == QuantityModeView.STANDARD) {
             return row.requestableProductQuantity();
         }

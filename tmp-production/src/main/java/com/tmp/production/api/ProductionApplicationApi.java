@@ -237,15 +237,31 @@ public interface ProductionApplicationApi {
         MULTIPLE_REFERENCES
     }
 
+    enum ProductRequestKindView {
+        COUNTED,
+        REPEATED,
+        LEGACY_EXCLUDED
+    }
+
     record MaterialRequirementSourceItemView(
-            UUID sourceOrderId, UUID sourceOrderItemId, long requestedProductQuantity) {
+            UUID sourceOrderId,
+            UUID sourceOrderItemId,
+            long requestedProductQuantity,
+            ProductRequestKindView productRequestKind) {
         public MaterialRequirementSourceItemView {
             Objects.requireNonNull(sourceOrderId, "sourceOrderId");
             Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
+            Objects.requireNonNull(productRequestKind, "productRequestKind");
             if (requestedProductQuantity <= 0L) {
                 throw new IllegalArgumentException(
                         "requestedProductQuantity must be > 0: " + requestedProductQuantity);
             }
+        }
+
+        /** Compatibility constructor defaulting to {@link ProductRequestKindView#COUNTED}. */
+        public MaterialRequirementSourceItemView(
+                UUID sourceOrderId, UUID sourceOrderItemId, long requestedProductQuantity) {
+            this(sourceOrderId, sourceOrderItemId, requestedProductQuantity, ProductRequestKindView.COUNTED);
         }
     }
 
@@ -257,18 +273,28 @@ public interface ProductionApplicationApi {
     }
 
     /**
-     * Product selection for prepare. {@code requestedProductQuantity} empty means STANDARD
-     * (backend computes). Present value is required for FLEXIBLE.
+     * Product selection for prepare. {@code requestedProductQuantity} empty means counted STANDARD
+     * (backend computes). Present value is required for counted FLEXIBLE and for any repeated
+     * request (including STANDARD). {@code repeatedRequest} defaults to {@code false} (COUNTED).
      */
     record MaterialRequirementProductSelectionView(
             UUID sourceOrderId,
             UUID sourceOrderItemId,
-            Optional<Long> requestedProductQuantity) {
+            Optional<Long> requestedProductQuantity,
+            boolean repeatedRequest) {
         public MaterialRequirementProductSelectionView {
             Objects.requireNonNull(sourceOrderId, "sourceOrderId");
             Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
             requestedProductQuantity =
                     requestedProductQuantity == null ? Optional.empty() : requestedProductQuantity;
+        }
+
+        /** Counted selection (backward-compatible). */
+        public MaterialRequirementProductSelectionView(
+                UUID sourceOrderId,
+                UUID sourceOrderItemId,
+                Optional<Long> requestedProductQuantity) {
+            this(sourceOrderId, sourceOrderItemId, requestedProductQuantity, false);
         }
     }
 
@@ -280,10 +306,45 @@ public interface ProductionApplicationApi {
             long releasedQuantity,
             long submittedProductCoverage,
             long outstandingSubmittedCoverage,
-            long requestableProductQuantity) {
+            long requestableProductQuantity,
+            long repeatedSubmittedProductQuantity,
+            long repeatedSubmittedRequestCount) {
         public MaterialRequirementProductCoverageView {
             Objects.requireNonNull(sourceOrderId, "sourceOrderId");
             Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
+            if (repeatedSubmittedProductQuantity < 0L) {
+                throw new IllegalArgumentException(
+                        "repeatedSubmittedProductQuantity must be >= 0: "
+                                + repeatedSubmittedProductQuantity);
+            }
+            if (repeatedSubmittedRequestCount < 0L) {
+                throw new IllegalArgumentException(
+                        "repeatedSubmittedRequestCount must be >= 0: "
+                                + repeatedSubmittedRequestCount);
+            }
+        }
+
+        /** Compatibility constructor with zero repeated metrics. */
+        public MaterialRequirementProductCoverageView(
+                UUID sourceOrderId,
+                UUID sourceOrderItemId,
+                long orderedQuantity,
+                long activeProductionQuantity,
+                long releasedQuantity,
+                long submittedProductCoverage,
+                long outstandingSubmittedCoverage,
+                long requestableProductQuantity) {
+            this(
+                    sourceOrderId,
+                    sourceOrderItemId,
+                    orderedQuantity,
+                    activeProductionQuantity,
+                    releasedQuantity,
+                    submittedProductCoverage,
+                    outstandingSubmittedCoverage,
+                    requestableProductQuantity,
+                    0L,
+                    0L);
         }
     }
 

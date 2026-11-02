@@ -199,7 +199,7 @@ class MaterialRequestPhase5ViewModelTest {
     }
 
     @Test
-    void invalidSelectionIsNotSilentlyReduced() {
+    void zeroRequestableStillLoadsStep1ForRepeatedCheckbox() {
         seedThreeOrders();
         applicationApi.putCoverage(coverage(ORDER_A, ITEM_A1, 10, 10, 0, 10, 0));
         viewModel.loadTree();
@@ -207,9 +207,16 @@ class MaterialRequestPhase5ViewModelTest {
 
         var loaded = viewModel.loadMaterialRequestStep1();
 
-        assertFalse(loaded.ok());
-        assertTrue(loaded.validationMessage().contains("уже запрошено"));
-        assertTrue(loaded.rows().isEmpty());
+        assertTrue(loaded.ok());
+        assertEquals(1, loaded.rows().size());
+        MaterialRequestQuantityRow row = loaded.rows().getFirst();
+        assertEquals(0L, row.requestableProductQuantity());
+        assertEquals(10L, row.orderedQuantity());
+        assertFalse(row.repeatedRequest());
+        assertTrue(MaterialRequestDialogSupport.validateStep1Quantities(List.of(row)).isPresent());
+        row.setRepeatedRequest(true);
+        assertEquals(1L, row.requestedProductQuantity());
+        assertTrue(MaterialRequestDialogSupport.validateStep1Quantities(List.of(row)).isEmpty());
     }
 
     @Test

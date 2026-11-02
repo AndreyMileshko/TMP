@@ -157,7 +157,7 @@ class ProductionWorkbenchMaterialRequestCoverageViewModelTest {
     }
 
     @Test
-    void materialRequestEligibilityStillUsesRequestableNotSubmitted() {
+    void materialRequestEligibilityAllowsRepeatedWhenRequestableZero() {
         seedOrderWithItems(ORDER_1, "ORD-1", 5, ITEM_1A);
         queryApi.putItemState(
                 ProductionWorkbenchUiTestSupport.activeItemState(ORDER_1, ITEM_1A, 5));
@@ -168,10 +168,10 @@ class ProductionWorkbenchMaterialRequestCoverageViewModelTest {
         viewModel.selectOrder(ORDER_1);
 
         var step1 = viewModel.loadMaterialRequestStep1();
-        assertFalse(step1.ok());
-        assertTrue(step1.validationMessage().contains("нельзя запросить"));
-        assertTrue(step1.rows().isEmpty());
-        // Tree still shows historical coverage while eligibility blocks new requests.
+        assertTrue(step1.ok());
+        assertEquals(1, step1.rows().size());
+        assertEquals(0L, step1.rows().getFirst().requestableProductQuantity());
+        // Tree still shows historical counted coverage.
         assertEquals("Учтено: 5/5", singleItem(ORDER_1).materialRequestsLabel());
     }
 

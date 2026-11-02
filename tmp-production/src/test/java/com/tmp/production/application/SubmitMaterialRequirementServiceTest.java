@@ -21,6 +21,7 @@ import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialRequirementSourceItem;
 import com.tmp.production.domain.MaterialRequirementSourceItemKey;
 import com.tmp.production.domain.MaterialRequirementStatus;
+import com.tmp.production.domain.ProductRequestKind;
 import com.tmp.production.domain.ProductionFoundation;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionQuantity;
@@ -28,6 +29,7 @@ import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.SpecificationId;
 import com.tmp.production.domain.repository.MaterialRequirementRepository;
+import com.tmp.production.domain.repository.MaterialRequirementRepository.SubmittedRepeatedProductRequestStats;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository.GeneratedDocumentLink;
 import com.tmp.production.domain.repository.MaterialRequirementSubmissionRepository.RoutingSnapshotRow;
@@ -485,6 +487,163 @@ class SubmitMaterialRequirementServiceTest {
         assertTrue(result.created());
     }
 
+    @Test
+    void repeatedSubmitBypassesCoverageCeilingAndDoesNotConsumeCoverage() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        itemStates.save(
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(
+                                orderId, itemId, SpecificationId.generate(), T0),
+                        ProductionQuantity.positive(5),
+                        T0,
+                        CuttingPlanLinks.empty()));
+        MaterialRequirementSourceItemKey key =
+                MaterialRequirementSourceItemKey.of(orderId, itemId);
+
+        MaterialRequirement counted = requirements.save(draftFor(orderId, itemId, 5L, "10"));
+        when(warehouseDemand.acceptProductionDemand(any()))
+                .thenReturn(successResult(counted, UUID.randomUUID(), UUID.randomUUID()));
+        service.submit(counted.requirementId(), 0L, "user-1");
+        assertEquals(5L, requirements.sumSubmittedProductQuantities(List.of(key)).get(key));
+        assertEquals(
+                0L,
+                new MaterialRequirementCoverageService(
+                                new ProductionOrderViewService(itemStates), requirements)
+                        .coverageFor(itemStates.findBySourceOrderId(orderId).getFirst())
+                        .requestableProductQuantity());
+
+        MaterialRequirement repeatedDraft =
+                requirements.save(repeatedDraftFor(orderId, itemId, 5L, "10"));
+        when(warehouseDemand.acceptProductionDemand(any()))
+                .thenReturn(successResult(repeatedDraft, UUID.randomUUID(), UUID.randomUUID()));
+        SubmitMaterialRequirementResult repeated =
+                service.submit(repeatedDraft.requirementId(), 0L, "user-1");
+        assertTrue(repeated.created());
+        assertEquals(
+                ProductRequestKind.REPEATED,
+                repeated.requirement().sourceItems().getFirst().productRequestKind());
+        assertEquals(5L, requirements.sumSubmittedProductQuantities(List.of(key)).get(key));
+        assertEquals(
+                5L,
+                requirements
+                        .sumSubmittedRepeatedProductRequests(List.of(key))
+                        .get(key)
+                        .submittedProductQuantity());
+        assertEquals(
+                1L,
+                requirements
+                        .sumSubmittedRepeatedProductRequests(List.of(key))
+                        .get(key)
+                        .submittedRequestCount());
+        verify(warehouseDemand, times(2)).acceptProductionDemand(any());
+    }
+
+    @Test
+    void repeatedSubmitRejectsAboveOrderedQuantity() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId itemId = SourceOrderItemId.generate();
+        itemStates.save(
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(
+                                orderId, itemId, SpecificationId.generate(), T0),
+                        ProductionQuantity.positive(5),
+                        T0,
+                        CuttingPlanLinks.empty()));
+        MaterialRequirement over =
+                requirements.save(
+                        MaterialRequirement.create(
+                                DEST,
+                                T0,
+                                List.of(
+                                        MaterialRequirementSourceItem.rehydrate(
+                                                orderId,
+                                                itemId,
+                                                6L,
+                                                ProductRequestKind.REPEATED)),
+                                List.of(
+                                        MaterialRequirementLine.create(
+                                                MaterialReferenceId.generate(),
+                                                "MAT-1",
+                                                "Material",
+                                                "WHITE",
+                                                "M",
+                                                null,
+                                                new BigDecimal("6"),
+                                                List.of(
+                                                        MaterialRequirementLineContribution.of(
+                                                                orderId,
+                                                                itemId,
+                                                                new BigDecimal("6")))))));
+        assertThrows(
+                MaterialRequirementCoverageConflictException.class,
+                () -> service.submit(over.requirementId(), 0L, "user-1"));
+        verify(warehouseDemand, never()).acceptProductionDemand(any());
+    }
+
+    @Test
+    void mixedCountedAndRepeatedSubmitAtomically() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderItemId countedItem = SourceOrderItemId.generate();
+        SourceOrderItemId repeatedItem = SourceOrderItemId.generate();
+        itemStates.save(
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(
+                                orderId, countedItem, SpecificationId.generate(), T0),
+                        ProductionQuantity.positive(5),
+                        T0,
+                        CuttingPlanLinks.empty()));
+        itemStates.save(
+                ProductionItemState.launch(
+                        ProductionFoundation.freeze(
+                                orderId, repeatedItem, SpecificationId.generate(), T0),
+                        ProductionQuantity.positive(5),
+                        T0,
+                        CuttingPlanLinks.empty()));
+        BigDecimal qty = new BigDecimal("5");
+        MaterialRequirement draft =
+                requirements.save(
+                        MaterialRequirement.create(
+                                DEST,
+                                T0,
+                                List.of(
+                                        MaterialRequirementSourceItem.of(orderId, countedItem, 2L),
+                                        MaterialRequirementSourceItem.repeated(
+                                                orderId, repeatedItem, 5L)),
+                                List.of(
+                                        MaterialRequirementLine.create(
+                                                MaterialReferenceId.generate(),
+                                                "MAT-1",
+                                                "Material",
+                                                "WHITE",
+                                                "PCS",
+                                                null,
+                                                qty,
+                                                List.of(
+                                                        MaterialRequirementLineContribution.of(
+                                                                orderId, countedItem, qty),
+                                                        MaterialRequirementLineContribution.of(
+                                                                orderId, repeatedItem, qty))))));
+        when(warehouseDemand.acceptProductionDemand(any()))
+                .thenReturn(successResult(draft, UUID.randomUUID(), UUID.randomUUID()));
+
+        SubmitMaterialRequirementResult result = service.submit(draft.requirementId(), 0L, "user-1");
+        assertTrue(result.created());
+        MaterialRequirementSourceItemKey countedKey =
+                MaterialRequirementSourceItemKey.of(orderId, countedItem);
+        MaterialRequirementSourceItemKey repeatedKey =
+                MaterialRequirementSourceItemKey.of(orderId, repeatedItem);
+        assertEquals(2L, requirements.sumSubmittedProductQuantities(List.of(countedKey)).get(countedKey));
+        assertEquals(0L, requirements.sumSubmittedProductQuantities(List.of(repeatedKey)).get(repeatedKey));
+        assertEquals(
+                5L,
+                requirements
+                        .sumSubmittedRepeatedProductRequests(List.of(repeatedKey))
+                        .get(repeatedKey)
+                        .submittedProductQuantity());
+        verify(warehouseDemand, times(1)).acceptProductionDemand(any());
+    }
+
     private MaterialRequirement draftFor(
             SourceOrderId orderId, SourceOrderItemId itemId, long productQty, String materialQty) {
         BigDecimal qty = new BigDecimal(materialQty);
@@ -492,6 +651,27 @@ class SubmitMaterialRequirementServiceTest {
                 DEST,
                 T0,
                 List.of(MaterialRequirementSourceItem.of(orderId, itemId, productQty)),
+                List.of(
+                        MaterialRequirementLine.create(
+                                MaterialReferenceId.generate(),
+                                "MAT-1",
+                                "Material",
+                                "WHITE",
+                                "M",
+                                null,
+                                qty,
+                                List.of(
+                                        MaterialRequirementLineContribution.of(
+                                                orderId, itemId, qty)))));
+    }
+
+    private MaterialRequirement repeatedDraftFor(
+            SourceOrderId orderId, SourceOrderItemId itemId, long productQty, String materialQty) {
+        BigDecimal qty = new BigDecimal(materialQty);
+        return MaterialRequirement.create(
+                DEST,
+                T0,
+                List.of(MaterialRequirementSourceItem.repeated(orderId, itemId, productQty)),
                 List.of(
                         MaterialRequirementLine.create(
                                 MaterialReferenceId.generate(),
@@ -628,11 +808,17 @@ class SubmitMaterialRequirementServiceTest {
         public Map<MaterialRequirementSourceItemKey, Long> sumSubmittedProductQuantities(
                 Collection<MaterialRequirementSourceItemKey> keys) {
             Map<MaterialRequirementSourceItemKey, Long> sums = new LinkedHashMap<>();
+            for (MaterialRequirementSourceItemKey key : keys) {
+                sums.put(key, 0L);
+            }
             for (MaterialRequirement requirement : store.values()) {
                 if (requirement.status() != MaterialRequirementStatus.SUBMITTED) {
                     continue;
                 }
                 for (MaterialRequirementSourceItem item : requirement.sourceItems()) {
+                    if (!item.countsTowardProductCoverage()) {
+                        continue;
+                    }
                     MaterialRequirementSourceItemKey key =
                             MaterialRequirementSourceItemKey.of(
                                     item.sourceOrderId(), item.sourceOrderItemId());
@@ -642,6 +828,45 @@ class SubmitMaterialRequirementServiceTest {
                 }
             }
             return sums;
+        }
+
+        @Override
+        public Map<MaterialRequirementSourceItemKey, SubmittedRepeatedProductRequestStats>
+                sumSubmittedRepeatedProductRequests(
+                        Collection<MaterialRequirementSourceItemKey> keys) {
+            Map<MaterialRequirementSourceItemKey, SubmittedRepeatedProductRequestStats> result =
+                    new LinkedHashMap<>();
+            for (MaterialRequirementSourceItemKey key : keys) {
+                result.put(key, SubmittedRepeatedProductRequestStats.zero());
+            }
+            Map<MaterialRequirementSourceItemKey, Long> qty = new LinkedHashMap<>();
+            Map<MaterialRequirementSourceItemKey, Long> count = new LinkedHashMap<>();
+            for (MaterialRequirement requirement : store.values()) {
+                if (requirement.status() != MaterialRequirementStatus.SUBMITTED) {
+                    continue;
+                }
+                for (MaterialRequirementSourceItem item : requirement.sourceItems()) {
+                    if (item.productRequestKind()
+                            != com.tmp.production.domain.ProductRequestKind.REPEATED) {
+                        continue;
+                    }
+                    MaterialRequirementSourceItemKey key =
+                            MaterialRequirementSourceItemKey.of(
+                                    item.sourceOrderId(), item.sourceOrderItemId());
+                    if (!keys.contains(key)) {
+                        continue;
+                    }
+                    qty.merge(key, item.requestedProductQuantity(), Long::sum);
+                    count.merge(key, 1L, Long::sum);
+                }
+            }
+            for (MaterialRequirementSourceItemKey key : keys) {
+                result.put(
+                        key,
+                        new SubmittedRepeatedProductRequestStats(
+                                qty.getOrDefault(key, 0L), count.getOrDefault(key, 0L)));
+            }
+            return result;
         }
 
         @Override

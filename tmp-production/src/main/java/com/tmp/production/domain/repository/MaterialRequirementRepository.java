@@ -38,11 +38,40 @@ public interface MaterialRequirementRepository {
     MaterialRequirement markSubmitted(MaterialRequirement requirement);
 
     /**
-     * Sums {@code requested_product_quantity} from {@code SUBMITTED} requirements for the given
-     * source items. Missing keys mean zero submitted coverage. DRAFT rows are ignored.
+     * Sums {@code requested_product_quantity} from {@code SUBMITTED} {@code COUNTED} requirements
+     * for the given source items ({@code counts_toward_product_coverage = TRUE}). Missing keys mean
+     * zero submitted coverage. DRAFT and non-COUNTED rows are ignored.
      */
     Map<MaterialRequirementSourceItemKey, Long> sumSubmittedProductQuantities(
             Collection<MaterialRequirementSourceItemKey> keys);
+
+    /**
+     * Batch aggregates SUBMITTED {@code REPEATED} source items once per MR source item (never per
+     * material line). Missing keys mean zero quantity and zero request count. DRAFT and
+     * LEGACY_EXCLUDED rows are ignored.
+     */
+    Map<MaterialRequirementSourceItemKey, SubmittedRepeatedProductRequestStats>
+            sumSubmittedRepeatedProductRequests(
+                    Collection<MaterialRequirementSourceItemKey> keys);
+
+    /** SUBMITTED + REPEATED aggregates for one source item key. */
+    record SubmittedRepeatedProductRequestStats(
+            long submittedProductQuantity, long submittedRequestCount) {
+        public SubmittedRepeatedProductRequestStats {
+            if (submittedProductQuantity < 0L) {
+                throw new IllegalArgumentException(
+                        "submittedProductQuantity must be >= 0: " + submittedProductQuantity);
+            }
+            if (submittedRequestCount < 0L) {
+                throw new IllegalArgumentException(
+                        "submittedRequestCount must be >= 0: " + submittedRequestCount);
+            }
+        }
+
+        public static SubmittedRepeatedProductRequestStats zero() {
+            return new SubmittedRepeatedProductRequestStats(0L, 0L);
+        }
+    }
 
     /** Batch load by ids; missing ids are omitted. */
     List<MaterialRequirement> findByIds(Collection<MaterialRequirementId> ids);

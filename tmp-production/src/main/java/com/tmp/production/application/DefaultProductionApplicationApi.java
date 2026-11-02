@@ -12,6 +12,8 @@ import com.tmp.production.domain.MaterialRequirementLine;
 import com.tmp.production.domain.MaterialRequirementLineId;
 import com.tmp.production.domain.MaterialRequirementSourceItem;
 import com.tmp.production.domain.MaterialRequirementSourceItemKey;
+import com.tmp.production.domain.ProductRequestKind;
+import com.tmp.production.domain.repository.MaterialRequirementRepository.SubmittedRepeatedProductRequestStats;
 import com.tmp.production.domain.MaterialRequirementStatus;
 import com.tmp.production.domain.OrderQuantityModeSetting;
 import com.tmp.production.domain.ProductionQuantityMode;
@@ -190,9 +192,13 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                         .toList();
         Map<MaterialRequirementSourceItemKey, MaterialRequirementProductCoverageCalculator.ProductItemCoverage>
                 coverage = materialRequirementCoverageService.coverageForItems(keys);
+        Map<MaterialRequirementSourceItemKey, SubmittedRepeatedProductRequestStats> repeated =
+                materialRequirementCoverageService.repeatedStatsForItems(keys);
         List<MaterialRequirementProductCoverageView> views = new java.util.ArrayList<>();
         for (MaterialRequirementSourceItemKey key : keys) {
             var item = coverage.get(key);
+            SubmittedRepeatedProductRequestStats repeatedStats =
+                    repeated.getOrDefault(key, SubmittedRepeatedProductRequestStats.zero());
             views.add(
                     new MaterialRequirementProductCoverageView(
                             key.sourceOrderId().value(),
@@ -202,7 +208,9 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                             item.releasedQuantity(),
                             item.submittedProductCoverage(),
                             item.outstandingSubmittedCoverage(),
-                            item.requestableProductQuantity()));
+                            item.requestableProductQuantity(),
+                            repeatedStats.submittedProductQuantity(),
+                            repeatedStats.submittedRequestCount()));
         }
         return List.copyOf(views);
     }
@@ -498,15 +506,23 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
 
     private MaterialRequirementProductSelection map(
             MaterialRequirementProductSelectionView selection) {
+        SourceOrderId orderId = SourceOrderId.of(selection.sourceOrderId());
+        SourceOrderItemId itemId = SourceOrderItemId.of(selection.sourceOrderItemId());
+        if (selection.repeatedRequest()) {
+            long qty =
+                    selection
+                            .requestedProductQuantity()
+                            .orElseThrow(
+                                    () ->
+                                            new IllegalArgumentException(
+                                                    "repeatedRequest requires requestedProductQuantity"));
+            return MaterialRequirementProductSelection.repeated(orderId, itemId, qty);
+        }
         if (selection.requestedProductQuantity().isPresent()) {
             return MaterialRequirementProductSelection.of(
-                    SourceOrderId.of(selection.sourceOrderId()),
-                    SourceOrderItemId.of(selection.sourceOrderItemId()),
-                    selection.requestedProductQuantity().orElseThrow());
+                    orderId, itemId, selection.requestedProductQuantity().orElseThrow());
         }
-        return MaterialRequirementProductSelection.of(
-                SourceOrderId.of(selection.sourceOrderId()),
-                SourceOrderItemId.of(selection.sourceOrderItemId()));
+        return MaterialRequirementProductSelection.of(orderId, itemId);
     }
 
     private MaterialRequirementView map(MaterialRequirement requirement) {
@@ -544,7 +560,16 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
         return new MaterialRequirementSourceItemView(
                 item.sourceOrderId().value(),
                 item.sourceOrderItemId().value(),
-                item.requestedProductQuantity());
+                item.requestedProductQuantity(),
+                map(item.productRequestKind()));
+    }
+
+    private ProductRequestKindView map(ProductRequestKind kind) {
+        return switch (kind) {
+            case COUNTED -> ProductRequestKindView.COUNTED;
+            case REPEATED -> ProductRequestKindView.REPEATED;
+            case LEGACY_EXCLUDED -> ProductRequestKindView.LEGACY_EXCLUDED;
+        };
     }
 
     private MaterialRequirementLineView map(MaterialRequirementLine line) {

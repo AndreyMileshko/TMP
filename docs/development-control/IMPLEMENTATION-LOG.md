@@ -1,3 +1,39 @@
+## Repeated Material Requests Phase 2 — JavaFX UX / Workbench Presentation — 2026-11-02
+
+**Date:** 2026-11-02
+**Base HEAD:** `908de7b432a8929866374e5090451775ac1d26d9`
+**Status:** CODE DONE — Phase 1 preserved in working tree; focused UI tests PASS (43); package PASS; no commit / no push
+
+### Delivered
+- Step 1 per-position «Повторно» checkbox; max = requestable (OFF) / orderedQuantity (ON)
+- Zero normal requestable rows remain visible for eligible IN_PRODUCTION / PARTIALLY_RELEASED items
+- Prepare sends Phase 1 `repeatedRequest` + explicit qty; STANDARD unchanged for counted
+- Step 2 shows persisted product request kind; submit confirmation for REPEATED only
+- Workbench «Запросы материалов»: optional second line `Повторно: N изд. (M запросов)` from Phase 1 coverage API
+- Parent M = sum of per-source-item repeated request counts (not unique MR documents)
+
+### Out of scope
+Warehouse rule changes; V56 on pilot/stage; reject-after-receipt preference; Production/Demand cancellation integration; commit/push
+
+---
+## Repeated Material Requests Phase 1 — Domain / Persistence / Application API — 2026-11-02
+
+**Date:** 2026-11-02
+**Base HEAD:** `908de7b432a8929866374e5090451775ac1d26d9`
+**Status:** CODE DONE — V56 created (not applied to pilot/stage); focused tests PASS (100); package PASS; no commit / no push
+
+### Delivered
+- `product_request_kind` on `production.material_requirement_source_items` (COUNTED / REPEATED / LEGACY_EXCLUDED)
+- Backfill: TRUE→COUNTED, FALSE→LEGACY_EXCLUDED; never REPEATED
+- Prepare/submit paths for REPEATED (1..orderedQuantity; bypass normal coverage; STANDARD explicit qty)
+- Coverage API: unchanged `submittedProductCoverage`; added `repeatedSubmittedProductQuantity` / `repeatedSubmittedRequestCount`
+- Warehouse untouched
+
+### Out of scope (Phase 2)
+Checkbox UX, submit confirmation dialog, Workbench «Повторно» presentation
+
+---
+
 ## Stage 3 — Material Requests Column Width Polish — 2026-11-02
 
 **Date:** 2026-11-02

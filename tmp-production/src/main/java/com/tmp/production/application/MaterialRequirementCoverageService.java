@@ -6,6 +6,7 @@ import com.tmp.production.domain.ProductionStatus;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.repository.MaterialRequirementRepository;
+import com.tmp.production.domain.repository.MaterialRequirementRepository.SubmittedRepeatedProductRequestStats;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -103,6 +104,16 @@ public final class MaterialRequirementCoverageService {
             result.put(key, coverageFor(state, submitted.getOrDefault(key, 0L)));
         }
         return Map.copyOf(result);
+    }
+
+    /**
+     * Batch SUBMITTED + REPEATED aggregates. Does not affect normal product coverage. Missing keys
+     * are zero.
+     */
+    public Map<MaterialRequirementSourceItemKey, SubmittedRepeatedProductRequestStats>
+            repeatedStatsForItems(Collection<MaterialRequirementSourceItemKey> keys) {
+        Objects.requireNonNull(keys, "keys");
+        return requirementRepository.sumSubmittedRepeatedProductRequests(keys);
     }
 
     private static ProductionItemState findState(

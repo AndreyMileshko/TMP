@@ -9,6 +9,7 @@ import com.tmp.production.domain.MaterialRequirementSelectionException;
 import com.tmp.production.domain.MaterialRequirementSourceItem;
 import com.tmp.production.domain.MaterialRequirementSourceItemKey;
 import com.tmp.production.domain.MaterialRequirementStatus;
+import com.tmp.production.domain.ProductRequestKind;
 import com.tmp.production.domain.ProductionItemState;
 import com.tmp.production.domain.ProductionStatus;
 import com.tmp.production.domain.SourceOrderId;
@@ -202,16 +203,40 @@ public final class SubmitMaterialRequirementService {
                                 + ", status="
                                 + state.status());
             }
-            var coverage =
-                    coverageService.coverageFor(state, submitted.getOrDefault(key, 0L));
-            long requestable = coverage.requestableProductQuantity();
-            if (sourceItem.requestedProductQuantity() > requestable) {
+            revalidateSourceItemQuantity(sourceItem, state, submitted.getOrDefault(key, 0L));
+        }
+    }
+
+    private void revalidateSourceItemQuantity(
+            MaterialRequirementSourceItem sourceItem,
+            ProductionItemState state,
+            long submittedProductCoverage) {
+        ProductRequestKind kind = sourceItem.productRequestKind();
+        if (kind == ProductRequestKind.REPEATED) {
+            long ordered = state.orderedQuantity().value().longValueExact();
+            if (sourceItem.requestedProductQuantity() > ordered) {
                 throw new MaterialRequirementCoverageConflictException(
                         sourceItem.sourceOrderId(),
                         sourceItem.sourceOrderItemId(),
                         sourceItem.requestedProductQuantity(),
-                        requestable);
+                        ordered);
             }
+            return;
+        }
+        if (kind == ProductRequestKind.LEGACY_EXCLUDED) {
+            throw new MaterialRequirementSelectionException(
+                    "LEGACY_EXCLUDED source item cannot be submitted as a new draft: "
+                            + MaterialRequirementSourceItemKey.of(
+                                    sourceItem.sourceOrderId(), sourceItem.sourceOrderItemId()));
+        }
+        var coverage = coverageService.coverageFor(state, submittedProductCoverage);
+        long requestable = coverage.requestableProductQuantity();
+        if (sourceItem.requestedProductQuantity() > requestable) {
+            throw new MaterialRequirementCoverageConflictException(
+                    sourceItem.sourceOrderId(),
+                    sourceItem.sourceOrderItemId(),
+                    sourceItem.requestedProductQuantity(),
+                    requestable);
         }
     }
 

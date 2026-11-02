@@ -17,6 +17,7 @@ import com.tmp.production.domain.OrderProductionView;
 import com.tmp.production.domain.OrderProductionViewStatus;
 import com.tmp.production.domain.OrderQuantityModeSetting;
 import com.tmp.production.domain.ProductionItemState;
+import com.tmp.production.domain.ProductionQuantity;
 import com.tmp.production.domain.ProductionQuantityMode;
 import com.tmp.production.domain.ProductionStatus;
 import com.tmp.production.domain.SourceOrderId;
@@ -178,14 +179,18 @@ public final class MaterialRequirementService {
 
             MaterialRequirementSourceItemKey key =
                     MaterialRequirementSourceItemKey.of(orderId, itemId);
-            long requestable =
-                    coverageByKey
-                            .get(key)
-                            .requestableProductQuantity();
+            var coverage = coverageByKey.get(key);
             ProductionQuantityMode mode = modesByOrder.get(orderId);
-            long productQuantity = resolveProductQuantity(selection, mode, requestable, key);
+            long productQuantity =
+                    resolveProductQuantity(selection, mode, coverage, state, key);
 
-            sourceItems.add(MaterialRequirementSourceItem.of(orderId, itemId, productQuantity));
+            if (selection.repeatedRequest()) {
+                sourceItems.add(
+                        MaterialRequirementSourceItem.repeated(orderId, itemId, productQuantity));
+            } else {
+                sourceItems.add(
+                        MaterialRequirementSourceItem.of(orderId, itemId, productQuantity));
+            }
             List<ResolvedMaterialLine> materialLines = foundationQuery.materialLines(state);
             scaledInputs.add(
                     new SpecificationMaterialRequirementCalculator.ScaledMaterialInput(
@@ -289,8 +294,13 @@ public final class MaterialRequirementService {
     private long resolveProductQuantity(
             MaterialRequirementProductSelection selection,
             ProductionQuantityMode mode,
-            long requestable,
+            MaterialRequirementProductCoverageCalculator.ProductItemCoverage coverage,
+            ProductionItemState state,
             MaterialRequirementSourceItemKey key) {
+        if (selection.repeatedRequest()) {
+            return resolveRepeatedProductQuantity(selection, state, key);
+        }
+        long requestable = coverage.requestableProductQuantity();
         if (requestable <= 0L) {
             throw new MaterialRequirementSelectionException(
                     "No requestable product quantity for " + key);
@@ -325,6 +335,36 @@ public final class MaterialRequirementService {
                 yield requested;
             }
         };
+    }
+
+    private long resolveRepeatedProductQuantity(
+            MaterialRequirementProductSelection selection,
+            ProductionItemState state,
+            MaterialRequirementSourceItemKey key) {
+        if (selection.requestedProductQuantity().isEmpty()) {
+            throw new MaterialRequirementSelectionException(
+                    "REPEATED request requires requestedProductQuantity for " + key);
+        }
+        long requested = selection.requestedProductQuantity().getAsLong();
+        long ordered = toLong(state.orderedQuantity());
+        if (requested <= 0L) {
+            throw new MaterialRequirementSelectionException(
+                    "requestedProductQuantity must be > 0 for " + key + ": " + requested);
+        }
+        if (requested > ordered) {
+            throw new MaterialRequirementSelectionException(
+                    "requestedProductQuantity "
+                            + requested
+                            + " exceeds orderedQuantity "
+                            + ordered
+                            + " for repeated request "
+                            + key);
+        }
+        return requested;
+    }
+
+    private static long toLong(ProductionQuantity quantity) {
+        return quantity.value().longValueExact();
     }
 
     private ProductionQuantityMode resolveMode(SourceOrderId orderId) {

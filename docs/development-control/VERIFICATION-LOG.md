@@ -3,10 +3,32 @@
 ## Latest result
 
 **Date:** 2026-11-02
-**Scope:** Stage 3 Production Workbench Material Request Coverage Column
+**Scope:** Repeated Material Requests Phase 2 — JavaFX UX and Workbench Presentation
 **Overall:** PASS (focused automated)
-**Migration:** none; **tmp_pilot** READ-ONLY; **tmp_gui_stage5** untouched
-**Base HEAD:** `1f5f7a626564d12ead851ea53ae7c95d3f855eef`
+**Migration:** V56 present in tree (Phase 1); **NOT applied** to **tmp_pilot** (V55) / **tmp_gui_stage5** (V54)
+**Base HEAD:** `908de7b432a8929866374e5090451775ac1d26d9`
+**Working tree:** dirty (Phase 1 + Phase 2); **no commit / no push**
+
+### Checks
+
+| Check | Result |
+|-------|--------|
+| Baseline HEAD match | PASS |
+| Phase 1 working-tree preserved | PASS |
+| Focused UI tests (43: Phase2 + Phase5 + coverage labels + workbench coverage) | PASS |
+| `mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests` | PASS (`dist/jpackage/TMP/TMP.exe` present) |
+| Pilot/stage DB writes | NOT PERFORMED |
+| Package launched against pilot/stage | NOT PERFORMED |
+
+---
+
+## Previous result
+
+**Date:** 2026-11-02
+**Scope:** Repeated Material Requests Phase 1 — Domain / Persistence / Application API
+**Overall:** PASS (focused automated)
+**Migration:** V56 created; **NOT applied** to **tmp_pilot** (remains V55) / **tmp_gui_stage5** (remains V54)
+**Base HEAD:** `908de7b432a8929866374e5090451775ac1d26d9`
 **Working tree:** dirty; **no commit / no push**
 
 ### Checks
@@ -14,9 +36,11 @@
 | Check | Result |
 |-------|--------|
 | Baseline HEAD match | PASS |
-| Focused UI tests (41) | PASS |
-| Pilot RO 26106082 / 26106075 | 3/5 and 1/1 |
-| Pilot/stage writes | NOT PERFORMED |
+| Focused production tests (100) | PASS |
+| V56 upgrade + fresh Testcontainers | PASS (isolated DBs only) |
+| `mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests` | PASS (`dist/jpackage/TMP/TMP.exe` present) |
+| Pilot/stage DB writes | NOT PERFORMED |
+| Package launched against pilot/stage | NOT PERFORMED |
 
 ---
 

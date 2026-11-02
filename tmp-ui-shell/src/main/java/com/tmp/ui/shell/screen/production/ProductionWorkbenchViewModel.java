@@ -924,7 +924,13 @@ public final class ProductionWorkbenchViewModel {
                     coverageByItem.get(ref.sourceOrderItemId());
             long requestable =
                     itemCoverage == null ? 0L : itemCoverage.requestableProductQuantity();
-            if (requestable <= 0L) {
+            long ordered =
+                    itemCoverage == null
+                            ? (item == null || item.state == null
+                                    ? 0L
+                                    : item.state.orderedQuantity())
+                            : itemCoverage.orderedQuantity();
+            if (!isEligibleForMaterialRequest(item)) {
                 invalid.add(
                         humanOrderLabel
                                 + " / "
@@ -935,6 +941,7 @@ public final class ProductionWorkbenchViewModel {
             }
             QuantityModeView mode =
                     modesByOrder.getOrDefault(ref.sourceOrderId(), QuantityModeView.STANDARD);
+            long defaultQty = requestable > 0L ? requestable : 0L;
             rows.add(
                     new MaterialRequestQuantityRow(
                             ref.sourceOrderId(),
@@ -944,7 +951,8 @@ public final class ProductionWorkbenchViewModel {
                             productLabel,
                             mode,
                             requestable,
-                            requestable));
+                            ordered,
+                            defaultQty));
         }
 
         if (!invalid.isEmpty()) {
@@ -964,18 +972,27 @@ public final class ProductionWorkbenchViewModel {
         Objects.requireNonNull(rows, "rows");
         List<MaterialRequirementProductSelectionView> selections = new ArrayList<>();
         for (MaterialRequestQuantityRow row : rows) {
-            if (row.standardMode()) {
+            if (row.repeatedRequest()) {
                 selections.add(
                         new MaterialRequirementProductSelectionView(
                                 row.sourceOrderId(),
                                 row.sourceOrderItemId(),
-                                Optional.empty()));
+                                Optional.of(row.requestedProductQuantity()),
+                                true));
+            } else if (row.standardMode()) {
+                selections.add(
+                        new MaterialRequirementProductSelectionView(
+                                row.sourceOrderId(),
+                                row.sourceOrderItemId(),
+                                Optional.empty(),
+                                false));
             } else {
                 selections.add(
                         new MaterialRequirementProductSelectionView(
                                 row.sourceOrderId(),
                                 row.sourceOrderItemId(),
-                                Optional.of(row.requestedProductQuantity())));
+                                Optional.of(row.requestedProductQuantity()),
+                                false));
             }
         }
         return applicationApi.prepareMaterialRequirement(selections);
@@ -1126,9 +1143,44 @@ public final class ProductionWorkbenchViewModel {
             if (!productLabel.isBlank() && !"—".equals(productLabel)) {
                 line.append(" (").append(productLabel).append(")");
             }
+            line.append(" · ")
+                    .append(
+                            MaterialRequestDialogSupport.productRequestKindLabel(
+                                    source.productRequestKind()));
             lines.add(line.toString());
         }
         return List.copyOf(lines);
+    }
+
+    /**
+     * Authoritative REPEATED source items for the submit confirmation dialog. Uses persisted
+     * {@code productRequestKind}, never reconstructed from coverage or checkbox defaults.
+     */
+    public List<MaterialRequestDialogSupport.RepeatedSubmitConfirmRow>
+            materialRequirementRepeatedSubmitConfirmRows(MaterialRequirementView requirement) {
+        Objects.requireNonNull(requirement, "requirement");
+        List<MaterialRequestDialogSupport.RepeatedSubmitConfirmRow> rows = new ArrayList<>();
+        for (MaterialRequirementSourceItemView source : requirement.sourceItems()) {
+            if (source.productRequestKind()
+                    != ProductionApplicationApi.ProductRequestKindView.REPEATED) {
+                continue;
+            }
+            LoadedProductionOrder order = findAuthoritativeOrder(source.sourceOrderId());
+            LoadedProductionItem item =
+                    findAuthoritativeItem(order, source.sourceOrderItemId());
+            String orderNumber = order == null ? "—" : order.orderNumber;
+            String positionLabel =
+                    item == null
+                            ? "Позиция"
+                            : ProductionTreeNode.humanReadablePosition(
+                                    item.item.externalPositionNumber(), item.index1Based);
+            rows.add(
+                    new MaterialRequestDialogSupport.RepeatedSubmitConfirmRow(
+                            orderNumber,
+                            positionLabel,
+                            source.requestedProductQuantity()));
+        }
+        return List.copyOf(rows);
     }
 
     public void afterSuccessfulMaterialSubmit(MaterialRequirementView submitted) {
@@ -1783,6 +1835,10 @@ public final class ProductionWorkbenchViewModel {
                 item.item.externalPositionNumber(), item.index1Based);
     }
 
+    private static boolean isEligibleForMaterialRequest(LoadedProductionItem item) {
+        return isItemSelectable(item);
+    }
+
     private static String describeNotRequestable(
             LoadedProductionItem item, MaterialRequirementProductCoverageView coverage) {
         if (item == null || item.state == null) {
@@ -1793,6 +1849,9 @@ public final class ProductionWorkbenchViewModel {
         }
         if (item.state.status() == ItemProductionStateStatus.RELEASED) {
             return "позиция уже полностью выпущена.";
+        }
+        if (item.state.activeProductionQuantity() <= 0L) {
+            return "нет активного количества для запроса материалов.";
         }
         if (coverage != null && coverage.requestableProductQuantity() <= 0L) {
             if (coverage.submittedProductCoverage() > 0L) {
@@ -1944,6 +2003,8 @@ public final class ProductionWorkbenchViewModel {
 
             long submittedSum = 0L;
             long orderedSum = 0L;
+            long repeatedQtySum = 0L;
+            long repeatedCountSum = 0L;
             List<ProductionTreeNode> itemNodes = new ArrayList<>();
             for (LoadedProductionItem loadedItem : order.items) {
                 MaterialRequirementProductCoverageView coverage =
@@ -1953,13 +2014,20 @@ public final class ProductionWorkbenchViewModel {
                 long ordered =
                         resolveOrderedQuantityForCoverage(
                                 loadedItem, order.orderedQuantityFallback, coverage);
+                long repeatedQty =
+                        coverage == null ? 0L : coverage.repeatedSubmittedProductQuantity();
+                long repeatedCount =
+                        coverage == null ? 0L : coverage.repeatedSubmittedRequestCount();
                 submittedSum += submitted;
                 orderedSum += ordered;
+                repeatedQtySum += repeatedQty;
+                repeatedCountSum += repeatedCount;
                 itemNodes.add(
                         buildItemTreeNode(
                                 loadedItem,
                                 order.orderedQuantityFallback,
-                                MaterialRequestCoverageLabels.formatPrimary(submitted, ordered)));
+                                MaterialRequestCoverageLabels.format(
+                                        submitted, ordered, repeatedQty, repeatedCount)));
             }
 
             ProductionTreeNode orderNode =
@@ -1971,7 +2039,8 @@ public final class ProductionWorkbenchViewModel {
                             orderQty,
                             orderReleased,
                             orderRemaining,
-                            MaterialRequestCoverageLabels.formatAggregated(submittedSum, orderedSum),
+                            MaterialRequestCoverageLabels.formatAggregated(
+                                    submittedSum, orderedSum, repeatedQtySum, repeatedCountSum),
                             selectableChildRefs);
 
             models.add(
