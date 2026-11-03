@@ -11,15 +11,18 @@ import com.tmp.production.domain.MaterialRequirementLineContribution;
 import com.tmp.production.domain.MaterialRequirementNotDeletableException;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialRequirementSourceItem;
+import com.tmp.production.domain.MaterialRequirementSourceItemKey;
 import com.tmp.production.domain.MaterialRequirementStatus;
 import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import com.tmp.production.domain.repository.MaterialRequirementRepository;
+import com.tmp.production.domain.repository.MaterialRequirementRepository.SubmittedRepeatedProductRequestStats;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -229,6 +232,120 @@ class JdbcMaterialRequirementRepositoryTest {
                 MaterialRequirementNotDeletableException.class,
                 () -> repository.deleteDraft(submitted.requirementId(), submitted.version()));
         assertTrue(repository.findById(submitted.requirementId()).isPresent());
+    }
+
+    @Test
+    void submittedRepeatedDocumentCountIsDistinctPerOrderAndPosition() {
+        SourceOrderId orderId = SourceOrderId.generate();
+        SourceOrderId otherOrder = SourceOrderId.generate();
+        SourceOrderItemId itemA = SourceOrderItemId.generate();
+        SourceOrderItemId itemB = SourceOrderItemId.generate();
+        SourceOrderItemId otherItem = SourceOrderItemId.generate();
+
+        MaterialRequirement multiPosition =
+                repository.save(
+                        MaterialRequirement.create(
+                                PROD,
+                                T0,
+                                List.of(
+                                        MaterialRequirementSourceItem.repeated(orderId, itemA, 2L),
+                                        MaterialRequirementSourceItem.repeated(orderId, itemB, 3L)),
+                                List.of(
+                                        MaterialRequirementLine.create(
+                                                MaterialReferenceId.generate(),
+                                                "MAT-MULTI",
+                                                "Material Multi",
+                                                "WHITE",
+                                                "PCS",
+                                                null,
+                                                BigDecimal.valueOf(5),
+                                                List.of(
+                                                        MaterialRequirementLineContribution.of(
+                                                                orderId, itemA, BigDecimal.valueOf(2)),
+                                                        MaterialRequirementLineContribution.of(
+                                                                orderId,
+                                                                itemB,
+                                                                BigDecimal.valueOf(3)))))));
+        repository.markSubmitted(multiPosition.submit("user-1", T0));
+
+        MaterialRequirement draftRepeated =
+                repository.save(
+                        MaterialRequirement.create(
+                                PROD,
+                                T0,
+                                List.of(
+                                        MaterialRequirementSourceItem.repeated(
+                                                orderId, itemA, 9L)),
+                                List.of(sampleLine(orderId, itemA, BigDecimal.valueOf(9)))));
+
+        MaterialRequirement counted =
+                repository.save(
+                        MaterialRequirement.create(
+                                PROD,
+                                T0,
+                                List.of(MaterialRequirementSourceItem.of(orderId, itemA, 1L)),
+                                List.of(sampleLine(orderId, itemA, BigDecimal.ONE))));
+        repository.markSubmitted(counted.submit("user-1", T0));
+
+        MaterialRequirement secondRepeated =
+                repository.save(
+                        MaterialRequirement.create(
+                                PROD,
+                                T0,
+                                List.of(
+                                        MaterialRequirementSourceItem.repeated(
+                                                orderId, itemA, 4L)),
+                                List.of(sampleLine(orderId, itemA, BigDecimal.valueOf(4)))));
+        repository.markSubmitted(secondRepeated.submit("user-2", T0));
+
+        MaterialRequirement otherOrderRepeated =
+                repository.save(
+                        MaterialRequirement.create(
+                                PROD,
+                                T0,
+                                List.of(
+                                        MaterialRequirementSourceItem.repeated(
+                                                otherOrder, otherItem, 1L),
+                                        MaterialRequirementSourceItem.repeated(
+                                                orderId, itemB, 1L)),
+                                List.of(
+                                        MaterialRequirementLine.create(
+                                                MaterialReferenceId.generate(),
+                                                "MAT-CROSS",
+                                                "Material Cross",
+                                                "WHITE",
+                                                "PCS",
+                                                null,
+                                                BigDecimal.valueOf(2),
+                                                List.of(
+                                                        MaterialRequirementLineContribution.of(
+                                                                otherOrder,
+                                                                otherItem,
+                                                                BigDecimal.ONE),
+                                                        MaterialRequirementLineContribution.of(
+                                                                orderId,
+                                                                itemB,
+                                                                BigDecimal.ONE))))));
+        repository.markSubmitted(otherOrderRepeated.submit("user-3", T0));
+
+        MaterialRequirementSourceItemKey keyA =
+                MaterialRequirementSourceItemKey.of(orderId, itemA);
+        MaterialRequirementSourceItemKey keyB =
+                MaterialRequirementSourceItemKey.of(orderId, itemB);
+        Map<MaterialRequirementSourceItemKey, SubmittedRepeatedProductRequestStats> byItem =
+                repository.sumSubmittedRepeatedProductRequests(List.of(keyA, keyB));
+        assertEquals(6L, byItem.get(keyA).submittedProductQuantity());
+        assertEquals(2L, byItem.get(keyA).submittedRequestCount());
+        assertEquals(4L, byItem.get(keyB).submittedProductQuantity());
+        assertEquals(2L, byItem.get(keyB).submittedRequestCount());
+
+        Map<SourceOrderId, Long> byOrder =
+                repository.countSubmittedRepeatedRequirementDocumentsByOrders(
+                        List.of(orderId, otherOrder));
+        // multiPosition + secondRepeated + otherOrderRepeated (touches orderId) = 3 distinct docs
+        assertEquals(3L, byOrder.get(orderId));
+        assertEquals(1L, byOrder.get(otherOrder));
+        assertEquals(MaterialRequirementStatus.DRAFT, draftRepeated.status());
     }
 
     private static MaterialRequirement sampleRequirement(BigDecimal quantity) {

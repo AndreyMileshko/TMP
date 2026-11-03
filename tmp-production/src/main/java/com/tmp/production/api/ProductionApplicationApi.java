@@ -298,6 +298,13 @@ public interface ProductionApplicationApi {
         }
     }
 
+    /**
+     * Per-position coverage facts. {@code repeatedSubmittedRequestCount} is the number of distinct
+     * SUBMITTED REPEATED Material Requirement documents that include this position. {@code
+     * repeatedSubmittedOrderDocumentCount} is the number of distinct SUBMITTED REPEATED Material
+     * Requirement documents that include at least one position of {@code sourceOrderId} (same value
+     * on every coverage row of that order; for parent Workbench aggregation).
+     */
     record MaterialRequirementProductCoverageView(
             UUID sourceOrderId,
             UUID sourceOrderItemId,
@@ -308,7 +315,8 @@ public interface ProductionApplicationApi {
             long outstandingSubmittedCoverage,
             long requestableProductQuantity,
             long repeatedSubmittedProductQuantity,
-            long repeatedSubmittedRequestCount) {
+            long repeatedSubmittedRequestCount,
+            long repeatedSubmittedOrderDocumentCount) {
         public MaterialRequirementProductCoverageView {
             Objects.requireNonNull(sourceOrderId, "sourceOrderId");
             Objects.requireNonNull(sourceOrderItemId, "sourceOrderItemId");
@@ -321,6 +329,11 @@ public interface ProductionApplicationApi {
                 throw new IllegalArgumentException(
                         "repeatedSubmittedRequestCount must be >= 0: "
                                 + repeatedSubmittedRequestCount);
+            }
+            if (repeatedSubmittedOrderDocumentCount < 0L) {
+                throw new IllegalArgumentException(
+                        "repeatedSubmittedOrderDocumentCount must be >= 0: "
+                                + repeatedSubmittedOrderDocumentCount);
             }
         }
 
@@ -344,7 +357,37 @@ public interface ProductionApplicationApi {
                     outstandingSubmittedCoverage,
                     requestableProductQuantity,
                     0L,
+                    0L,
                     0L);
+        }
+
+        /**
+         * Compatibility constructor without order-level distinct document count (defaults to item
+         * request count for single-position fixtures).
+         */
+        public MaterialRequirementProductCoverageView(
+                UUID sourceOrderId,
+                UUID sourceOrderItemId,
+                long orderedQuantity,
+                long activeProductionQuantity,
+                long releasedQuantity,
+                long submittedProductCoverage,
+                long outstandingSubmittedCoverage,
+                long requestableProductQuantity,
+                long repeatedSubmittedProductQuantity,
+                long repeatedSubmittedRequestCount) {
+            this(
+                    sourceOrderId,
+                    sourceOrderItemId,
+                    orderedQuantity,
+                    activeProductionQuantity,
+                    releasedQuantity,
+                    submittedProductCoverage,
+                    outstandingSubmittedCoverage,
+                    requestableProductQuantity,
+                    repeatedSubmittedProductQuantity,
+                    repeatedSubmittedRequestCount,
+                    repeatedSubmittedRequestCount);
         }
     }
 

@@ -258,14 +258,39 @@ class MaterialRequestRepeatedPhase2Test {
     }
 
     @Test
-    void j_parentAggregatesRepeatedSourceItemCounts() {
+    void j_parentUsesDistinctRepeatedRequirementDocuments() {
         seedOrder(ORDER_1, "PARENT", 8, ITEM_1A, ITEM_1B);
         queryApi.putItemState(
                 ProductionWorkbenchUiTestSupport.activeItemState(ORDER_1, ITEM_1A, 5));
         queryApi.putItemState(
                 ProductionWorkbenchUiTestSupport.activeItemState(ORDER_1, ITEM_1B, 3));
-        applicationApi.putCoverage(coverage(ORDER_1, ITEM_1A, 5, 5, 0, 2, 3, 4, 1));
-        applicationApi.putCoverage(coverage(ORDER_1, ITEM_1B, 3, 3, 0, 1, 2, 3, 2));
+        // One SUBMITTED REPEATED MR covering both positions: parent M must stay 1, not 1+1.
+        applicationApi.putCoverage(coverage(ORDER_1, ITEM_1A, 5, 5, 0, 2, 3, 2, 1, 1));
+        applicationApi.putCoverage(coverage(ORDER_1, ITEM_1B, 3, 3, 0, 1, 2, 3, 1, 1));
+        viewModel.loadTree();
+
+        TreeOrderModel model = viewModel.visibleTreeProperty().get().get(0);
+        assertEquals(
+                "Учтено: 2/5\nПовторно: 2 изд. (1 запрос)",
+                model.items().get(0).materialRequestsLabel());
+        assertEquals(
+                "Учтено: 1/3\nПовторно: 3 изд. (1 запрос)",
+                model.items().get(1).materialRequestsLabel());
+        assertEquals(
+                "Учтено: 3/8\nПовторно: 5 изд. (1 запрос)",
+                model.orderNode().materialRequestsLabel());
+    }
+
+    @Test
+    void j_parentDistinctDocumentsAcrossMultipleRepeatedMrs() {
+        seedOrder(ORDER_1, "PARENT-2", 8, ITEM_1A, ITEM_1B);
+        queryApi.putItemState(
+                ProductionWorkbenchUiTestSupport.activeItemState(ORDER_1, ITEM_1A, 5));
+        queryApi.putItemState(
+                ProductionWorkbenchUiTestSupport.activeItemState(ORDER_1, ITEM_1B, 3));
+        // Two distinct submitted REPEATED MRs; position B participates in both.
+        applicationApi.putCoverage(coverage(ORDER_1, ITEM_1A, 5, 5, 0, 2, 3, 4, 1, 2));
+        applicationApi.putCoverage(coverage(ORDER_1, ITEM_1B, 3, 3, 0, 1, 2, 3, 2, 2));
         viewModel.loadTree();
 
         TreeOrderModel model = viewModel.visibleTreeProperty().get().get(0);
@@ -275,9 +300,8 @@ class MaterialRequestRepeatedPhase2Test {
         assertEquals(
                 "Учтено: 1/3\nПовторно: 3 изд. (2 запроса)",
                 model.items().get(1).materialRequestsLabel());
-        // M is sum of Phase 1 per-source-item counts (1+2), not unique MR documents.
         assertEquals(
-                "Учтено: 3/8\nПовторно: 7 изд. (3 запроса)",
+                "Учтено: 3/8\nПовторно: 7 изд. (2 запроса)",
                 model.orderNode().materialRequestsLabel());
     }
 
@@ -422,6 +446,30 @@ class MaterialRequestRepeatedPhase2Test {
             long requestable,
             long repeatedQty,
             long repeatedCount) {
+        return coverage(
+                orderId,
+                itemId,
+                ordered,
+                active,
+                released,
+                submitted,
+                requestable,
+                repeatedQty,
+                repeatedCount,
+                repeatedCount);
+    }
+
+    private static MaterialRequirementProductCoverageView coverage(
+            UUID orderId,
+            UUID itemId,
+            long ordered,
+            long active,
+            long released,
+            long submitted,
+            long requestable,
+            long repeatedQty,
+            long repeatedCount,
+            long orderRepeatedDocuments) {
         return new MaterialRequirementProductCoverageView(
                 orderId,
                 itemId,
@@ -432,7 +480,8 @@ class MaterialRequestRepeatedPhase2Test {
                 Math.max(0L, submitted - released),
                 requestable,
                 repeatedQty,
-                repeatedCount);
+                repeatedCount,
+                orderRepeatedDocuments);
     }
 
     private static MaterialRequirementSourceItemView source(

@@ -7,9 +7,9 @@ package com.tmp.ui.shell.screen.production;
  * not currently requestable capacity. Repeated-request lines use Phase 1 metrics {@code
  * repeatedSubmittedProductQuantity} / {@code repeatedSubmittedRequestCount} — never fabricated.
  *
- * <p>Parent aggregation sums per-position product quantities and per-source-item repeated request
- * counts from the coverage API. {@code repeatedSubmittedRequestCount} counts SUBMITTED REPEATED
- * source-item rows (not necessarily unique Material Requirement documents).
+ * <p>Parent aggregation sums per-position product quantities. Repeated document count M for a
+ * parent order uses the order-level distinct SUBMITTED REPEATED Material Requirement document count
+ * from the coverage API (not the sum of per-position M).
  */
 public final class MaterialRequestCoverageLabels {
 
@@ -26,8 +26,8 @@ public final class MaterialRequestCoverageLabels {
                     + " (сумма requested_product_quantity SUBMITTED COUNTED),"
                     + " не уникальные физически поставленные изделия."
                     + " Y — заказанное количество изделий позиции."
-                    + " «Повторно» — сумма SUBMITTED REPEATED запросов; M считает source-item"
-                    + " вхождения Phase 1 API, не обязательно уникальные документы MR.";
+                    + " «Повторно» — сумма SUBMITTED REPEATED изделий (N) и число различных"
+                    + " SUBMITTED REPEATED документов запроса материалов (M).";
 
     private MaterialRequestCoverageLabels() {}
 
@@ -87,7 +87,7 @@ public final class MaterialRequestCoverageLabels {
 
     /**
      * {@code Повторно: N изд. (M запросов)} where N is cumulative REPEATED product quantity and M is
-     * the Phase 1 submitted repeated source-item request count.
+     * the distinct SUBMITTED REPEATED Material Requirement document count for the row scope.
      */
     public static String formatRepeated(
             long repeatedSubmittedProductQuantity, long repeatedSubmittedRequestCount) {

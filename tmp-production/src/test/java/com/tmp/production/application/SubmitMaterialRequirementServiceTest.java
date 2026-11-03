@@ -840,7 +840,8 @@ class SubmitMaterialRequirementServiceTest {
                 result.put(key, SubmittedRepeatedProductRequestStats.zero());
             }
             Map<MaterialRequirementSourceItemKey, Long> qty = new LinkedHashMap<>();
-            Map<MaterialRequirementSourceItemKey, Long> count = new LinkedHashMap<>();
+            Map<MaterialRequirementSourceItemKey, java.util.Set<MaterialRequirementId>> docs =
+                    new LinkedHashMap<>();
             for (MaterialRequirement requirement : store.values()) {
                 if (requirement.status() != MaterialRequirementStatus.SUBMITTED) {
                     continue;
@@ -857,14 +858,48 @@ class SubmitMaterialRequirementServiceTest {
                         continue;
                     }
                     qty.merge(key, item.requestedProductQuantity(), Long::sum);
-                    count.merge(key, 1L, Long::sum);
+                    docs.computeIfAbsent(key, ignored -> new java.util.LinkedHashSet<>())
+                            .add(requirement.requirementId());
                 }
             }
             for (MaterialRequirementSourceItemKey key : keys) {
                 result.put(
                         key,
                         new SubmittedRepeatedProductRequestStats(
-                                qty.getOrDefault(key, 0L), count.getOrDefault(key, 0L)));
+                                qty.getOrDefault(key, 0L),
+                                docs.getOrDefault(key, java.util.Set.of()).size()));
+            }
+            return result;
+        }
+
+        @Override
+        public Map<SourceOrderId, Long> countSubmittedRepeatedRequirementDocumentsByOrders(
+                Collection<SourceOrderId> orderIds) {
+            Map<SourceOrderId, Long> result = new LinkedHashMap<>();
+            for (SourceOrderId orderId : orderIds) {
+                result.put(orderId, 0L);
+            }
+            Map<SourceOrderId, java.util.Set<MaterialRequirementId>> docs = new LinkedHashMap<>();
+            for (MaterialRequirement requirement : store.values()) {
+                if (requirement.status() != MaterialRequirementStatus.SUBMITTED) {
+                    continue;
+                }
+                for (MaterialRequirementSourceItem item : requirement.sourceItems()) {
+                    if (item.productRequestKind()
+                            != com.tmp.production.domain.ProductRequestKind.REPEATED) {
+                        continue;
+                    }
+                    if (!result.containsKey(item.sourceOrderId())) {
+                        continue;
+                    }
+                    docs.computeIfAbsent(
+                                    item.sourceOrderId(), ignored -> new java.util.LinkedHashSet<>())
+                            .add(requirement.requirementId());
+                }
+            }
+            for (Map.Entry<SourceOrderId, java.util.Set<MaterialRequirementId>> entry :
+                    docs.entrySet()) {
+                result.put(entry.getKey(), (long) entry.getValue().size());
             }
             return result;
         }

@@ -4,6 +4,7 @@ import com.tmp.production.domain.MaterialRequirement;
 import com.tmp.production.domain.MaterialRequirementId;
 import com.tmp.production.domain.MaterialRequirementOptimisticLockException;
 import com.tmp.production.domain.MaterialRequirementSourceItemKey;
+import com.tmp.production.domain.SourceOrderId;
 import com.tmp.production.domain.SourceOrderItemId;
 import java.util.Collection;
 import java.util.List;
@@ -47,12 +48,21 @@ public interface MaterialRequirementRepository {
 
     /**
      * Batch aggregates SUBMITTED {@code REPEATED} source items once per MR source item (never per
-     * material line). Missing keys mean zero quantity and zero request count. DRAFT and
-     * LEGACY_EXCLUDED rows are ignored.
+     * material line). {@code submittedRequestCount} is {@code COUNT(DISTINCT requirement_id)}.
+     * Missing keys mean zero quantity and zero request count. DRAFT and LEGACY_EXCLUDED rows are
+     * ignored.
      */
     Map<MaterialRequirementSourceItemKey, SubmittedRepeatedProductRequestStats>
             sumSubmittedRepeatedProductRequests(
                     Collection<MaterialRequirementSourceItemKey> keys);
+
+    /**
+     * Batch count of distinct SUBMITTED {@code REPEATED} Material Requirement documents per source
+     * order. A document that covers several positions of the same order is counted once. DRAFT,
+     * COUNTED and LEGACY_EXCLUDED rows are ignored. Missing order ids mean zero.
+     */
+    Map<SourceOrderId, Long> countSubmittedRepeatedRequirementDocumentsByOrders(
+            Collection<SourceOrderId> orderIds);
 
     /** SUBMITTED + REPEATED aggregates for one source item key. */
     record SubmittedRepeatedProductRequestStats(

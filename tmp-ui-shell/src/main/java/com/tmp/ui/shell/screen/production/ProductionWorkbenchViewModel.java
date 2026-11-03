@@ -2004,7 +2004,7 @@ public final class ProductionWorkbenchViewModel {
             long submittedSum = 0L;
             long orderedSum = 0L;
             long repeatedQtySum = 0L;
-            long repeatedCountSum = 0L;
+            long repeatedOrderDocumentCount = 0L;
             List<ProductionTreeNode> itemNodes = new ArrayList<>();
             for (LoadedProductionItem loadedItem : order.items) {
                 MaterialRequirementProductCoverageView coverage =
@@ -2018,10 +2018,13 @@ public final class ProductionWorkbenchViewModel {
                         coverage == null ? 0L : coverage.repeatedSubmittedProductQuantity();
                 long repeatedCount =
                         coverage == null ? 0L : coverage.repeatedSubmittedRequestCount();
+                if (coverage != null) {
+                    repeatedOrderDocumentCount =
+                            coverage.repeatedSubmittedOrderDocumentCount();
+                }
                 submittedSum += submitted;
                 orderedSum += ordered;
                 repeatedQtySum += repeatedQty;
-                repeatedCountSum += repeatedCount;
                 itemNodes.add(
                         buildItemTreeNode(
                                 loadedItem,
@@ -2040,7 +2043,10 @@ public final class ProductionWorkbenchViewModel {
                             orderReleased,
                             orderRemaining,
                             MaterialRequestCoverageLabels.formatAggregated(
-                                    submittedSum, orderedSum, repeatedQtySum, repeatedCountSum),
+                                    submittedSum,
+                                    orderedSum,
+                                    repeatedQtySum,
+                                    repeatedOrderDocumentCount),
                             selectableChildRefs);
 
             models.add(

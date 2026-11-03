@@ -33,6 +33,7 @@ import javafx.scene.control.TextFormatter;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 /**
@@ -530,6 +531,27 @@ public final class WarehouseTaskDialogSupport {
         }
     }
 
+    /** Full explanatory note when resupply checkbox is unchecked. */
+    static final String RESUPPLY_WAIVER_NOTE_TEXT =
+            "Отклонённые материалы будут возвращены, но повторная подача по соответствующей потребности не потребуется.";
+
+    /**
+     * Builds the resupply-waiver note label: wraps to dialog width, grows in height, no ellipsis.
+     *
+     * @param widthSource dialog pane (or content parent) whose width constrains wrapping
+     */
+    static Label createResupplyWaiverNote(Region widthSource) {
+        Objects.requireNonNull(widthSource, "widthSource");
+        Label waiverNote = new Label(RESUPPLY_WAIVER_NOTE_TEXT);
+        waiverNote.setWrapText(true);
+        waiverNote.setMinHeight(Region.USE_PREF_SIZE);
+        waiverNote.setMaxWidth(Double.MAX_VALUE);
+        waiverNote.maxWidthProperty().bind(widthSource.widthProperty().subtract(40));
+        waiverNote.getStyleClass().add("tmp-text-muted");
+        Tooltip.install(waiverNote, new Tooltip(RESUPPLY_WAIVER_NOTE_TEXT));
+        return waiverNote;
+    }
+
     private static Optional<RejectDialogResult> promptRejectReason(Dialog<?> owner) {
         Dialog<RejectDialogResult> dialog = new Dialog<>();
         dialog.initOwner(owner.getDialogPane().getScene() == null
@@ -546,24 +568,30 @@ public final class WarehouseTaskDialogSupport {
         reasonArea.setPromptText("Причина");
         reasonArea.setWrapText(true);
         reasonArea.setPrefRowCount(4);
+        reasonArea.setMaxWidth(Double.MAX_VALUE);
 
         CheckBox resupplyRequired =
                 new CheckBox("Повторная подача материалов требуется");
         resupplyRequired.setSelected(true);
-        Label waiverNote =
-                new Label(
-                        "Отклонённые материалы будут возвращены, но повторная подача по соответствующей потребности не потребуется.");
-        waiverNote.setWrapText(true);
-        waiverNote.getStyleClass().add("tmp-text-muted");
+        Label waiverNote = createResupplyWaiverNote(dialog.getDialogPane());
         waiverNote.visibleProperty().bind(resupplyRequired.selectedProperty().not());
         waiverNote.managedProperty().bind(resupplyRequired.selectedProperty().not());
-        Tooltip.install(
-                waiverNote,
-                new Tooltip(
-                        "Отклонённые материалы будут возвращены, но повторная подача по соответствующей потребности не потребуется."));
 
         VBox content = new VBox(8, reasonArea, resupplyRequired, waiverNote);
+        content.setFillWidth(true);
+        content.setMaxWidth(Double.MAX_VALUE);
         dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().setMinHeight(Region.USE_PREF_SIZE);
+
+        resupplyRequired
+                .selectedProperty()
+                .addListener(
+                        (obs, wasSelected, selected) -> {
+                            if (dialog.getDialogPane().getScene() != null
+                                    && dialog.getDialogPane().getScene().getWindow() != null) {
+                                dialog.getDialogPane().getScene().getWindow().sizeToScene();
+                            }
+                        });
 
         Button rejectButton = (Button) dialog.getDialogPane().lookupButton(rejectType);
         rejectButton.getStyleClass().add("tmp-button-danger");

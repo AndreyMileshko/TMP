@@ -116,6 +116,16 @@ public final class MaterialRequirementCoverageService {
         return requirementRepository.sumSubmittedRepeatedProductRequests(keys);
     }
 
+    /**
+     * Distinct SUBMITTED REPEATED Material Requirement document counts per source order. Missing
+     * order ids are zero.
+     */
+    public Map<SourceOrderId, Long> repeatedRequirementDocumentsForOrders(
+            Collection<SourceOrderId> orderIds) {
+        Objects.requireNonNull(orderIds, "orderIds");
+        return requirementRepository.countSubmittedRepeatedRequirementDocumentsByOrders(orderIds);
+    }
+
     private static ProductionItemState findState(
             List<ProductionItemState> states, SourceOrderItemId itemId) {
         if (states == null) {

@@ -29,12 +29,17 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.DialogPane;
+import javafx.scene.control.Label;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -596,5 +601,61 @@ class WarehouseTaskDialogSupportTest {
                 null,
                 null,
                 null);
+    }
+
+    @Test
+    void resupplyWaiverNoteKeepsFullRussianTextAndWraps() throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<AssertionError> failure = new AtomicReference<>();
+        Platform.runLater(
+                () -> {
+                    Stage stage = null;
+                    try {
+                        DialogPane pane = new DialogPane();
+                        pane.setPrefWidth(360);
+                        Label note = WarehouseTaskDialogSupport.createResupplyWaiverNote(pane);
+                        assertTrue(note.isWrapText());
+                        assertEquals(
+                                WarehouseTaskDialogSupport.RESUPPLY_WAIVER_NOTE_TEXT, note.getText());
+                        assertFalse(note.getText().contains("…"));
+                        assertFalse(note.getText().endsWith("..."));
+                        assertTrue(note.maxWidthProperty().isBound());
+
+                        VBox content = new VBox(note);
+                        pane.setContent(content);
+                        stage = new Stage();
+                        stage.setScene(new Scene(pane));
+                        stage.show();
+                        pane.applyCss();
+                        pane.layout();
+
+                        assertTrue(
+                                note.getHeight() > note.getFont().getSize() * 1.2,
+                                "note should grow vertically when wrapping");
+                        assertEquals(
+                                WarehouseTaskDialogSupport.RESUPPLY_WAIVER_NOTE_TEXT,
+                                note.getText(),
+                                "Russian text must remain complete after layout");
+
+                        pane.setPrefWidth(240);
+                        pane.layout();
+                        assertEquals(
+                                WarehouseTaskDialogSupport.RESUPPLY_WAIVER_NOTE_TEXT, note.getText());
+                        assertTrue(note.getHeight() > note.getFont().getSize() * 1.2);
+                    } catch (AssertionError e) {
+                        failure.set(e);
+                    } catch (RuntimeException e) {
+                        failure.set(new AssertionError(e));
+                    } finally {
+                        if (stage != null) {
+                            stage.close();
+                        }
+                        latch.countDown();
+                    }
+                });
+        assertTrue(latch.await(10, TimeUnit.SECONDS));
+        if (failure.get() != null) {
+            throw failure.get();
+        }
     }
 }

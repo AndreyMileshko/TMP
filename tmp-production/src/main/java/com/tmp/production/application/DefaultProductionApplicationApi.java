@@ -194,6 +194,12 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                 coverage = materialRequirementCoverageService.coverageForItems(keys);
         Map<MaterialRequirementSourceItemKey, SubmittedRepeatedProductRequestStats> repeated =
                 materialRequirementCoverageService.repeatedStatsForItems(keys);
+        java.util.LinkedHashSet<SourceOrderId> orderIds = new java.util.LinkedHashSet<>();
+        for (MaterialRequirementSourceItemKey key : keys) {
+            orderIds.add(key.sourceOrderId());
+        }
+        Map<SourceOrderId, Long> orderRepeatedDocuments =
+                materialRequirementCoverageService.repeatedRequirementDocumentsForOrders(orderIds);
         List<MaterialRequirementProductCoverageView> views = new java.util.ArrayList<>();
         for (MaterialRequirementSourceItemKey key : keys) {
             var item = coverage.get(key);
@@ -210,7 +216,8 @@ public final class DefaultProductionApplicationApi implements ProductionApplicat
                             item.outstandingSubmittedCoverage(),
                             item.requestableProductQuantity(),
                             repeatedStats.submittedProductQuantity(),
-                            repeatedStats.submittedRequestCount()));
+                            repeatedStats.submittedRequestCount(),
+                            orderRepeatedDocuments.getOrDefault(key.sourceOrderId(), 0L)));
         }
         return List.copyOf(views);
     }

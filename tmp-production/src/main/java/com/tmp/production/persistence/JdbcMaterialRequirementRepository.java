@@ -196,7 +196,7 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                         """
                         SELECT si.source_order_id, si.source_order_item_id,
                                COALESCE(SUM(si.requested_product_quantity), 0) AS submitted_qty,
-                               COUNT(*) AS request_count
+                               COUNT(DISTINCT si.requirement_id) AS request_count
                         FROM production.material_requirement_source_items si
                         JOIN production.material_requirements mr ON mr.id = si.requirement_id
                         WHERE mr.status = 'SUBMITTED'
@@ -232,6 +232,46 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                                     rs.getLong("submitted_qty"), rs.getLong("request_count")));
                 },
                 args.toArray());
+        return Map.copyOf(result);
+    }
+
+    @Override
+    public Map<SourceOrderId, Long> countSubmittedRepeatedRequirementDocumentsByOrders(
+            Collection<SourceOrderId> orderIds) {
+        Objects.requireNonNull(orderIds, "orderIds");
+        Map<SourceOrderId, Long> result = new LinkedHashMap<>();
+        if (orderIds.isEmpty()) {
+            return result;
+        }
+        List<SourceOrderId> unique = orderIds.stream().filter(Objects::nonNull).distinct().toList();
+        for (SourceOrderId orderId : unique) {
+            result.put(orderId, 0L);
+        }
+        if (unique.isEmpty()) {
+            return Map.copyOf(result);
+        }
+        String placeholders = String.join(",", java.util.Collections.nCopies(unique.size(), "?"));
+        String sql =
+                """
+                SELECT si.source_order_id AS source_order_id,
+                       COUNT(DISTINCT si.requirement_id) AS document_count
+                  FROM production.material_requirement_source_items si
+                  JOIN production.material_requirements mr ON mr.id = si.requirement_id
+                 WHERE mr.status = 'SUBMITTED'
+                   AND si.product_request_kind = 'REPEATED'
+                   AND si.source_order_id IN (%s)
+                 GROUP BY si.source_order_id
+                """
+                        .formatted(placeholders);
+        Object[] args = unique.stream().map(SourceOrderId::value).toArray();
+        jdbcTemplate.query(
+                sql,
+                (rs) -> {
+                    SourceOrderId orderId =
+                            SourceOrderId.of(rs.getObject("source_order_id", UUID.class));
+                    result.put(orderId, rs.getLong("document_count"));
+                },
+                args);
         return Map.copyOf(result);
     }
 
