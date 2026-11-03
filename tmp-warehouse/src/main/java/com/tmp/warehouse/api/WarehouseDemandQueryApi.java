@@ -61,6 +61,7 @@ public interface WarehouseDemandQueryApi {
             BigDecimal lengthMm,
             BigDecimal requiredQuantity,
             BigDecimal receivedQuantity,
+            BigDecimal waivedQuantity,
             BigDecimal remainingQuantity,
             UUID materialReferenceId,
             WarehouseDemandDerivedStatus derivedStatus,
@@ -76,6 +77,7 @@ public interface WarehouseDemandQueryApi {
             Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
             Objects.requireNonNull(requiredQuantity, "requiredQuantity");
             Objects.requireNonNull(receivedQuantity, "receivedQuantity");
+            Objects.requireNonNull(waivedQuantity, "waivedQuantity");
             Objects.requireNonNull(remainingQuantity, "remainingQuantity");
             Objects.requireNonNull(derivedStatus, "derivedStatus");
             linkedTransfers =
@@ -125,6 +127,7 @@ public interface WarehouseDemandQueryApi {
             BigDecimal lengthMm,
             BigDecimal requiredQuantity,
             BigDecimal receivedQuantity,
+            BigDecimal waivedQuantity,
             BigDecimal remainingQuantity,
             String effectiveWaitingReason) {
 
@@ -135,6 +138,7 @@ public interface WarehouseDemandQueryApi {
             Objects.requireNonNull(unitOfMeasure, "unitOfMeasure");
             Objects.requireNonNull(requiredQuantity, "requiredQuantity");
             Objects.requireNonNull(receivedQuantity, "receivedQuantity");
+            Objects.requireNonNull(waivedQuantity, "waivedQuantity");
             Objects.requireNonNull(remainingQuantity, "remainingQuantity");
             Objects.requireNonNull(effectiveWaitingReason, "effectiveWaitingReason");
         }

@@ -181,7 +181,12 @@ class WarehouseDemandSupplyTaskInboxIntegrationTest {
                         new JdbcDemandTaskStateRepository(jdbc, CLOCK),
                         CLOCK,
                         new TransactionTemplate(new DataSourceTransactionManager(dataSource)));
-        demandQuery = new DefaultWarehouseDemandQueryApi(demandRepository, fulfillment);
+        demandQuery =
+                new DefaultWarehouseDemandQueryApi(
+                        demandRepository,
+                        fulfillment,
+                        new com.tmp.warehouse.persistence.JdbcWarehouseDemandResupplyWaiverRepository(
+                                jdbc));
 
         productionDestination = WarehouseId.generate();
         sourceWarehouse = WarehouseId.generate();

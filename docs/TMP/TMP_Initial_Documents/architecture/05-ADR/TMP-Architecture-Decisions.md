@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-005  
 **Status:** Accepted  
-**Version:** 1.16
+**Version:** 1.23
 
 ---
 
@@ -1822,6 +1822,24 @@ Production Material Requirement фиксирует, что Production запро
 
 24. Manual-acceptance fixes: Transfer Preparation/Receipt/Return read models resolve human material fields from Warehouse `MaterialReference` at query time (never `materialReferenceId` as article). Warehouse Tasks «Заказ» uses composition `TransferDocumentOrderReferenceQuery` for Transfer documents (generated-docs + Demand transfer links) and Demand supply tasks (Demand → MR source items → order_number); cross-order composes unique sorted numbers. UI wording «Создать перемещение» / «Перемещение создано.» No schema migration.
 
+### Amendment (Optional resupply waiver after receipt reject — 2026-11-02)
+
+25. **Problem.** Full Transfer receipt reject + material return intentionally leaves Demand `WAITING_FOR_SUPPLY` (rejected Transfer is terminal; `receivedQuantity` unchanged). Operators need an optional durable choice to stop resupply for the rejected Transfer’s attributable quantities without whole-Demand cancellation and without affecting unrelated lines/quantities.
+
+26. **UI / default.** Existing reject dialog checkbox «Повторная подача материалов требуется», default **CHECKED** (= current behavior). UNCHECKED = waive resupply for attributable quantities only. Same permission as reject: `warehouse.transfer.create`. No new role / second approval.
+
+27. **Attribution rule (exact).** Use persisted `warehouse_demand_transfer_links` only: `UNIQUE(transfer_line_id)` maps each Transfer line to one Demand line with `linked_quantity`. Whole-document reject requires zero receipt items; attributable waive quantity per link = `linked_quantity`, capped by `min(linked_quantity, required − received − already_waived)`. Never allocate by material article alone; never waive the entire Demand-line outstanding automatically; missing link → no waiver for that line.
+
+28. **Formula / SoT.** `remaining = max(0, required − received − waived)`. `received` remains sum of receipt settlement items; `waived` is sum of a Warehouse-owned **waiver ledger** (events with demand line, transfer document, quantity, actor, timestamp; unique `(transfer_document_id, demand_line_id)`). No mutable waived counter as SoT. Invariant `received + waived ≤ required`. Transfer settlement stores `resupplyRequired` (default true) with existing rejection audit.
+
+29. **Derived status.** Add `RESUPPLY_WAIVED` when remaining = 0 with waived > 0 and not fully received. Precedence: CANCELLED → FULFILLED (received ≥ required) → RESUPPLY_WAIVED → IN_FULFILLMENT (ACTIVE transfer) → WAITING_FOR_SUPPLY. Waived must never be presented as physically fulfilled. Supply task / `prepareProductionDemandTransfers` use remaining including waived; stale `demand_task_state` must not recreate waived work after restart.
+
+30. **Transactions.** Persist `resupplyRequired` + waiver ledger rows atomically in the **reject** TX with settlement `RETURN_PENDING`/`REJECTED` and optimistic `operationalRevision`. Material RETURN stays the existing separate TX/task and does not apply waiver. Waiver does not mutate stock.
+
+31. **Production independence.** No Production coverage / product_request_kind changes. New REPEATED (or other) MR creates a new Demand via `UNIQUE(sourceMaterialRequirementId)` and remains actionable even if a prior Demand was waived. Prior waived Demand is not reopened.
+
+32. **Non-goals.** No whole-Demand cancel as the primary mechanism for this checkbox; no proportional guesswork; no JavaFX-only task hiding; no erase of history; no new permission.
+
 ### Последствия
 
 - Foundation (B3B-1) добавляет schema + domain + persistence + internal acceptance idempotency.
@@ -1833,10 +1851,11 @@ Production Material Requirement фиксирует, что Production запро
 - B3B-3C3 wires take-in-work → prepare in existing Warehouse Tasks UI.
 - B3B-3C4 closes implementation with cleanup + full regression; manual acceptance PENDING.
 - B3-MA-FIX1 corrects material presentation + order display + UX wording for manual acceptance.
+- Optional resupply waiver (2026-11-02) adds quantity-correct Demand-line stop-resupply after reject; schema/API/UI implementation is a subsequent focused delivery; documentation decision precedes migration.
 
 ### Связанные документы
 
-- Warehouse-Specification.md
+- Warehouse-Specification.md (§13.2.3, §15.1.3–§15.1.6)
 - Production-Specification.md
 - ADR-032, ADR-037
 
@@ -1960,6 +1979,7 @@ Production Material Requirement фиксирует, что Production запро
 | 1.20 | ADR-038 amendment B3B-3C3: Warehouse Tasks UI wires Supply Task take → prepare; waiting-line detail; prepare result messages; no new screen / Production receipt / Retry UX / migration. |
 | 1.21 | ADR-038 amendment B3B-3C4: focused dead-code cleanup; remove write-dead routing-snapshot helper; full reactor / package / startup; B3 implementation complete; manual acceptance PENDING. |
 | 1.22 | ADR-038 amendment B3-MA-FIX1: MaterialReference human fields on Transfer read model; Demand/Transfer order composition; «Создать перемещение» UX wording; no migration. |
+| 1.23 | ADR-038 amendment: optional resupply waiver after full Transfer receipt reject — checkbox default CHECKED; link-attributed `linked_quantity` waiver ledger; `remaining = required − received − waived`; derived `RESUPPLY_WAIVED`; reject-TX atomic; return separate; no Production coverage / no new permission. |
 
 ---
 

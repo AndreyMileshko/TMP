@@ -1588,7 +1588,7 @@ class WarehouseWorkspaceViewModelTest {
 
         api.receiveThrows = null;
         api.rejectThrows = new IllegalStateException("database locked");
-        viewModel.rejectSelectedTask("брак");
+        viewModel.rejectSelectedTask("брак", true);
         assertEquals(
                 WarehouseUiErrorMapper.text(api.rejectThrows),
                 viewModel.taskDialogErrorMessageProperty().get());
@@ -1874,16 +1874,17 @@ class WarehouseWorkspaceViewModelTest {
     void rejectBlankReasonBlockedAndTrimmedReasonPassed() {
         openReceipt();
         int before = api.rejectCommands.size();
-        viewModel.rejectSelectedTask("   ");
+        viewModel.rejectSelectedTask("   ", true);
         assertEquals(before, api.rejectCommands.size());
         assertEquals(
                 WarehouseUiErrorMapper.VALIDATION,
                 viewModel.taskDialogErrorMessageProperty().get());
         assertTrue(viewModel.errorMessageProperty().get().isBlank());
 
-        viewModel.rejectSelectedTask("  брак  ");
+        viewModel.rejectSelectedTask("  брак  ", true);
         assertEquals(1, api.rejectCommands.size());
         assertEquals("брак", api.rejectCommands.get(0).rejectionReason());
+        assertEquals(true, api.rejectCommands.get(0).resupplyRequired());
     }
 
     @Test
@@ -3079,6 +3080,7 @@ class WarehouseWorkspaceViewModelTest {
                 null,
                 new BigDecimal(required),
                 new BigDecimal(received),
+                BigDecimal.ZERO,
                 new BigDecimal(remaining),
                 reason);
     }

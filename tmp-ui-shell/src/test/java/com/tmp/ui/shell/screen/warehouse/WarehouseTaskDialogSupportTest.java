@@ -186,7 +186,7 @@ class WarehouseTaskDialogSupportTest {
                                         () -> {},
                                         () -> {},
                                         () -> {},
-                                        reason -> {},
+                                        (reason, resupply) -> {},
                                         () -> {},
                                         () -> {});
 
@@ -243,6 +243,7 @@ class WarehouseTaskDialogSupportTest {
                                             new BigDecimal("868"),
                                             new BigDecimal("10"),
                                             new BigDecimal("0"),
+                                            BigDecimal.ZERO,
                                             new BigDecimal("10"),
                                             "NO_AVAILABLE_STOCK"));
                     SupplyWaitingLineRow nameWithSize =
@@ -256,6 +257,7 @@ class WarehouseTaskDialogSupportTest {
                                             new BigDecimal("812"),
                                             new BigDecimal("5"),
                                             new BigDecimal("0"),
+                                            BigDecimal.ZERO,
                                             new BigDecimal("5"),
                                             "NO_AVAILABLE_STOCK"));
                     ObservableList<ActionEditRow> lines =
@@ -277,7 +279,7 @@ class WarehouseTaskDialogSupportTest {
                                     () -> {},
                                     () -> {},
                                     () -> {},
-                                    reason -> {},
+                                    (reason, resupply) -> {},
                                     () -> {},
                                     () -> {});
                     TableView<ActionEditRow> table = session.table();
@@ -351,7 +353,7 @@ class WarehouseTaskDialogSupportTest {
                                     () -> {},
                                     () -> {},
                                     () -> {},
-                                    reason -> {},
+                                    (reason, resupply) -> {},
                                     () -> {},
                                     () -> {});
 
@@ -500,7 +502,7 @@ class WarehouseTaskDialogSupportTest {
                                     () -> {},
                                     () -> {},
                                     () -> {},
-                                    reason -> {},
+                                    (reason, resupply) -> {},
                                     () -> {},
                                     () -> {});
                     TableView<ActionEditRow> table = session.table();

@@ -1668,7 +1668,7 @@ public final class WarehouseWorkspaceViewModel {
                 });
     }
 
-    public void rejectSelectedTask(String reason) {
+    public void rejectSelectedTask(String reason, boolean resupplyRequired) {
         TaskRow row = selectedTask.get();
         TransferDocumentView document = loadedDocument;
         if (row == null
@@ -1693,7 +1693,10 @@ public final class WarehouseWorkspaceViewModel {
                         TransferDocumentRejectResult result =
                                 warehouseApi.rejectTransferDocument(
                                         new RejectTransferDocumentCommand(
-                                                documentId, operationalRevision, trimmed));
+                                                documentId,
+                                                operationalRevision,
+                                                trimmed,
+                                                resupplyRequired));
                         uiExecutor.accept(
                                 () -> {
                                     commandInFlight.set(false);

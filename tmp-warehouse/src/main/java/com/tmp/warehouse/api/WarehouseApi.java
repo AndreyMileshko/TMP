@@ -375,10 +375,19 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
      * rejectedBy — resolved from the authenticated session.
      */
     record RejectTransferDocumentCommand(
-            UUID documentId, long expectedOperationalRevision, String rejectionReason) {
+            UUID documentId,
+            long expectedOperationalRevision,
+            String rejectionReason,
+            boolean resupplyRequired) {
 
         public RejectTransferDocumentCommand {
             java.util.Objects.requireNonNull(documentId, "documentId");
+        }
+
+        /** Backward-compatible: resupply required (checkbox CHECKED / historical default). */
+        public RejectTransferDocumentCommand(
+                UUID documentId, long expectedOperationalRevision, String rejectionReason) {
+            this(documentId, expectedOperationalRevision, rejectionReason, true);
         }
     }
 
@@ -389,12 +398,31 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
             String settlementState,
             String decision,
             long operationalRevision,
-            String rejectionReason) {
+            String rejectionReason,
+            boolean resupplyRequired) {
 
         public TransferDocumentRejectResult {
             java.util.Objects.requireNonNull(documentId, "documentId");
             java.util.Objects.requireNonNull(documentStatus, "documentStatus");
             java.util.Objects.requireNonNull(settlementState, "settlementState");
+        }
+
+        /** Backward-compatible: assumes resupply required. */
+        public TransferDocumentRejectResult(
+                UUID documentId,
+                String documentStatus,
+                String settlementState,
+                String decision,
+                long operationalRevision,
+                String rejectionReason) {
+            this(
+                    documentId,
+                    documentStatus,
+                    settlementState,
+                    decision,
+                    operationalRevision,
+                    rejectionReason,
+                    true);
         }
     }
 

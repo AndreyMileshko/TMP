@@ -12,6 +12,7 @@ import com.tmp.warehouse.domain.WarehouseDemandSupplyTaskRules;
 import com.tmp.warehouse.domain.WarehouseDemandTransferLink;
 import com.tmp.warehouse.domain.WarehouseDemandWaitingReason;
 import com.tmp.warehouse.domain.repository.WarehouseDemandRepository;
+import com.tmp.warehouse.domain.repository.WarehouseDemandResupplyWaiverRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseDemandFulfillmentReadQuery;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
@@ -27,8 +28,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Default Warehouse Demand query API (B3B-3A). Derives received quantity from settled receipt facts
- * and status from receipt totals + active linked Transfers. No mutable Demand counters.
+ * Default Warehouse Demand query API (B3B-3A + ADR-038 waiver). Derives received/waived quantities
+ * from settled receipt facts and waiver ledger events. Status from remaining + active Transfers.
  */
 @SuppressFBWarnings(
         value = "EI_EXPOSE_REP2",
@@ -39,12 +40,15 @@ public final class DefaultWarehouseDemandQueryApi implements WarehouseDemandQuer
 
     private final WarehouseDemandRepository demands;
     private final JdbcWarehouseDemandFulfillmentReadQuery fulfillmentRead;
+    private final WarehouseDemandResupplyWaiverRepository waivers;
 
     public DefaultWarehouseDemandQueryApi(
             WarehouseDemandRepository demands,
-            JdbcWarehouseDemandFulfillmentReadQuery fulfillmentRead) {
+            JdbcWarehouseDemandFulfillmentReadQuery fulfillmentRead,
+            WarehouseDemandResupplyWaiverRepository waivers) {
         this.demands = Objects.requireNonNull(demands, "demands");
         this.fulfillmentRead = Objects.requireNonNull(fulfillmentRead, "fulfillmentRead");
+        this.waivers = Objects.requireNonNull(waivers, "waivers");
     }
 
     @Override
@@ -72,11 +76,13 @@ public final class DefaultWarehouseDemandQueryApi implements WarehouseDemandQuer
                             Map<WarehouseDemandLineId, BigDecimal> receivedByLine =
                                     fulfillmentRead.receivedQuantitiesByDemandLine(
                                             demand.id(), demand.destinationWarehouseId());
+                            Map<WarehouseDemandLineId, BigDecimal> waivedByLine =
+                                    waivers.waivedQuantitiesByDemandLine(demand.id());
                             Set<WarehouseDemandLineId> activeLines =
                                     fulfillmentRead.demandLinesWithActiveTransfer(demand.id());
                             List<WarehouseDemandSupplyTaskRules.WaitingLine> waiting =
                                     WarehouseDemandSupplyTaskRules.waitingLines(
-                                            demand, receivedByLine, activeLines);
+                                            demand, receivedByLine, waivedByLine, activeLines);
                             if (waiting.isEmpty()) {
                                 return Optional.empty();
                             }
@@ -95,6 +101,7 @@ public final class DefaultWarehouseDemandQueryApi implements WarehouseDemandQuer
                                                                             .orElse(null),
                                                                     w.requiredQuantity(),
                                                                     w.receivedQuantity(),
+                                                                    w.waivedQuantity(),
                                                                     w.remainingQuantity(),
                                                                     w.effectiveWaitingReason()
                                                                             .name()))
@@ -112,6 +119,8 @@ public final class DefaultWarehouseDemandQueryApi implements WarehouseDemandQuer
         Map<WarehouseDemandLineId, BigDecimal> receivedByLine =
                 fulfillmentRead.receivedQuantitiesByDemandLine(
                         demand.id(), demand.destinationWarehouseId());
+        Map<WarehouseDemandLineId, BigDecimal> waivedByLine =
+                waivers.waivedQuantitiesByDemandLine(demand.id());
         Set<WarehouseDemandLineId> activeLines =
                 fulfillmentRead.demandLinesWithActiveTransfer(demand.id());
         Map<WarehouseDemandLineId, List<WarehouseDemandTransferLink>> linksByLine =
@@ -126,20 +135,22 @@ public final class DefaultWarehouseDemandQueryApi implements WarehouseDemandQuer
             BigDecimal required = line.requiredQuantity().value();
             BigDecimal received =
                     receivedByLine.getOrDefault(line.id(), BigDecimal.ZERO);
-            if (received.compareTo(required) > 0) {
+            BigDecimal waived = waivedByLine.getOrDefault(line.id(), BigDecimal.ZERO);
+            if (received.add(waived).compareTo(required) > 0) {
                 LOG.warn(
-                        "Demand line over-receipt detected: demandId={}, demandLineId={}, required={}, received={}",
+                        "Demand line received+waived exceeds required: demandId={}, demandLineId={}, required={}, received={}, waived={}",
                         demand.id().value(),
                         line.id().value(),
                         required,
-                        received);
+                        received,
+                        waived);
             }
             BigDecimal remaining =
-                    WarehouseDemandStatusDeriver.remainingQuantity(required, received);
+                    WarehouseDemandStatusDeriver.remainingQuantity(required, received, waived);
             boolean hasActive = activeLines.contains(line.id());
             WarehouseDemandDerivedStatus derivedStatus =
                     WarehouseDemandStatusDeriver.deriveLineStatus(
-                            cancelled, required, received, hasActive);
+                            cancelled, required, received, waived, hasActive);
             WarehouseDemandWaitingReason effectiveReason =
                     WarehouseDemandStatusDeriver.effectiveWaitingReason(
                             derivedStatus, line.waitingReason().orElse(null));
@@ -164,6 +175,7 @@ public final class DefaultWarehouseDemandQueryApi implements WarehouseDemandQuer
                             line.lengthMm().orElse(null),
                             required,
                             received,
+                            waived,
                             remaining,
                             line.materialReferenceId().map(MaterialReferenceId::value).orElse(null),
                             derivedStatus,

@@ -185,7 +185,10 @@ class WarehouseDemandFulfillmentQueryIntegrationTest {
                         new TransactionTemplate(new DataSourceTransactionManager(dataSource)));
         demandQuery =
                 new DefaultWarehouseDemandQueryApi(
-                        demands, new JdbcWarehouseDemandFulfillmentReadQuery(jdbc));
+                        demands,
+                        new JdbcWarehouseDemandFulfillmentReadQuery(jdbc),
+                        new com.tmp.warehouse.persistence.JdbcWarehouseDemandResupplyWaiverRepository(
+                                jdbc));
 
         destination = WarehouseId.generate();
         source = WarehouseId.generate();

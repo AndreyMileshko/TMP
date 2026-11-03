@@ -1208,14 +1208,16 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                                 new WarehouseTransferRejectService.RejectCommand(
                                         command.documentId(),
                                         command.expectedOperationalRevision(),
-                                        command.rejectionReason()));
+                                        command.rejectionReason(),
+                                        command.resupplyRequired()));
         return new TransferDocumentRejectResult(
                 result.documentId(),
                 result.documentStatus(),
                 result.settlementState(),
                 result.decision(),
                 result.operationalRevision(),
-                result.rejectionReason());
+                result.rejectionReason(),
+                result.resupplyRequired());
     }
 
     @Override

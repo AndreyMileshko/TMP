@@ -20,6 +20,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
@@ -160,7 +161,7 @@ public final class WarehouseTaskDialogSupport {
             Runnable onTake,
             Runnable onSend,
             Runnable onReceive,
-            Consumer<String> onReject,
+            java.util.function.BiConsumer<String, Boolean> onReject,
             Runnable onReturn,
             Runnable onPrepare) {
         Objects.requireNonNull(task, "task");
@@ -263,8 +264,8 @@ public final class WarehouseTaskDialogSupport {
         rejectButton.managedProperty().bind(canReject);
         rejectButton.setOnAction(
                 e -> {
-                    Optional<String> reason = promptRejectReason(dialog);
-                    reason.ifPresent(onReject);
+                    Optional<RejectDialogResult> result = promptRejectReason(dialog);
+                    result.ifPresent(r -> onReject.accept(r.reason(), r.resupplyRequired()));
                 });
 
         Button returnButton = new Button(RETURN_BUTTON);
@@ -523,8 +524,14 @@ public final class WarehouseTaskDialogSupport {
         }
     }
 
-    private static Optional<String> promptRejectReason(Dialog<?> owner) {
-        Dialog<String> dialog = new Dialog<>();
+    public record RejectDialogResult(String reason, boolean resupplyRequired) {
+        public RejectDialogResult {
+            java.util.Objects.requireNonNull(reason, "reason");
+        }
+    }
+
+    private static Optional<RejectDialogResult> promptRejectReason(Dialog<?> owner) {
+        Dialog<RejectDialogResult> dialog = new Dialog<>();
         dialog.initOwner(owner.getDialogPane().getScene() == null
                 ? null
                 : owner.getDialogPane().getScene().getWindow());
@@ -534,11 +541,30 @@ public final class WarehouseTaskDialogSupport {
         ButtonType cancelType = new ButtonType("Отмена", ButtonBar.ButtonData.CANCEL_CLOSE);
         dialog.getDialogPane().getButtonTypes().addAll(rejectType, cancelType);
         dialog.getDialogPane().getStyleClass().add("tmp-dialog");
+
         TextArea reasonArea = new TextArea();
         reasonArea.setPromptText("Причина");
         reasonArea.setWrapText(true);
         reasonArea.setPrefRowCount(4);
-        dialog.getDialogPane().setContent(reasonArea);
+
+        CheckBox resupplyRequired =
+                new CheckBox("Повторная подача материалов требуется");
+        resupplyRequired.setSelected(true);
+        Label waiverNote =
+                new Label(
+                        "Отклонённые материалы будут возвращены, но повторная подача по соответствующей потребности не потребуется.");
+        waiverNote.setWrapText(true);
+        waiverNote.getStyleClass().add("tmp-text-muted");
+        waiverNote.visibleProperty().bind(resupplyRequired.selectedProperty().not());
+        waiverNote.managedProperty().bind(resupplyRequired.selectedProperty().not());
+        Tooltip.install(
+                waiverNote,
+                new Tooltip(
+                        "Отклонённые материалы будут возвращены, но повторная подача по соответствующей потребности не потребуется."));
+
+        VBox content = new VBox(8, reasonArea, resupplyRequired, waiverNote);
+        dialog.getDialogPane().setContent(content);
+
         Button rejectButton = (Button) dialog.getDialogPane().lookupButton(rejectType);
         rejectButton.getStyleClass().add("tmp-button-danger");
         Button cancelButton = (Button) dialog.getDialogPane().lookupButton(cancelType);
@@ -549,7 +575,12 @@ public final class WarehouseTaskDialogSupport {
                         Bindings.createBooleanBinding(
                                 () -> reasonArea.getText() == null || reasonArea.getText().isBlank(),
                                 reasonArea.textProperty()));
-        dialog.setResultConverter(button -> button == rejectType ? reasonArea.getText() : null);
+        dialog.setResultConverter(
+                button ->
+                        button == rejectType
+                                ? new RejectDialogResult(
+                                        reasonArea.getText(), resupplyRequired.isSelected())
+                                : null);
         dialog.setOnShown(e -> reasonArea.requestFocus());
         return dialog.showAndWait();
     }

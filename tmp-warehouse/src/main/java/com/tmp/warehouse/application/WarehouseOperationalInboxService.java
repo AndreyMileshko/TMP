@@ -30,6 +30,7 @@ import com.tmp.warehouse.domain.repository.TransferDocumentSettlementRepository;
 import com.tmp.warehouse.domain.repository.TransferTaskStateRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseDemandRepository;
+import com.tmp.warehouse.domain.repository.WarehouseDemandResupplyWaiverRepository;
 import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
 import com.tmp.warehouse.domain.repository.WarehouseUserResponsibilityRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseDemandFulfillmentReadQuery;
@@ -91,6 +92,7 @@ public final class WarehouseOperationalInboxService {
     private final DemandTaskStateRepository demandTaskStates;
     private final WarehouseDemandRepository demands;
     private final JdbcWarehouseDemandFulfillmentReadQuery demandFulfillment;
+    private final WarehouseDemandResupplyWaiverRepository demandWaivers;
     private final WarehouseUserResponsibilityRepository responsibilities;
     private final WarehouseCatalogRepository warehouses;
     private final WarehouseResponsibilityGuard responsibilityGuard;
@@ -115,6 +117,7 @@ public final class WarehouseOperationalInboxService {
                 transferDocuments,
                 null,
                 taskStates,
+                null,
                 null,
                 null,
                 null,
@@ -144,6 +147,7 @@ public final class WarehouseOperationalInboxService {
                 transferDocuments,
                 settlements,
                 taskStates,
+                null,
                 null,
                 null,
                 null,
@@ -174,6 +178,7 @@ public final class WarehouseOperationalInboxService {
                 transferDocuments,
                 settlements,
                 taskStates,
+                null,
                 null,
                 null,
                 null,
@@ -210,6 +215,7 @@ public final class WarehouseOperationalInboxService {
                 demandTaskStates,
                 demands,
                 demandFulfillment,
+                null,
                 responsibilities,
                 warehouses,
                 responsibilityGuard,
@@ -236,6 +242,42 @@ public final class WarehouseOperationalInboxService {
             Clock clock,
             ObjectProvider<TransferDocumentOrderReferenceQuery> orderReferences,
             WarehouseDemandCommandApi demandCommands) {
+        this(
+                documentEngine,
+                transferDocuments,
+                settlements,
+                taskStates,
+                demandTaskStates,
+                demands,
+                demandFulfillment,
+                null,
+                responsibilities,
+                warehouses,
+                responsibilityGuard,
+                authentication,
+                transactionTemplate,
+                clock,
+                orderReferences,
+                demandCommands);
+    }
+
+    public WarehouseOperationalInboxService(
+            DocumentEngine documentEngine,
+            WarehouseTransferDocumentRepository transferDocuments,
+            TransferDocumentSettlementRepository settlements,
+            TransferTaskStateRepository taskStates,
+            DemandTaskStateRepository demandTaskStates,
+            WarehouseDemandRepository demands,
+            JdbcWarehouseDemandFulfillmentReadQuery demandFulfillment,
+            WarehouseDemandResupplyWaiverRepository demandWaivers,
+            WarehouseUserResponsibilityRepository responsibilities,
+            WarehouseCatalogRepository warehouses,
+            WarehouseResponsibilityGuard responsibilityGuard,
+            AuthenticationService authentication,
+            TransactionTemplate transactionTemplate,
+            Clock clock,
+            ObjectProvider<TransferDocumentOrderReferenceQuery> orderReferences,
+            WarehouseDemandCommandApi demandCommands) {
         this.documentEngine = Objects.requireNonNull(documentEngine, "documentEngine");
         this.transferDocuments = Objects.requireNonNull(transferDocuments, "transferDocuments");
         this.settlements = settlements;
@@ -243,6 +285,7 @@ public final class WarehouseOperationalInboxService {
         this.demandTaskStates = demandTaskStates;
         this.demands = demands;
         this.demandFulfillment = demandFulfillment;
+        this.demandWaivers = demandWaivers;
         this.responsibilities = Objects.requireNonNull(responsibilities, "responsibilities");
         this.warehouses = Objects.requireNonNull(warehouses, "warehouses");
         this.responsibilityGuard =
@@ -373,6 +416,10 @@ public final class WarehouseOperationalInboxService {
                 openDemands.stream().map(d -> d.id().value()).toList();
         Map<WarehouseDemandLineId, BigDecimal> receivedByLine =
                 demandFulfillment.receivedQuantitiesByDemandLines(demandIds);
+        Map<WarehouseDemandLineId, BigDecimal> waivedByLine =
+                demandWaivers == null
+                        ? Map.of()
+                        : demandWaivers.waivedQuantitiesByDemandLines(demandIds);
         Set<WarehouseDemandLineId> activeLines =
                 demandFulfillment.demandLinesWithActiveTransfer(demandIds);
         Map<UUID, DemandTaskAssignment> assignments =
@@ -383,7 +430,7 @@ public final class WarehouseOperationalInboxService {
         for (WarehouseDemand demand : openDemands) {
             List<WarehouseDemandSupplyTaskRules.WaitingLine> waiting =
                     WarehouseDemandSupplyTaskRules.waitingLines(
-                            demand, receivedByLine, activeLines);
+                            demand, receivedByLine, waivedByLine, activeLines);
             if (waiting.isEmpty()) {
                 continue;
             }
@@ -604,11 +651,16 @@ public final class WarehouseOperationalInboxService {
                             Map<WarehouseDemandLineId, BigDecimal> receivedByLine =
                                     demandFulfillment.receivedQuantitiesByDemandLine(
                                             demand.id(), demand.destinationWarehouseId());
+                            Map<WarehouseDemandLineId, BigDecimal> waivedByLine =
+                                    demandWaivers == null
+                                            ? Map.of()
+                                            : demandWaivers.waivedQuantitiesByDemandLine(
+                                                    demand.id());
                             Set<WarehouseDemandLineId> activeLines =
                                     demandFulfillment.demandLinesWithActiveTransfer(demand.id());
                             List<WarehouseDemandSupplyTaskRules.WaitingLine> waiting =
                                     WarehouseDemandSupplyTaskRules.waitingLines(
-                                            demand, receivedByLine, activeLines);
+                                            demand, receivedByLine, waivedByLine, activeLines);
                             if (waiting.isEmpty()) {
                                 throw new IllegalStateException(
                                         "Demand supply task is not actionable: demandId="

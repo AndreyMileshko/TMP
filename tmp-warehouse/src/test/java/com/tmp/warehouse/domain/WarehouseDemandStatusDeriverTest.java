@@ -15,7 +15,35 @@ class WarehouseDemandStatusDeriverTest {
         assertEquals(
                 WarehouseDemandDerivedStatus.FULFILLED,
                 WarehouseDemandStatusDeriver.deriveLineStatus(
-                        false, new BigDecimal("10"), new BigDecimal("10"), false));
+                        false,
+                        new BigDecimal("10"),
+                        new BigDecimal("10"),
+                        BigDecimal.ZERO,
+                        false));
+    }
+
+    @Test
+    void resupplyWaivedWhenRemainingClosedByWaiver() {
+        assertEquals(
+                WarehouseDemandDerivedStatus.RESUPPLY_WAIVED,
+                WarehouseDemandStatusDeriver.deriveLineStatus(
+                        false,
+                        new BigDecimal("10"),
+                        new BigDecimal("2"),
+                        new BigDecimal("8"),
+                        false));
+    }
+
+    @Test
+    void fulfilledTakesPrecedenceOverWaiverWhenFullyReceived() {
+        assertEquals(
+                WarehouseDemandDerivedStatus.FULFILLED,
+                WarehouseDemandStatusDeriver.deriveLineStatus(
+                        false,
+                        new BigDecimal("10"),
+                        new BigDecimal("10"),
+                        new BigDecimal("2"),
+                        false));
     }
 
     @Test
@@ -23,11 +51,39 @@ class WarehouseDemandStatusDeriverTest {
         assertEquals(
                 WarehouseDemandDerivedStatus.WAITING_FOR_SUPPLY,
                 WarehouseDemandStatusDeriver.deriveLineStatus(
-                        false, new BigDecimal("10"), new BigDecimal("4"), false));
+                        false,
+                        new BigDecimal("10"),
+                        new BigDecimal("4"),
+                        BigDecimal.ZERO,
+                        false));
         assertEquals(
                 WarehouseDemandDerivedStatus.IN_FULFILLMENT,
                 WarehouseDemandStatusDeriver.deriveLineStatus(
-                        false, new BigDecimal("10"), new BigDecimal("4"), true));
+                        false,
+                        new BigDecimal("10"),
+                        new BigDecimal("4"),
+                        BigDecimal.ZERO,
+                        true));
+    }
+
+    @Test
+    void partialWaiverKeepsWaitingOrInFulfillment() {
+        assertEquals(
+                WarehouseDemandDerivedStatus.WAITING_FOR_SUPPLY,
+                WarehouseDemandStatusDeriver.deriveLineStatus(
+                        false,
+                        new BigDecimal("10"),
+                        new BigDecimal("2"),
+                        new BigDecimal("3"),
+                        false));
+        assertEquals(
+                WarehouseDemandDerivedStatus.IN_FULFILLMENT,
+                WarehouseDemandStatusDeriver.deriveLineStatus(
+                        false,
+                        new BigDecimal("10"),
+                        new BigDecimal("2"),
+                        new BigDecimal("3"),
+                        true));
     }
 
     @Test
@@ -35,7 +91,11 @@ class WarehouseDemandStatusDeriverTest {
         assertEquals(
                 WarehouseDemandDerivedStatus.CANCELLED,
                 WarehouseDemandStatusDeriver.deriveLineStatus(
-                        true, new BigDecimal("10"), new BigDecimal("10"), true));
+                        true,
+                        new BigDecimal("10"),
+                        new BigDecimal("10"),
+                        BigDecimal.ZERO,
+                        true));
     }
 
     @Test
@@ -62,6 +122,17 @@ class WarehouseDemandStatusDeriverTest {
     }
 
     @Test
+    void headerResupplyWaivedWhenClosedWithAtLeastOneWaiver() {
+        assertEquals(
+                WarehouseDemandDerivedStatus.RESUPPLY_WAIVED,
+                WarehouseDemandStatusDeriver.deriveHeaderStatus(
+                        false,
+                        List.of(
+                                WarehouseDemandDerivedStatus.FULFILLED,
+                                WarehouseDemandDerivedStatus.RESUPPLY_WAIVED)));
+    }
+
+    @Test
     void effectiveWaitingReasonOnlyWhenWaiting() {
         assertEquals(
                 WarehouseDemandWaitingReason.NO_AVAILABLE_STOCK,
@@ -76,15 +147,35 @@ class WarehouseDemandStatusDeriverTest {
                 WarehouseDemandStatusDeriver.effectiveWaitingReason(
                         WarehouseDemandDerivedStatus.IN_FULFILLMENT,
                         WarehouseDemandWaitingReason.NO_AVAILABLE_STOCK));
+        assertNull(
+                WarehouseDemandStatusDeriver.effectiveWaitingReason(
+                        WarehouseDemandDerivedStatus.RESUPPLY_WAIVED,
+                        WarehouseDemandWaitingReason.NO_AVAILABLE_STOCK));
     }
 
     @Test
-    void remainingClampsAtZeroOnOverReceipt() {
+    void remainingIncludesWaivedAndClampsAtZero() {
         assertEquals(
                 0,
                 WarehouseDemandStatusDeriver.remainingQuantity(
-                                new BigDecimal("10"), new BigDecimal("12"))
+                                new BigDecimal("10"),
+                                new BigDecimal("4"),
+                                new BigDecimal("6"))
                         .compareTo(BigDecimal.ZERO));
+        assertEquals(
+                0,
+                WarehouseDemandStatusDeriver.remainingQuantity(
+                                new BigDecimal("10"),
+                                new BigDecimal("12"),
+                                BigDecimal.ZERO)
+                        .compareTo(BigDecimal.ZERO));
+        assertEquals(
+                0,
+                WarehouseDemandStatusDeriver.remainingQuantity(
+                                new BigDecimal("10"),
+                                new BigDecimal("2"),
+                                new BigDecimal("3"))
+                        .compareTo(new BigDecimal("5")));
     }
 
     @Test

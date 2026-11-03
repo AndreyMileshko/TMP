@@ -38,7 +38,7 @@ class WarehouseDemandSupplyTaskRulesTest {
 
         List<WarehouseDemandSupplyTaskRules.WaitingLine> waiting =
                 WarehouseDemandSupplyTaskRules.waitingLines(
-                        demand, Map.of(), Set.of());
+                        demand, Map.of(), Map.of(), Set.of());
         assertEquals(1, waiting.size());
         assertEquals(new BigDecimal("10"), waiting.getFirst().remainingQuantity());
         assertEquals(
@@ -46,7 +46,32 @@ class WarehouseDemandSupplyTaskRulesTest {
                 waiting.getFirst().effectiveWaitingReason());
         assertTrue(
                 WarehouseDemandSupplyTaskRules.qualifiesForSupplyTask(
-                        demand, Map.of(), Set.of()));
+                        demand, Map.of(), Map.of(), Set.of()));
+    }
+
+    @Test
+    void fullyWaivedLineDoesNotQualify() {
+        WarehouseDemandLine line =
+                WarehouseDemandLine.create(
+                        UUID.randomUUID(),
+                        "ART",
+                        "Name",
+                        "",
+                        "шт.",
+                        null,
+                        StockQuantity.of(new BigDecimal("10")),
+                        null,
+                        WarehouseDemandWaitingReason.NO_AVAILABLE_STOCK);
+        WarehouseDemand demand =
+                WarehouseDemand.accept(
+                        UUID.randomUUID(),
+                        WarehouseId.generate(),
+                        Instant.parse("2026-10-06T10:00:00Z"),
+                        "system",
+                        List.of(line));
+        assertFalse(
+                WarehouseDemandSupplyTaskRules.qualifiesForSupplyTask(
+                        demand, Map.of(), Map.of(line.id(), new BigDecimal("10")), Set.of()));
     }
 
     @Test
@@ -73,10 +98,10 @@ class WarehouseDemandSupplyTaskRulesTest {
         assertEquals(
                 WarehouseDemandDerivedStatus.IN_FULFILLMENT,
                 WarehouseDemandStatusDeriver.deriveLineStatus(
-                        false, new BigDecimal("10"), BigDecimal.ZERO, true));
+                        false, new BigDecimal("10"), BigDecimal.ZERO, BigDecimal.ZERO, true));
         assertFalse(
                 WarehouseDemandSupplyTaskRules.qualifiesForSupplyTask(
-                        demand, Map.of(), Set.of(line.id())));
+                        demand, Map.of(), Map.of(), Set.of(line.id())));
     }
 
     @Test
@@ -105,6 +130,6 @@ class WarehouseDemandSupplyTaskRulesTest {
                         List.of(line));
         assertFalse(
                 WarehouseDemandSupplyTaskRules.qualifiesForSupplyTask(
-                        demand, Map.of(), Set.of()));
+                        demand, Map.of(), Map.of(), Set.of()));
     }
 }

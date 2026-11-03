@@ -8,7 +8,9 @@ import com.tmp.warehouse.domain.WarehouseDemandLineId;
 import com.tmp.warehouse.domain.WarehouseDemandTransferLink;
 import com.tmp.warehouse.domain.WarehouseDemandWaitingReason;
 import com.tmp.warehouse.domain.WarehouseTransferLineId;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -50,6 +52,14 @@ public interface WarehouseDemandRepository {
             WarehouseDemandLineId demandLineId);
 
     List<WarehouseDemandTransferLink> findTransferLinksByDemandId(WarehouseDemandId demandId);
+
+    List<WarehouseDemandTransferLink> findTransferLinksByTransferDocumentId(UUID transferDocumentId);
+
+    /**
+     * Resolves owning Demand ids for the given Demand lines (batch). Missing lines are omitted.
+     */
+    Map<WarehouseDemandLineId, WarehouseDemandId> findDemandIdsByLineIds(
+            Collection<WarehouseDemandLineId> demandLineIds);
 
     Optional<WarehouseDemandTransferLink> findTransferLinkByTransferLineId(
             WarehouseTransferLineId transferLineId);

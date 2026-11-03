@@ -9,12 +9,12 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Demand-backed {@code PRODUCTION_MATERIAL_SUPPLY} eligibility (B3B-3C1).
+ * Demand-backed {@code PRODUCTION_MATERIAL_SUPPLY} eligibility (B3B-3C1 + ADR-038 waiver).
  *
  * <p>Reuses {@link WarehouseDemandStatusDeriver} and {@link WarehouseDemandActiveTransferRules}
  * semantics — does not invent a parallel status model. A supply task exists when the Demand is not
  * cancelled and at least one line is {@code WAITING_FOR_SUPPLY} with {@code remainingQuantity > 0}
- * (equivalently: uncovered open obligation with no ACTIVE linked Transfer for that line).
+ * (remaining includes waived quantity). Fully waived lines never qualify.
  */
 public final class WarehouseDemandSupplyTaskRules {
 
@@ -23,9 +23,11 @@ public final class WarehouseDemandSupplyTaskRules {
     public static List<WaitingLine> waitingLines(
             WarehouseDemand demand,
             Map<WarehouseDemandLineId, BigDecimal> receivedByLine,
+            Map<WarehouseDemandLineId, BigDecimal> waivedByLine,
             Set<WarehouseDemandLineId> activeLines) {
         Objects.requireNonNull(demand, "demand");
         Objects.requireNonNull(receivedByLine, "receivedByLine");
+        Objects.requireNonNull(waivedByLine, "waivedByLine");
         Objects.requireNonNull(activeLines, "activeLines");
         if (demand.isCancelled()) {
             return List.of();
@@ -34,12 +36,13 @@ public final class WarehouseDemandSupplyTaskRules {
         for (WarehouseDemandLine line : demand.lines()) {
             BigDecimal required = line.requiredQuantity().value();
             BigDecimal received = receivedByLine.getOrDefault(line.id(), BigDecimal.ZERO);
+            BigDecimal waived = waivedByLine.getOrDefault(line.id(), BigDecimal.ZERO);
             BigDecimal remaining =
-                    WarehouseDemandStatusDeriver.remainingQuantity(required, received);
+                    WarehouseDemandStatusDeriver.remainingQuantity(required, received, waived);
             boolean hasActive = activeLines.contains(line.id());
             WarehouseDemandDerivedStatus status =
                     WarehouseDemandStatusDeriver.deriveLineStatus(
-                            false, required, received, hasActive);
+                            false, required, received, waived, hasActive);
             if (status != WarehouseDemandDerivedStatus.WAITING_FOR_SUPPLY) {
                 continue;
             }
@@ -49,7 +52,7 @@ public final class WarehouseDemandSupplyTaskRules {
             WarehouseDemandWaitingReason reason =
                     WarehouseDemandStatusDeriver.effectiveWaitingReason(
                             status, line.waitingReason().orElse(null));
-            waiting.add(new WaitingLine(line, required, received, remaining, reason));
+            waiting.add(new WaitingLine(line, required, received, waived, remaining, reason));
         }
         return List.copyOf(waiting);
     }
@@ -57,14 +60,16 @@ public final class WarehouseDemandSupplyTaskRules {
     public static boolean qualifiesForSupplyTask(
             WarehouseDemand demand,
             Map<WarehouseDemandLineId, BigDecimal> receivedByLine,
+            Map<WarehouseDemandLineId, BigDecimal> waivedByLine,
             Set<WarehouseDemandLineId> activeLines) {
-        return !waitingLines(demand, receivedByLine, activeLines).isEmpty();
+        return !waitingLines(demand, receivedByLine, waivedByLine, activeLines).isEmpty();
     }
 
     public record WaitingLine(
             WarehouseDemandLine line,
             BigDecimal requiredQuantity,
             BigDecimal receivedQuantity,
+            BigDecimal waivedQuantity,
             BigDecimal remainingQuantity,
             WarehouseDemandWaitingReason effectiveWaitingReason) {
 
@@ -72,6 +77,7 @@ public final class WarehouseDemandSupplyTaskRules {
             Objects.requireNonNull(line, "line");
             Objects.requireNonNull(requiredQuantity, "requiredQuantity");
             Objects.requireNonNull(receivedQuantity, "receivedQuantity");
+            Objects.requireNonNull(waivedQuantity, "waivedQuantity");
             Objects.requireNonNull(remainingQuantity, "remainingQuantity");
             Objects.requireNonNull(effectiveWaitingReason, "effectiveWaitingReason");
         }

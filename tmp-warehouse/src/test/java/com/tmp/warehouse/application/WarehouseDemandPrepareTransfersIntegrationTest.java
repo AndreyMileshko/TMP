@@ -60,7 +60,9 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -189,7 +191,10 @@ class WarehouseDemandPrepareTransfersIntegrationTest {
         demandApi = newDemandApi(demands, bundle.transferDocumentService());
         demandQuery =
                 new DefaultWarehouseDemandQueryApi(
-                        demands, new JdbcWarehouseDemandFulfillmentReadQuery(jdbc));
+                        demands,
+                        new JdbcWarehouseDemandFulfillmentReadQuery(jdbc),
+                        new com.tmp.warehouse.persistence.JdbcWarehouseDemandResupplyWaiverRepository(
+                                jdbc));
 
         destination = WarehouseId.generate();
         source = WarehouseId.generate();
@@ -1092,6 +1097,18 @@ class WarehouseDemandPrepareTransfersIntegrationTest {
         public List<WarehouseDemandTransferLink> findTransferLinksByDemandId(
                 WarehouseDemandId demandId) {
             return delegate.findTransferLinksByDemandId(demandId);
+        }
+
+        @Override
+        public List<WarehouseDemandTransferLink> findTransferLinksByTransferDocumentId(
+                UUID transferDocumentId) {
+            return delegate.findTransferLinksByTransferDocumentId(transferDocumentId);
+        }
+
+        @Override
+        public Map<WarehouseDemandLineId, WarehouseDemandId> findDemandIdsByLineIds(
+                Collection<WarehouseDemandLineId> demandLineIds) {
+            return delegate.findDemandIdsByLineIds(demandLineIds);
         }
 
         @Override

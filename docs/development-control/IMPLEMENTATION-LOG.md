@@ -1,3 +1,21 @@
+## Warehouse Optional Resupply Waiver (ADR-038) + Pilot V57 — 2026-11-02
+
+**Date:** 2026-11-02
+**Base HEAD:** `232578a5440fa114f633c43a35cfd0fcbbaef6be`
+**Status:** DONE — implementation + focused tests + package + direct `tmp_pilot` V57; **no commit / no push**
+
+### Delivered
+- Flyway V57: `transfer_document_settlement.resupply_required` (default true) + `warehouse_demand_resupply_waivers` ledger
+- Reject command/UI checkbox «Повторная подача материалов требуется» (default CHECKED); UNCHECKED waives attributable linked quantities in reject TX
+- Demand derivation: `remaining = required − received − waived`; status `RESUPPLY_WAIVED`; supply tasks/prepare respect waived remaining
+- Concurrency: Demand FOR UPDATE + reserve other ACTIVE linked quantities so `received + waived ≤ required`
+- Focused tests PASS; package PASS; pilot backup + V56→V57 SUCCESS; normal startup Flyway off
+
+### Preserved
+Uncommitted Warehouse Spec 1.19 / ADR-038 amendment docs; `tmp_gui_stage5` V54 untouched
+
+---
+
 ## Repeated Material Requests Phase 2 — JavaFX UX / Workbench Presentation — 2026-11-02
 
 **Date:** 2026-11-02

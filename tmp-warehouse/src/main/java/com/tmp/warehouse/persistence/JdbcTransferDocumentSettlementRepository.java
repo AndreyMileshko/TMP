@@ -35,7 +35,8 @@ public final class JdbcTransferDocumentSettlementRepository
     private static final String SELECT_COLUMNS =
             """
             SELECT document_id, settlement_state, operational_revision, decision,
-                   rejection_reason, rejected_at, rejected_by, created_at, updated_at
+                   rejection_reason, rejected_at, rejected_by, resupply_required,
+                   created_at, updated_at
               FROM warehouse.transfer_document_settlement
             """;
 
@@ -58,8 +59,9 @@ public final class JdbcTransferDocumentSettlementRepository
                 """
                 INSERT INTO warehouse.transfer_document_settlement (
                     document_id, settlement_state, operational_revision, decision,
-                    rejection_reason, rejected_at, rejected_by, created_at, updated_at)
-                VALUES (?, ?, ?, NULL, NULL, NULL, NULL, ?, ?)
+                    rejection_reason, rejected_at, rejected_by, resupply_required,
+                    created_at, updated_at)
+                VALUES (?, ?, ?, NULL, NULL, NULL, NULL, TRUE, ?, ?)
                 """,
                 settlement.documentId(),
                 TransferSettlementState.AWAITING_RECEIPT.name(),
@@ -176,6 +178,7 @@ public final class JdbcTransferDocumentSettlementRepository
                                rejection_reason = ?,
                                rejected_at = ?,
                                rejected_by = ?,
+                               resupply_required = ?,
                                operational_revision = ?,
                                updated_at = ?
                          WHERE document_id = ?
@@ -188,6 +191,7 @@ public final class JdbcTransferDocumentSettlementRepository
                         reason,
                         Timestamp.from(rejectedAt),
                         rejectedBy,
+                        updated.resupplyRequired(),
                         updated.operationalRevision(),
                         Timestamp.from(updated.updatedAt()),
                         documentId,
@@ -350,6 +354,7 @@ public final class JdbcTransferDocumentSettlementRepository
                 rs.getString("rejection_reason"),
                 rejectedAt,
                 (UUID) rs.getObject("rejected_by"),
+                rs.getBoolean("resupply_required"),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant());
     }

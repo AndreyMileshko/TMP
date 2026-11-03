@@ -30,6 +30,7 @@ import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
 import com.tmp.warehouse.domain.repository.DemandTaskStateRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseDemandRepository;
+import com.tmp.warehouse.domain.repository.WarehouseDemandResupplyWaiverRepository;
 import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
 import com.tmp.warehouse.domain.WarehouseDemandSupplyTaskRules;
 import com.tmp.warehouse.persistence.JdbcWarehouseDemandFulfillmentReadQuery;
@@ -69,6 +70,7 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
     private final WarehouseDemandRepository demands;
     private final WarehouseTransferDocumentRepository transferDocumentRepository;
     private final JdbcWarehouseDemandFulfillmentReadQuery fulfillmentRead;
+    private final WarehouseDemandResupplyWaiverRepository waivers;
     private final DemandTaskStateRepository demandTaskStates;
     private final WarehouseMaterialReferenceResolver materialResolver;
     private final TransactionTemplate transactionTemplate;
@@ -93,6 +95,7 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
                 transferDocumentRepository,
                 fulfillmentRead,
                 null,
+                null,
                 clock,
                 transactionTemplate);
     }
@@ -108,6 +111,32 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
             DemandTaskStateRepository demandTaskStates,
             Clock clock,
             TransactionTemplate transactionTemplate) {
+        this(
+                sourceRouting,
+                transferDocuments,
+                warehouses,
+                materials,
+                demands,
+                transferDocumentRepository,
+                fulfillmentRead,
+                null,
+                demandTaskStates,
+                clock,
+                transactionTemplate);
+    }
+
+    public DefaultWarehouseDemandCommandApi(
+            MaterialSourceRoutingService sourceRouting,
+            WarehouseTransferDocumentService transferDocuments,
+            WarehouseCatalogRepository warehouses,
+            MaterialReferenceRepository materials,
+            WarehouseDemandRepository demands,
+            WarehouseTransferDocumentRepository transferDocumentRepository,
+            JdbcWarehouseDemandFulfillmentReadQuery fulfillmentRead,
+            WarehouseDemandResupplyWaiverRepository waivers,
+            DemandTaskStateRepository demandTaskStates,
+            Clock clock,
+            TransactionTemplate transactionTemplate) {
         this.sourceRouting = Objects.requireNonNull(sourceRouting, "sourceRouting");
         this.transferDocuments = Objects.requireNonNull(transferDocuments, "transferDocuments");
         this.warehouses = Objects.requireNonNull(warehouses, "warehouses");
@@ -116,6 +145,7 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
         this.transferDocumentRepository =
                 Objects.requireNonNull(transferDocumentRepository, "transferDocumentRepository");
         this.fulfillmentRead = Objects.requireNonNull(fulfillmentRead, "fulfillmentRead");
+        this.waivers = waivers;
         this.demandTaskStates = demandTaskStates;
         this.materialResolver = new WarehouseMaterialReferenceResolver();
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -332,6 +362,8 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
         Map<WarehouseDemandLineId, BigDecimal> receivedByLine =
                 fulfillmentRead.receivedQuantitiesByDemandLine(
                         demand.id(), demand.destinationWarehouseId());
+        Map<WarehouseDemandLineId, BigDecimal> waivedByLine =
+                waivers == null ? Map.of() : waivers.waivedQuantitiesByDemandLine(demand.id());
         Set<WarehouseDemandLineId> activeLines =
                 fulfillmentRead.demandLinesWithActiveTransfer(demand.id());
         List<MaterialReference> catalog = materials.findAll();
@@ -340,14 +372,16 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
         for (WarehouseDemandLine line : demand.lines()) {
             BigDecimal required = line.requiredQuantity().value();
             BigDecimal received = receivedByLine.getOrDefault(line.id(), BigDecimal.ZERO);
+            BigDecimal waived = waivedByLine.getOrDefault(line.id(), BigDecimal.ZERO);
             BigDecimal remaining =
-                    WarehouseDemandStatusDeriver.remainingQuantity(required, received);
+                    WarehouseDemandStatusDeriver.remainingQuantity(required, received, waived);
             boolean hasActive = activeLines.contains(line.id());
             WarehouseDemandDerivedStatus derived =
                     WarehouseDemandStatusDeriver.deriveLineStatus(
-                            false, required, received, hasActive);
+                            false, required, received, waived, hasActive);
 
-            if (derived == WarehouseDemandDerivedStatus.FULFILLED) {
+            if (derived == WarehouseDemandDerivedStatus.FULFILLED
+                    || derived == WarehouseDemandDerivedStatus.RESUPPLY_WAIVED) {
                 outcomeByLineId.put(
                         line.id().value(),
                         skippedPrepare(
@@ -543,10 +577,12 @@ public final class DefaultWarehouseDemandCommandApi implements WarehouseDemandCo
         Map<WarehouseDemandLineId, BigDecimal> receivedByLine =
                 fulfillmentRead.receivedQuantitiesByDemandLine(
                         demand.id(), demand.destinationWarehouseId());
+        Map<WarehouseDemandLineId, BigDecimal> waivedByLine =
+                waivers == null ? Map.of() : waivers.waivedQuantitiesByDemandLine(demand.id());
         Set<WarehouseDemandLineId> activeLines =
                 fulfillmentRead.demandLinesWithActiveTransfer(demand.id());
         if (!WarehouseDemandSupplyTaskRules.qualifiesForSupplyTask(
-                demand, receivedByLine, activeLines)) {
+                demand, receivedByLine, waivedByLine, activeLines)) {
             demandTaskStates.clear(demand.id().value());
         }
     }

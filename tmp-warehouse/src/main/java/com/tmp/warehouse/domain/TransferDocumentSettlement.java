@@ -11,7 +11,8 @@ import java.util.UUID;
  * <p>{@code operationalRevision} is the concurrency token for receive/reject/return decisions.
  * Stage 3.5.8.3 adds full reject ({@link TransferSettlementDecision#REJECTED} + {@link
  * TransferSettlementState#RETURN_PENDING}) and physical return ({@link
- * TransferSettlementState#SETTLED} preserving decision/rejection metadata).
+ * TransferSettlementState#SETTLED} preserving decision/rejection metadata). ADR-038 optional
+ * resupply waiver persists {@code resupplyRequired} with reject metadata (default {@code true}).
  */
 public final class TransferDocumentSettlement {
 
@@ -22,6 +23,7 @@ public final class TransferDocumentSettlement {
     private final String rejectionReason;
     private final Instant rejectedAt;
     private final UUID rejectedBy;
+    private final boolean resupplyRequired;
     private final Instant createdAt;
     private final Instant updatedAt;
 
@@ -33,6 +35,7 @@ public final class TransferDocumentSettlement {
             String rejectionReason,
             Instant rejectedAt,
             UUID rejectedBy,
+            boolean resupplyRequired,
             Instant createdAt,
             Instant updatedAt) {
         this.documentId = documentId;
@@ -42,6 +45,7 @@ public final class TransferDocumentSettlement {
         this.rejectionReason = rejectionReason;
         this.rejectedAt = rejectedAt;
         this.rejectedBy = rejectedBy;
+        this.resupplyRequired = resupplyRequired;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -58,6 +62,7 @@ public final class TransferDocumentSettlement {
                 null,
                 null,
                 null,
+                true,
                 createdAt,
                 createdAt);
     }
@@ -70,6 +75,7 @@ public final class TransferDocumentSettlement {
             String rejectionReason,
             Instant rejectedAt,
             UUID rejectedBy,
+            boolean resupplyRequired,
             Instant createdAt,
             Instant updatedAt) {
         Objects.requireNonNull(documentId, "documentId");
@@ -89,6 +95,7 @@ public final class TransferDocumentSettlement {
                 rejectionReason,
                 rejectedAt,
                 rejectedBy,
+                resupplyRequired,
                 createdAt,
                 updatedAt);
     }
@@ -109,13 +116,15 @@ public final class TransferDocumentSettlement {
 
     /**
      * Full reject: {@code AWAITING_RECEIPT → RETURN_PENDING} with {@code REJECTED}. Physical stock
-     * is unchanged; no continuation is created.
+     * is unchanged; no continuation is created. {@code resupplyRequired=false} waives attributable
+     * Demand quantities in the same reject transaction (ADR-038).
      */
     public TransferDocumentSettlement markRejectedAndReturnPending(
             long expectedRevision,
             String rejectionReason,
             Instant rejectedAt,
-            UUID rejectedBy) {
+            UUID rejectedBy,
+            boolean resupplyRequired) {
         Objects.requireNonNull(rejectedAt, "rejectedAt");
         Objects.requireNonNull(rejectedBy, "rejectedBy");
         if (expectedRevision != operationalRevision) {
@@ -142,13 +151,14 @@ public final class TransferDocumentSettlement {
                 normalizedReason,
                 rejectedAt,
                 rejectedBy,
+                resupplyRequired,
                 createdAt,
                 rejectedAt);
     }
 
     /**
      * Physical return complete: {@code RETURN_PENDING → SETTLED}. Preserves {@code ACCEPTED} or
-     * {@code REJECTED} decision and rejection metadata.
+     * {@code REJECTED} decision and rejection metadata including {@code resupplyRequired}.
      */
     public TransferDocumentSettlement markReturnedAndSettled(
             long expectedRevision, Instant updatedAt) {
@@ -180,6 +190,7 @@ public final class TransferDocumentSettlement {
                 rejectionReason,
                 rejectedAt,
                 rejectedBy,
+                resupplyRequired,
                 createdAt,
                 updatedAt);
     }
@@ -226,6 +237,7 @@ public final class TransferDocumentSettlement {
                 null,
                 null,
                 null,
+                true,
                 createdAt,
                 updatedAt);
     }
@@ -278,6 +290,11 @@ public final class TransferDocumentSettlement {
 
     public Optional<UUID> rejectedBy() {
         return Optional.ofNullable(rejectedBy);
+    }
+
+    /** When {@code REJECTED}: whether Demand resupply remains required (default {@code true}). */
+    public boolean resupplyRequired() {
+        return resupplyRequired;
     }
 
     public Instant createdAt() {

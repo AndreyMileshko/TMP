@@ -22,7 +22,7 @@ class TransferDocumentSettlementRejectReturnTest {
                 TransferDocumentSettlement.awaitingReceipt(documentId, T0);
 
         TransferDocumentSettlement rejected =
-                awaiting.markRejectedAndReturnPending(0L, "  Повреждение  ", T1, userId);
+                awaiting.markRejectedAndReturnPending(0L, "  Повреждение  ", T1, userId, true);
 
         assertEquals(TransferSettlementState.RETURN_PENDING, rejected.settlementState());
         assertEquals(TransferSettlementDecision.REJECTED, rejected.decision().orElseThrow());
@@ -30,6 +30,7 @@ class TransferDocumentSettlementRejectReturnTest {
         assertEquals("Повреждение", rejected.rejectionReason().orElseThrow());
         assertEquals(T1, rejected.rejectedAt().orElseThrow());
         assertEquals(userId, rejected.rejectedBy().orElseThrow());
+        assertEquals(true, rejected.resupplyRequired());
     }
 
     @Test
@@ -38,10 +39,10 @@ class TransferDocumentSettlementRejectReturnTest {
                 TransferDocumentSettlement.awaitingReceipt(UUID.randomUUID(), T0);
         assertThrows(
                 InvalidWarehouseStateException.class,
-                () -> awaiting.markRejectedAndReturnPending(0L, "   ", T1, UUID.randomUUID()));
+                () -> awaiting.markRejectedAndReturnPending(0L, "   ", T1, UUID.randomUUID(), true));
         assertThrows(
                 InvalidWarehouseStateException.class,
-                () -> awaiting.markRejectedAndReturnPending(0L, null, T1, UUID.randomUUID()));
+                () -> awaiting.markRejectedAndReturnPending(0L, null, T1, UUID.randomUUID(), true));
     }
 
     @Test
@@ -50,7 +51,7 @@ class TransferDocumentSettlementRejectReturnTest {
         UUID userId = UUID.randomUUID();
         TransferDocumentSettlement rejected =
                 TransferDocumentSettlement.awaitingReceipt(documentId, T0)
-                        .markRejectedAndReturnPending(0L, "reason", T1, userId);
+                        .markRejectedAndReturnPending(0L, "reason", T1, userId, false);
 
         TransferDocumentSettlement settled = rejected.markReturnedAndSettled(1L, T2);
 
@@ -60,6 +61,7 @@ class TransferDocumentSettlementRejectReturnTest {
         assertEquals("reason", settled.rejectionReason().orElseThrow());
         assertEquals(T1, settled.rejectedAt().orElseThrow());
         assertEquals(userId, settled.rejectedBy().orElseThrow());
+        assertEquals(false, settled.resupplyRequired());
     }
 
     @Test
@@ -83,6 +85,6 @@ class TransferDocumentSettlementRejectReturnTest {
                         .markAcceptedAndReturnPending(0L, T1);
         assertThrows(
                 InvalidWarehouseStateException.class,
-                () -> pending.markRejectedAndReturnPending(1L, "x", T2, UUID.randomUUID()));
+                () -> pending.markRejectedAndReturnPending(1L, "x", T2, UUID.randomUUID(), true));
     }
 }

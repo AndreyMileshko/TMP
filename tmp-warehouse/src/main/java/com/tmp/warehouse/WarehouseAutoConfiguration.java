@@ -49,6 +49,7 @@ import com.tmp.warehouse.domain.repository.TransferTaskStateRepository;
 import com.tmp.warehouse.domain.repository.DemandTaskStateRepository;
 import com.tmp.warehouse.domain.repository.WarehouseCatalogRepository;
 import com.tmp.warehouse.domain.repository.WarehouseDemandRepository;
+import com.tmp.warehouse.domain.repository.WarehouseDemandResupplyWaiverRepository;
 import com.tmp.warehouse.domain.repository.WarehouseMovementRepository;
 import com.tmp.warehouse.domain.repository.WarehouseOperationRepository;
 import com.tmp.warehouse.domain.repository.WarehouseTransferDocumentRepository;
@@ -69,6 +70,7 @@ import com.tmp.warehouse.persistence.JdbcDemandTaskStateRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseCatalogRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseDemandFulfillmentReadQuery;
 import com.tmp.warehouse.persistence.JdbcWarehouseDemandRepository;
+import com.tmp.warehouse.persistence.JdbcWarehouseDemandResupplyWaiverRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseHistoryReadQuery;
 import com.tmp.warehouse.persistence.JdbcWarehouseMovementRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseOperationRepository;
@@ -211,6 +213,12 @@ public class WarehouseAutoConfiguration {
     }
 
     @Bean
+    WarehouseDemandResupplyWaiverRepository warehouseDemandResupplyWaiverRepository(
+            JdbcTemplate jdbcTemplate) {
+        return new JdbcWarehouseDemandResupplyWaiverRepository(jdbcTemplate);
+    }
+
+    @Bean
     WarehouseDemandAcceptanceService warehouseDemandAcceptanceService(
             WarehouseDemandRepository warehouseDemandRepository, Clock clock) {
         return new WarehouseDemandAcceptanceService(warehouseDemandRepository, clock);
@@ -309,9 +317,12 @@ public class WarehouseAutoConfiguration {
     @Bean
     WarehouseDemandQueryApi warehouseDemandQueryApi(
             WarehouseDemandRepository warehouseDemandRepository,
-            JdbcWarehouseDemandFulfillmentReadQuery warehouseDemandFulfillmentReadQuery) {
+            JdbcWarehouseDemandFulfillmentReadQuery warehouseDemandFulfillmentReadQuery,
+            WarehouseDemandResupplyWaiverRepository warehouseDemandResupplyWaiverRepository) {
         return new DefaultWarehouseDemandQueryApi(
-                warehouseDemandRepository, warehouseDemandFulfillmentReadQuery);
+                warehouseDemandRepository,
+                warehouseDemandFulfillmentReadQuery,
+                warehouseDemandResupplyWaiverRepository);
     }
 
     @Bean
@@ -380,6 +391,10 @@ public class WarehouseAutoConfiguration {
             TransferDocumentSendAllocationRepository transferDocumentSendAllocationRepository,
             TransferReceiptSettlementItemRepository transferReceiptSettlementItemRepository,
             TransferTaskStateRepository transferTaskStateRepository,
+            WarehouseDemandRepository warehouseDemandRepository,
+            WarehouseDemandResupplyWaiverRepository warehouseDemandResupplyWaiverRepository,
+            JdbcWarehouseDemandFulfillmentReadQuery warehouseDemandFulfillmentReadQuery,
+            DemandTaskStateRepository demandTaskStateRepository,
             WarehouseResponsibilityGuard warehouseResponsibilityGuard,
             AuthenticationService authenticationService,
             PlatformTransactionManager platformTransactionManager,
@@ -391,6 +406,10 @@ public class WarehouseAutoConfiguration {
                 transferDocumentSendAllocationRepository,
                 transferReceiptSettlementItemRepository,
                 transferTaskStateRepository,
+                warehouseDemandRepository,
+                warehouseDemandResupplyWaiverRepository,
+                warehouseDemandFulfillmentReadQuery,
+                demandTaskStateRepository,
                 warehouseResponsibilityGuard,
                 authenticationService,
                 new TransactionTemplate(platformTransactionManager),
@@ -437,6 +456,7 @@ public class WarehouseAutoConfiguration {
             DemandTaskStateRepository demandTaskStateRepository,
             WarehouseDemandRepository warehouseDemandRepository,
             JdbcWarehouseDemandFulfillmentReadQuery warehouseDemandFulfillmentReadQuery,
+            WarehouseDemandResupplyWaiverRepository warehouseDemandResupplyWaiverRepository,
             WarehouseUserResponsibilityRepository warehouseUserResponsibilityRepository,
             WarehouseCatalogRepository warehouseCatalogRepository,
             WarehouseResponsibilityGuard warehouseResponsibilityGuard,
@@ -453,6 +473,7 @@ public class WarehouseAutoConfiguration {
                 demandTaskStateRepository,
                 warehouseDemandRepository,
                 warehouseDemandFulfillmentReadQuery,
+                warehouseDemandResupplyWaiverRepository,
                 warehouseUserResponsibilityRepository,
                 warehouseCatalogRepository,
                 warehouseResponsibilityGuard,
@@ -626,6 +647,7 @@ public class WarehouseAutoConfiguration {
             WarehouseDemandRepository warehouseDemandRepository,
             WarehouseTransferDocumentRepository warehouseTransferDocumentRepository,
             JdbcWarehouseDemandFulfillmentReadQuery warehouseDemandFulfillmentReadQuery,
+            WarehouseDemandResupplyWaiverRepository warehouseDemandResupplyWaiverRepository,
             DemandTaskStateRepository demandTaskStateRepository,
             Clock clock,
             PlatformTransactionManager platformTransactionManager) {
@@ -637,6 +659,7 @@ public class WarehouseAutoConfiguration {
                 warehouseDemandRepository,
                 warehouseTransferDocumentRepository,
                 warehouseDemandFulfillmentReadQuery,
+                warehouseDemandResupplyWaiverRepository,
                 demandTaskStateRepository,
                 clock,
                 new TransactionTemplate(platformTransactionManager));

@@ -141,5 +141,66 @@ public final class JdbcWarehouseDemandFulfillmentReadQuery {
         return Set.copyOf(active);
     }
 
+    /**
+     * Sum of {@code linked_quantity} for ACTIVE Transfers on each Demand line, excluding one
+     * Transfer document (the document being rejected). Used to reserve headroom so later receipt of
+     * remaining ACTIVE Transfers cannot violate {@code received + waived ≤ required}.
+     */
+    public Map<WarehouseDemandLineId, BigDecimal> activeLinkedQuantitiesByDemandLineExcludingDocument(
+            Collection<WarehouseDemandLineId> demandLineIds, UUID excludedTransferDocumentId) {
+        Objects.requireNonNull(demandLineIds, "demandLineIds");
+        Objects.requireNonNull(excludedTransferDocumentId, "excludedTransferDocumentId");
+        if (demandLineIds.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> ids = demandLineIds.stream().map(WarehouseDemandLineId::value).distinct().toList();
+        String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+        String sql =
+                """
+                SELECT dtl.demand_line_id AS demand_line_id,
+                       dtl.linked_quantity AS linked_quantity,
+                       d.status AS document_status,
+                       s.settlement_state AS settlement_state
+                  FROM warehouse.warehouse_demand_transfer_links dtl
+                  JOIN documents.documents d
+                    ON d.id = dtl.transfer_document_id
+                  LEFT JOIN warehouse.transfer_document_settlement s
+                    ON s.document_id = dtl.transfer_document_id
+                """
+                        + ("WHERE dtl.demand_line_id IN (%s) AND dtl.transfer_document_id <> ?")
+                                .formatted(placeholders);
+        Object[] args = new Object[ids.size() + 1];
+        for (int i = 0; i < ids.size(); i++) {
+            args[i] = ids.get(i);
+        }
+        args[ids.size()] = excludedTransferDocumentId;
+        Map<WarehouseDemandLineId, BigDecimal> totals = new HashMap<>();
+        List<ActiveQuantityRow> rows =
+                jdbc.query(
+                        sql,
+                        (rs, rowNum) ->
+                                new ActiveQuantityRow(
+                                        (UUID) rs.getObject("demand_line_id"),
+                                        rs.getBigDecimal("linked_quantity"),
+                                        rs.getString("document_status"),
+                                        rs.getString("settlement_state")),
+                        args);
+        for (ActiveQuantityRow row : rows) {
+            if (!WarehouseDemandActiveTransferRules.isActive(
+                    row.documentStatus(), row.settlementState())) {
+                continue;
+            }
+            WarehouseDemandLineId lineId = WarehouseDemandLineId.of(row.demandLineId());
+            totals.merge(lineId, row.linkedQuantity(), BigDecimal::add);
+        }
+        return Map.copyOf(totals);
+    }
+
     private record ActiveLinkRow(UUID demandLineId, String documentStatus, String settlementState) {}
+
+    private record ActiveQuantityRow(
+            UUID demandLineId,
+            BigDecimal linkedQuantity,
+            String documentStatus,
+            String settlementState) {}
 }

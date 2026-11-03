@@ -61,8 +61,10 @@ import com.tmp.warehouse.persistence.JdbcTransferOperationContextRepository;
 import com.tmp.warehouse.persistence.JdbcTransferReceiptSettlementItemRepository;
 import com.tmp.warehouse.persistence.JdbcTransferReturnSettlementItemRepository;
 import com.tmp.warehouse.persistence.JdbcTransferTaskStateRepository;
+import com.tmp.warehouse.domain.repository.WarehouseDemandResupplyWaiverRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseDemandFulfillmentReadQuery;
 import com.tmp.warehouse.persistence.JdbcWarehouseDemandRepository;
+import com.tmp.warehouse.persistence.JdbcWarehouseDemandResupplyWaiverRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseTransferDocumentRepository;
 import com.tmp.warehouse.persistence.JdbcWarehouseUserResponsibilityRepository;
 import java.time.Clock;
@@ -245,6 +247,8 @@ public final class WarehouseIntegrationTestSupport {
                         demandContinuationLinks,
                         tx,
                         clock);
+        WarehouseDemandResupplyWaiverRepository demandWaivers =
+                new JdbcWarehouseDemandResupplyWaiverRepository(jdbc);
         WarehouseTransferRejectService transferReject =
                 new WarehouseTransferRejectService(
                         documentEngine,
@@ -253,6 +257,10 @@ public final class WarehouseIntegrationTestSupport {
                         sendAllocations,
                         receiptItems,
                         taskStates,
+                        demandRepository,
+                        demandWaivers,
+                        demandFulfillment,
+                        demandTaskStates,
                         responsibilityGuard,
                         authentication,
                         tx,
@@ -282,6 +290,7 @@ public final class WarehouseIntegrationTestSupport {
                         demandRepository,
                         transferDocumentRepository,
                         demandFulfillment,
+                        demandWaivers,
                         demandTaskStates,
                         clock,
                         tx);
@@ -294,6 +303,7 @@ public final class WarehouseIntegrationTestSupport {
                         demandTaskStates,
                         demandRepository,
                         demandFulfillment,
+                        demandWaivers,
                         responsibilities,
                         catalog,
                         responsibilityGuard,

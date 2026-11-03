@@ -18,7 +18,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -242,6 +244,46 @@ public final class JdbcWarehouseDemandRepository implements WarehouseDemandRepos
                 """,
                 (rs, rowNum) -> mapLink(rs),
                 demandId.value());
+    }
+
+    @Override
+    public List<WarehouseDemandTransferLink> findTransferLinksByTransferDocumentId(
+            UUID transferDocumentId) {
+        Objects.requireNonNull(transferDocumentId, "transferDocumentId");
+        return jdbc.query(
+                """
+                SELECT id, demand_line_id, transfer_document_id, transfer_line_id, linked_quantity
+                  FROM warehouse.warehouse_demand_transfer_links
+                 WHERE transfer_document_id = ?
+                 ORDER BY demand_line_id, id
+                """,
+                (rs, rowNum) -> mapLink(rs),
+                transferDocumentId);
+    }
+
+    @Override
+    public Map<WarehouseDemandLineId, WarehouseDemandId> findDemandIdsByLineIds(
+            Collection<WarehouseDemandLineId> demandLineIds) {
+        Objects.requireNonNull(demandLineIds, "demandLineIds");
+        if (demandLineIds.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> ids =
+                demandLineIds.stream().map(WarehouseDemandLineId::value).distinct().toList();
+        String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+        String sql =
+                ("SELECT id, demand_id FROM warehouse.warehouse_demand_lines WHERE id IN (%s)")
+                        .formatted(placeholders);
+        Map<WarehouseDemandLineId, WarehouseDemandId> result = new java.util.HashMap<>();
+        jdbc.query(
+                sql,
+                rs -> {
+                    result.put(
+                            WarehouseDemandLineId.of((UUID) rs.getObject("id")),
+                            WarehouseDemandId.of((UUID) rs.getObject("demand_id")));
+                },
+                ids.toArray());
+        return Map.copyOf(result);
     }
 
     @Override

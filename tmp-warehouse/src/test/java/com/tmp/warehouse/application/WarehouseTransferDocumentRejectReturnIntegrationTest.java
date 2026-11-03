@@ -978,6 +978,12 @@ class WarehouseTransferDocumentRejectReturnIntegrationTest {
                         bundle.sendAllocations(),
                         bundle.receiptItems(),
                         bundle.taskStates(),
+                        new com.tmp.warehouse.persistence.JdbcWarehouseDemandRepository(jdbc),
+                        new com.tmp.warehouse.persistence.JdbcWarehouseDemandResupplyWaiverRepository(
+                                jdbc),
+                        new com.tmp.warehouse.persistence.JdbcWarehouseDemandFulfillmentReadQuery(
+                                jdbc),
+                        new com.tmp.warehouse.persistence.JdbcDemandTaskStateRepository(jdbc, CLOCK),
                         new DefaultWarehouseResponsibilityGuard(
                                 authenticationFromSession(),
                                 new com.tmp.warehouse.persistence
@@ -990,7 +996,7 @@ class WarehouseTransferDocumentRejectReturnIntegrationTest {
                 RuntimeException.class,
                 () ->
                         failingReject.reject(
-                                new WarehouseTransferRejectService.RejectCommand(
+                                WarehouseTransferRejectService.RejectCommand.requiringResupply(
                                         sent.documentId(), 0L, "should rollback")));
 
         assertEquals(DocumentStatus.POSTED.name(), documentStatus(sent.documentId()));

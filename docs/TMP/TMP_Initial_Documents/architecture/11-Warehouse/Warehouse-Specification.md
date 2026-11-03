@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-011  
 **Status:** Accepted  
-**Version:** 1.17
+**Version:** 1.19
 
 ---
 
@@ -316,7 +316,8 @@ Transfer Document
 - partial receive поддерживается архитектурно (точная state machine — DEFERRED);
 - shortfall → новое связанное continuation transfer (тот же source/destination, NEW/draft, parent/origin); stock уменьшается только при реальной последующей передаче; исходный проведённый факт не переписывается;
 - модель `SPLIT` / replacement document (бывший ADR-014) **не** используется;
-- reject требует обязательной причины; основное действие отправителя — «Вернуть материалы на склад» (не reverse-transfer UX); default return cells = исходные source cells с возможностью override.
+- reject требует обязательной причины; основное действие отправителя — «Вернуть материалы на склад» (не reverse-transfer UX); default return cells = исходные source cells с возможностью override;
+- receipt-reject dialog includes checkbox «Повторная подача материалов требуется» (default **CHECKED**). CHECKED preserves current Demand/supply-task behavior after reject+return. UNCHECKED waives resupply only for quantities attributable to the rejected Transfer via persisted Demand↔Transfer links (ADR-038 amendment — optional resupply waiver). Material RETURN remains a separate existing task/transaction; waiver does not mutate stock.
 
 ### 13.2.4 Directions
 
@@ -401,23 +402,25 @@ Foundation (B3B-1) не подключает Production Submit, не созда�
 - Idempotent by `sourceMaterialRequirementId`; payload mismatch → conflict exception.
 - No Demand UI / retryDemandRouting / receive-fulfillment / Demand cancellation / reservation / Material Catalog in B3B-2.
 
-### 15.1.3 Warehouse Demand fulfillment derivation + query (ADR-038 / B3B-3A)
+### 15.1.3 Warehouse Demand fulfillment derivation + query (ADR-038 / B3B-3A + optional resupply waiver)
 
 - `requiredQuantity` — Demand snapshot fact.
 - `receivedQuantity` — **derived** from settled physical receipts: sum of `warehouse.transfer_receipt_settlement_item.quantity` for Demand-linked Transfer lines received at the Demand destination warehouse. Not a mutable Demand counter.
-- `linkedQuantity` on `DemandTransferLink` — quantity associated with the **corresponding Transfer line** (lifecycle snapshot of that line association). It is **not** authoritative fulfilled quantity and **must not** be blindly summed across links to compute outstanding Demand. SEND SHORTFALL that shrinks a retained Transfer line must synchronize that parent link's `linkedQuantity` to the reduced line quantity in the same transaction; the continuation link uses the continuation line quantity. RECEIVE_SHORTFALL is distinct: the parent Transfer line remains the fully sent quantity, so the parent `linkedQuantity` is not reduced when only part of the shipment is accepted — remaining obligation moves to the RECEIVE_SHORTFALL continuation / return settlement path. Do not impose `SUM(linkedQuantity) = requiredQuantity` as a universal invariant.
-- Line/header derived status: `WAITING_FOR_SUPPLY` / `IN_FULFILLMENT` / `FULFILLED` / `CANCELLED`.
+- `waivedQuantity` — **derived** from Warehouse-owned resupply-waiver ledger rows for the Demand line (sum of durable waiver events). Not a free-standing mutable counter and **not** physical receipt. Waived quantity must never be presented as fulfilled receipt.
+- Outstanding supply obligation: `remainingQuantity = max(0, requiredQuantity − receivedQuantity − waivedQuantity)`.
+- `linkedQuantity` on `DemandTransferLink` — quantity associated with the **corresponding Transfer line** (lifecycle snapshot of that line association). It is **not** authoritative fulfilled quantity and **must not** be blindly summed across links to compute outstanding Demand. It **is** the authoritative attribution quantity when waiving resupply for a fully rejected Transfer (see §15.1.6). SEND SHORTFALL that shrinks a retained Transfer line must synchronize that parent link's `linkedQuantity` to the reduced line quantity in the same transaction; the continuation link uses the continuation line quantity. RECEIVE_SHORTFALL is distinct: the parent Transfer line remains the fully sent quantity, so the parent `linkedQuantity` is not reduced when only part of the shipment is accepted — remaining obligation moves to the RECEIVE_SHORTFALL continuation / return settlement path. Do not impose `SUM(linkedQuantity) = requiredQuantity` as a universal invariant.
+- Line/header derived status: `WAITING_FOR_SUPPLY` / `IN_FULFILLMENT` / `FULFILLED` / `RESUPPLY_WAIVED` / `CANCELLED` (precedence in §15.1.6).
 - ACTIVE Transfer for Demand: Document `DRAFT`, or Document `POSTED` + settlement `AWAITING_RECEIPT`. Terminal: `RETURN_PENDING`, `SETTLED` / `CLOSED`, reject/return settled states.
-- SHORTFALL and RECEIVE_SHORTFALL continuation Transfer lines inherit DemandTransferLink from the parent line (same Demand line) atomically inside the existing send/receive transaction when a parent Demand link exists. Legacy Transfers without links unchanged. Returns / rejects are not positive fulfillment; receive-then-return does not reopen or decrement historical Demand fulfillment in B3B-3A.
+- SHORTFALL and RECEIVE_SHORTFALL continuation Transfer lines inherit DemandTransferLink from the parent line (same Demand line) atomically inside the existing send/receive transaction when a parent Demand link exists. Legacy Transfers without links unchanged. Returns / rejects are not positive fulfillment; receive-then-return does not reopen or decrement historical Demand fulfillment in B3B-3A. Optional resupply waiver (unchecked checkbox) is a separate durable Demand-line obligation reduction attributable only via DemandTransferLinks of the rejected Transfer.
 - Public read API: `WarehouseDemandQueryApi.getDemand` / `getDemandBySourceMaterialRequirementId` — immutable views; no Production dependency; no CRUD; no Demand UI in this phase.
-- No new migration; V50/V51 unchanged. No `retryDemandRouting` / Demand cancellation command / Production cancellation hook in B3B-3A.
+- B3B-3A baseline: no Demand cancellation command / Production cancellation hook. Optional resupply waiver is specified in §15.1.6 / ADR-038 amendment (implementation + migration later).
 
 ### 15.1.4 Warehouse Demand supply Transfer preparation (ADR-038 / B3B-3C2)
 
 - Business action «Создать перемещение»: `WarehouseDemandCommandApi.prepareProductionDemandTransfers(demandId)` (trusted backend) and user-facing `WarehouseCommandApi.prepareProductionDemandTransfers(demandId)` (`warehouse.transfer.create` + non-production responsibility). Creates Transfer DRAFT only — no physical send. Physical send = «Передать»; destination confirm = «Принять». No background scheduler / automatic mutation on inbox refresh.
 - Warehouse Tasks «Заказ» column: human order number(s) via composition `TransferDocumentOrderReferenceQuery` (Demand / Demand-linked Transfer → MR source items → `order_number`). Cross-order MR composes unique numbers as `ORDER-101, ORDER-102`. Never UUID.
 - Does **not** create a new Demand or Production MR. Does not change Production coverage. Assignment is informational only — not an authorization or concurrency gate.
-- Re-processes only lines currently derived as `WAITING_FOR_SUPPLY`, routing **remaining** quantity (`max(0, required − received)`), with MaterialReference re-resolution from the immutable snapshot.
+- Re-processes only lines currently derived as `WAITING_FOR_SUPPLY`, routing **remaining** quantity (`max(0, required − received − waived)`), with MaterialReference re-resolution from the immutable snapshot.
 - Positive AVAILABLE → ordinary Transfer DRAFT for **full remaining** + DemandTransferLink (reuse B3B-2 `createDemandDraft` / link model) → normal `TRANSFER_PREPARATION`. Zero AVAILABLE → `NO_AVAILABLE_STOCK`, no Transfer, Supply Task remains. Partial stock → same initial-routing semantics (full remaining qty; shortfall later). Continuations inherit lineage as in B3B-3A — no special Transfer type.
 - Business no-route (unmatched / ambiguous / zero stock) is successful command execution, not exception; mixed Demand commits routed lines even when siblings remain waiting. Typed result includes `transfersCreated` / `linesRouted` / `linesStillWaiting` and per-line outcomes (`TRANSFER_CREATED` / `MATERIAL_*` / `NO_AVAILABLE_STOCK` / `SKIPPED_*`).
 - One Warehouse transaction per Demand; `lockById` (`SELECT … FOR UPDATE`) serializes concurrent prepares — second caller observes active Transfer and creates 0 duplicates. Technical failure rolls back Transfer/link/resolution updates.
@@ -429,13 +432,89 @@ Foundation (B3B-1) не подключает Production Submit, не созда�
 - **One worklist:** Склад → Задачи. No separate «Потребности производства» / Demand screen.
 - Derived task kind `PRODUCTION_MATERIAL_SUPPLY` (human label: «Подать материалы в производство»).
 - Typed task source: `TRANSFER_DOCUMENT` vs `WAREHOUSE_DEMAND` (Demand id is never faked as Transfer `documentId`).
-- Supply task exists only when Demand is not cancelled **and** at least one Demand line has derived status `WAITING_FOR_SUPPLY` with `remainingQuantity > 0` (no ACTIVE Transfer for **that** line). Reuses B3B-3A deriver / active-Transfer rules — no parallel status model.
+- Supply task exists only when Demand is not cancelled **and** at least one Demand line has derived status `WAITING_FOR_SUPPLY` with `remainingQuantity > 0` (no ACTIVE Transfer for **that** line). `remainingQuantity` includes waived quantity (§15.1.3 / §15.1.6). Reuses B3B-3A deriver / active-Transfer rules — no parallel status model. Stale `demand_task_state` must not recreate waived obligations after restart (Inbox is derived).
 - Routable initial submit → Transfer DRAFT + `TRANSFER_PREPARATION` only (no supply task for covered lines). Mixed Demand may show Transfer preparation for routed lines **and** one Demand-backed supply task for remaining WAITING siblings (not duplicate work for the same line).
 - Visibility: users with Warehouse task view permission who are responsible for **at least one non-production** warehouse. Production-only responsibility → no supply task. Destination/production warehouse is **not** the assignment target for supply.
 - Assignment: informational «Взять в работу» / takeover via `warehouse.demand_task_state` (Flyway V52). Same semantics as Transfer tasks (not exclusive lock). Take does **not** route, create Transfer, or mutate stock.
 - Details projection: `WarehouseDemandQueryApi.getDemandSupplyTask` — WAITING lines only (material identity, required/received/remaining, effective waiting reason).
 - UI (B3B-3C3 / B3-MA-02): existing Склад → Задачи dialog — «Взять в работу» / takeover, then «Создать перемещение» via `WarehouseCommandApi.prepareProductionDemandTransfers`. Transfer Preparation task remains «Подготовка» with physical «Передать» / «Принять». Transfer line human material fields (article/name/UoM) resolved from Warehouse MaterialReference at query time — never MaterialReference UUID as article. No separate Demand screen; no warehouse picker; no Production receipt UI; no Retry UX. Master accepts materials via ordinary `TRANSFER_RECEIPT` in Склад → Задачи.
 - No Production cancellation integration, Material Catalog, reservation, or Demand withdrawal.
+
+### 15.1.6 Optional resupply waiver after full Transfer receipt reject (ADR-038 amendment)
+
+**Business control.** Existing receipt-reject dialog checkbox «Повторная подача материалов требуется», default **CHECKED**.
+
+| Choice | Behavior |
+|--------|----------|
+| CHECKED | Current reject → return → Demand/supply-task behavior unchanged (rejected Transfer contributes 0 received; Demand may remain `WAITING_FOR_SUPPLY`). |
+| UNCHECKED | Same reject + mandatory return workflow; additionally, durable resupply waiver for quantities **attributable only** to that rejected Transfer’s Demand↔Transfer links. |
+
+**Attribution (exact; no article guessing).**
+
+- Persisted `warehouse.warehouse_demand_transfer_links`: `(demand_line_id, transfer_document_id, transfer_line_id, linked_quantity)`.
+- Constraint `UNIQUE(transfer_line_id)` → each Transfer line maps to at most one Demand line; quantity is the link’s `linked_quantity`.
+- One Transfer document may contain multiple Transfer lines and therefore multiple Demand lines (typically one Demand). One Demand line may have 0..N links over time.
+- Same material code may appear on multiple Demand lines; attribution is always by link id, never by material article alone.
+- Whole-document reject (current API) requires `AWAITING_RECEIPT` and **zero** receipt settlement items. Therefore attributable waiver quantity for each link of the rejected document is that link’s `linked_quantity` (capped below).
+- Do **not** waive the entire outstanding Demand line automatically — only the rejected Transfer’s linked quantities.
+- Do **not** invent proportional allocation when a link is missing: missing link → no waiver for that Transfer line (fail closed / skip that line).
+
+**Formula.**
+
+```text
+remainingQuantity = max(0, requiredQuantity − receivedQuantity − waivedQuantity)
+```
+
+Example: required 10, received 2, rejected-transfer attributable 3, waiver 3 → remaining 5 (still actionable if not otherwise ACTIVE-covered).
+
+**Persistence / audit (Warehouse-owned ledger; SoT).**
+
+- Durable waiver **events** per Demand line (not a lone mutable counter as SoT): each event stores `demand_line_id`, `transfer_document_id`, `waived_quantity`, `waived_at`, `waived_by`, and retains association with the reject reason / `resupplyRequired=false` choice on Transfer settlement.
+- `waivedQuantity` for derivation = **sum** of ledger events for the line (symmetric to `receivedQuantity` sum of receipt items).
+- Idempotency: at most one waiver event per `(transfer_document_id, demand_line_id)`.
+- Transfer settlement records `resupplyRequired` (default true) with existing rejection metadata for audit.
+- Multiple waivers over time are allowed across different rejected Transfers for the same line.
+- Invariant: `receivedQuantity + waivedQuantity ≤ requiredQuantity` (enforce when inserting waiver: `waive = min(linked_quantity, required − received − already_waived)`; if computed waive ≤ 0, no row).
+- Waiver never erases receipts, links, transfers, movements, or Demand history.
+- No Production coverage / MR / ordered-launched-released changes. No new permission (`warehouse.transfer.create` remains the reject gate).
+
+**Transaction boundary.**
+
+- Persist `resupplyRequired` + waiver ledger rows **atomically in the reject transaction** with settlement `RETURN_PENDING`/`REJECTED` and optimistic `operationalRevision`.
+- Material RETURN remains the existing separate transaction/task; waiver does not change stock balances.
+- Double-submit / concurrent reject: settlement revision lock; unique waiver key prevents duplicate waiver.
+
+**Status derivation precedence (line).**
+
+1. Header Demand cancelled → line `CANCELLED`.
+2. Else if `remainingQuantity == 0` and `receivedQuantity >= requiredQuantity` → `FULFILLED` (physically received).
+3. Else if `remainingQuantity == 0` and `waivedQuantity > 0` → `RESUPPLY_WAIVED` (**never** labeled as physically fulfilled).
+4. Else if ACTIVE linked Transfer for the line → `IN_FULFILLMENT` (including when partially received/waived with remaining > 0).
+5. Else → `WAITING_FOR_SUPPLY`.
+
+**Header derivation.**
+
+1. Demand cancelled → `CANCELLED`.
+2. All lines `FULFILLED` → `FULFILLED`.
+3. All lines in `{FULFILLED, RESUPPLY_WAIVED}` and at least one `RESUPPLY_WAIVED` → `RESUPPLY_WAIVED`.
+4. Any `IN_FULFILLMENT` → `IN_FULFILLMENT`.
+5. Else → `WAITING_FOR_SUPPLY`.
+
+**Tasks.** `PRODUCTION_MATERIAL_SUPPLY` only when not cancelled and ≥1 line `WAITING_FOR_SUPPLY` with `remainingQuantity > 0`. After UNCHECKED reject, waived obligation disappears from remaining immediately; Inbox regeneration / restart must not recreate it. Clear or ignore stale `demand_task_state` when Demand no longer qualifies (same pattern as prepare cleanup / derived Inbox).
+
+**Active / concurrent transfers.**
+
+- Rejected Transfer becomes terminal (`RETURN_PENDING`) and is no longer ACTIVE.
+- Other ACTIVE transfers for the same Demand line (if any) remain; waiver of this Transfer must not cancel them.
+- Later receipt on another Transfer increases `receivedQuantity` only; must still obey `received + waived ≤ required` (receive path already cannot exceed sent; prepare routes only remaining including waived).
+
+**Repeated Production Material Requirements.**
+
+- New explicit REPEATED (or COUNTED) MR → new Demand via `UNIQUE(sourceMaterialRequirementId)` / `acceptProductionDemand`.
+- Prior waived Demand is not reopened and does not suppress the new Demand.
+- Warehouse remains independent of Production `product_request_kind` / coverage calculator.
+
+**Backward compatibility.** Default CHECKED / `resupplyRequired=true` preserves all pre-existing reject+return+WAITING behavior. Existing Demands without waiver rows behave as `waivedQuantity = 0`.
 
 ## 15.2 CURRENT IMPLEMENTATION (Stage 7 — until Stage 3.5 refactor)
 
@@ -616,6 +695,7 @@ Capability permissions (идентификаторы `PermissionId`):
 13. Source warehouse для production requirement выбирается автоматически по AVAILABLE.
 14. Accepted quantity на receive не превышает sent quantity.
 15. User↔Warehouse responsibility — many-to-many; RBAC + responsibility.
+16. Demand resupply waiver is Warehouse-owned, quantity-correct, and attributable only via `warehouse_demand_transfer_links.linked_quantity` of the rejected Transfer; `remaining = max(0, required − received − waived)`; waived ≠ fulfilled; `received + waived ≤ required`.
 
 ---
 
@@ -663,3 +743,4 @@ Warehouse выполняет только складскую часть опер
 | 1.16 | B3B-3C4 / ADR-038 amendment: focused dead-code cleanup + full regression; §15.2 marked historical vs B3 Demand SoT; B3 implementation complete; manual acceptance PENDING. |
 | 1.17 | B3-MA-FIX1: Transfer read model resolves MaterialReference article/name/UoM (never UUID as article); Warehouse Tasks order column via Demand/Demand-link composition (cross-order compose); UI action «Создать перемещение» + result messages; no migration. |
 | 1.18 | P1-4: durable opaque Consumption origin on Warehouse operations (V55); History «Основание»; Production supplies order number(s) + Release identity via public consume API; no cross-module FK; legacy rows show «—». |
+| 1.19 | Optional resupply waiver after full Transfer receipt reject: checkbox default CHECKED; UNCHECKED waives only rejected-Transfer linked quantities; `remaining = required − received − waived`; derived `RESUPPLY_WAIVED`; ledger SoT; reject-TX atomic with return separate; no Production coverage / no new permission (ADR-038 amendment). |

@@ -3,6 +3,34 @@
 ## Latest result
 
 **Date:** 2026-11-02
+**Scope:** Warehouse Optional Resupply Waiver + Direct Pilot V57
+**Overall:** PASS
+**Base HEAD:** `232578a5440fa114f633c43a35cfd0fcbbaef6be`
+**Working tree:** dirty (Spec/ADR docs + V57 implementation + UI + tests); **no commit / no push**
+
+### Focused tests
+| Suite | Result |
+|-------|--------|
+| Domain deriver/rules/settlement (24) | PASS |
+| `WarehouseDemandResupplyWaiverIntegrationTest` (7) | PASS |
+| `WarehouseTransferDocumentRejectReturnIntegrationTest` (23) | PASS |
+| Combined focused warehouse (54) | PASS |
+
+### Package / Pilot
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests` | BUILD SUCCESS |
+| Fresh backup `tmp_pilot_20261102_162911.dump` + TOC/restore-verify | PASS |
+| JDBC target `tmp_pilot`; Flyway V56→V57 apply once | PASS |
+| Post: waiver table present; 0 historical waiver rows; 13/13 settlements `resupply_required=true` | PASS |
+| Business counts unchanged: demands=10 lines=40 links=42 rejected=1 stockΣ=5 MR=10 | PASS |
+| Normal launch Flyway DISABLED → Started DesktopBootstrap; pool `tmp_pilot_app` | PASS |
+| `tmp_gui_stage5` remains V54 | PASS |
+
+---
+## Previous result
+
+**Date:** 2026-11-02
 **Scope:** Final Repeated Material Request Acceptance + Complete Temporary Cleanup
 **Overall:** PASS
 **Base HEAD:** `805aaf6b2de7aeb468c29675c59d0ee05b0dcc59`
