@@ -1,4 +1,4 @@
-﻿# Launch packaged TMP against the isolated pilot database (tmp_pilot).
+# Launch packaged TMP against the isolated pilot database (tmp_pilot).
 # Usage (from repo root):
 #   powershell -ExecutionPolicy Bypass -File .\scripts\pilot\run-tmp-pilot.ps1
 # Controlled schema migrate (explicit only):
@@ -20,7 +20,7 @@ Write-TmpPilotBanner -Action "LAUNCH"
 
 $paths = Get-TmpPilotPaths
 $creds = Import-TmpPilotCredentials -CredFile $paths.CredFile
-Assert-TmpPilotDatabaseTarget -Credentials $creds -ExpectedDb $paths.ExpectedDb -ExpectedUser $paths.ExpectedUser -StageDb $paths.StageDb
+Assert-TmpPilotDatabaseTarget -Credentials $creds -ExpectedDb $paths.ExpectedDb -ExpectedUser $paths.ExpectedUser -ForbiddenLegacyDb $paths.ForbiddenLegacyDb
 
 $root = Get-RepoRootFromPilotScript -PilotScriptRoot $PSScriptRoot
 $exe = Join-Path $root "dist\jpackage\TMP\TMP.exe"

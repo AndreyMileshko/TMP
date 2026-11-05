@@ -251,6 +251,7 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
             return Map.copyOf(result);
         }
         String placeholders = String.join(",", java.util.Collections.nCopies(unique.size(), "?"));
+        // Use replace (not Formatter) so SQL text-block newlines are not treated as format escapes.
         String sql =
                 """
                 SELECT si.source_order_id AS source_order_id,
@@ -262,7 +263,7 @@ public final class JdbcMaterialRequirementRepository implements MaterialRequirem
                    AND si.source_order_id IN (%s)
                  GROUP BY si.source_order_id
                 """
-                        .formatted(placeholders);
+                        .replace("%s", placeholders);
         Object[] args = unique.stream().map(SourceOrderId::value).toArray();
         jdbcTemplate.query(
                 sql,

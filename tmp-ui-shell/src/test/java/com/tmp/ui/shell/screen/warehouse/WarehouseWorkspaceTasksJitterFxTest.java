@@ -42,6 +42,8 @@ class WarehouseWorkspaceTasksJitterFxTest {
                     assertNotNull(tasksTable);
                     List<String> headers =
                             tasksTable.getColumns().stream().map(TableColumn::getText).toList();
+                    // Approved layout (WarehouseTaskTableVisualFxTest): no "Документ",
+                    // empty-header route-arrow between Откуда/Куда (not a "Маршрут" column).
                     assertEquals(
                             List.of(
                                     "Дата/время",
@@ -49,13 +51,14 @@ class WarehouseWorkspaceTasksJitterFxTest {
                                     "Вид",
                                     "Состояние",
                                     "Откуда",
+                                    "",
                                     "Куда",
                                     "Строк",
-                                    "Исполнитель",
-                                    "Документ"),
+                                    "Исполнитель"),
                             headers);
                     assertFalse(headers.contains("Маршрут"));
-                    assertEquals("Документ", headers.get(headers.size() - 1));
+                    assertFalse(headers.contains("Документ"));
+                    assertEquals("Исполнитель", headers.get(headers.size() - 1));
                     assertNull(root.lookup("#actionLinesTable"));
                     assertNull(root.lookup("#takeTaskInWorkButton"));
                     assertNull(root.lookup("#sendTransferButton"));

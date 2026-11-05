@@ -698,7 +698,9 @@ public final class ProductionWorkbenchController
 
             {
                 multiLine.setWrapText(true);
-                multiLine.setStyle("-fx-text-overrun: clip;");
+                multiLine
+                        .getStyleClass()
+                        .add(ProductionWorkbenchVisualStyles.MATERIAL_REQUESTS_MULTILINE);
             }
 
             @Override

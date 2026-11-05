@@ -26,7 +26,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * STAGE5-058 — Flyway clean-head and V11→head upgrade with application start verification.
  *
  * <p>Expected head for this module IT is the highest migration on the Order Management test
- * classpath (infra + document + security + order-management), currently {@code V34}. Warehouse /
+ * classpath (infra + document + security + order-management), currently {@code V54}. Warehouse /
  * Production migrations are intentionally absent here.
  *
  * <p>{@code order_import_metadata} is created in V12 and dropped in V13 (ADR-031); post-head schema
@@ -36,7 +36,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class OrderIntakeFlywayBootstrapIT {
 
     /** Highest Flyway version on tmp-order-management Failsafe classpath (OM + Security). */
-    private static final String CURRENT_CLASSPATH_HEAD = "34";
+    private static final String CURRENT_CLASSPATH_HEAD = "54";
 
     private static final String ADMIN_PASSWORD = "bootstrap-secret-value";
 

@@ -1,11 +1,12 @@
-﻿# Restore-check for a tmp_pilot backup into a temporary database only.
+# Restore-check for a tmp_pilot backup into a temporary database only.
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File .\scripts\pilot\verify-tmp-pilot-backup.ps1
 #   powershell -ExecutionPolicy Bypass -File .\scripts\pilot\verify-tmp-pilot-backup.ps1 -DumpFile <path>
 #
 # Restores ONLY into tmp_pilot_restore_check.
-# NEVER restores over tmp_pilot or tmp_gui_stage5.
+# NEVER restores over tmp_pilot or forbidden legacy names (including tmp_gui_stage5).
 # If tmp_pilot_restore_check already exists - STOP.
+# A live legacy stage database is NOT required for this verification.
 
 [CmdletBinding()]
 param(
@@ -21,6 +22,7 @@ Write-TmpPilotBanner -Action "RESTORE VERIFY"
 $paths = Get-TmpPilotPaths
 $container = $paths.Container
 $restoreDb = "tmp_pilot_restore_check"
+$forbiddenRestoreTargets = @($paths.ExpectedDb, $paths.ForbiddenLegacyDb)
 
 $running = docker inspect -f "{{.State.Running}}" $container 2>$null
 if ($running -ne "true") {
@@ -41,9 +43,13 @@ if (-not (Test-Path -LiteralPath $DumpFile)) {
     throw "Файл дампа не найден: $DumpFile"
 }
 
+if ($forbiddenRestoreTargets -contains $restoreDb) {
+    throw "Внутренняя ошибка: имя временной БД совпадает с защищённой целью."
+}
+
 Write-Host "Дамп: $DumpFile"
 Write-Host "Цель проверки: $restoreDb (временная БД)"
-Write-Host "Запрещено восстанавливать в: tmp_pilot, tmp_gui_stage5"
+Write-Host ("Запрещено восстанавливать в: " + ($forbiddenRestoreTargets -join ", "))
 Write-Host ""
 
 $exists = docker exec $container psql -U tmp -d postgres -t -A -c "SELECT 1 FROM pg_database WHERE datname='$restoreDb';"
@@ -93,16 +99,15 @@ $ok = (("$flywayCount".Trim() -as [int]) -gt 0) -and
       ("$hasWarehouse".Trim() -eq "1") -and
       ("$hasProduction".Trim() -eq "1")
 
-$pilotStill = docker exec $container psql -U tmp -d postgres -t -A -c "SELECT 1 FROM pg_database WHERE datname='tmp_pilot';"
-$stageStill = docker exec $container psql -U tmp -d postgres -t -A -c "SELECT 1 FROM pg_database WHERE datname='tmp_gui_stage5';"
-if ("$pilotStill".Trim() -ne "1" -or "$stageStill".Trim() -ne "1") {
-    throw "КРИТИЧНО: tmp_pilot или tmp_gui_stage5 недоступны. Временную БД не удаляю автоматически."
+$pilotStill = docker exec $container psql -U tmp -d postgres -t -A -c "SELECT 1 FROM pg_database WHERE datname='$($paths.ExpectedDb)';"
+if ("$pilotStill".Trim() -ne "1") {
+    throw "КРИТИЧНО: защищённая база $($paths.ExpectedDb) недоступна после проверки. Временную БД не удаляю автоматически."
 }
 
 Write-Host "Удаление только временной БД $restoreDb..."
 docker exec $container psql -U tmp -d postgres -v ON_ERROR_STOP=1 -c "DROP DATABASE $restoreDb;"
 if (-not $?) {
-    throw "Не удалось удалить временную $restoreDb. Проверьте вручную. tmp_pilot и tmp_gui_stage5 не трогались."
+    throw "Не удалось удалить временную $restoreDb. Проверьте вручную. $($paths.ExpectedDb) не трогалась."
 }
 
 if (-not $ok) {
@@ -110,5 +115,5 @@ if (-not $ok) {
 }
 
 Write-Host "УСПЕХ: резервная копия восстановима. Временная БД удалена." -ForegroundColor Green
-Write-Host "tmp_pilot и tmp_gui_stage5 не изменялись."
+Write-Host "$($paths.ExpectedDb) не изменялась. Живая legacy stage DB не требуется для этой проверки."
 Write-Host "Готово."

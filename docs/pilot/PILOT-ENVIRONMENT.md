@@ -1,19 +1,23 @@
-﻿# TMP PILOT — изолированная среда
+# TMP PILOT — изолированная среда
 
 Краткое руководство по пилотной среде на одной рабочей станции Windows.
 
-## Отличие от stage
+## Текущая модель окружений
 
-| | PILOT | Stage (разработка) |
-|---|---|---|
-| База | `tmp_pilot` | `tmp_gui_stage5` |
-| Роль приложения | `tmp_pilot_app` (не superuser) | `tmp` (администратор кластера) |
-| Запуск | `scripts/pilot/run-tmp-pilot.ps1` | `scripts/run-tmp-package.ps1` |
-| Учётные данные | `%LOCALAPPDATA%\TMP-Pilot\credentials.env` | часто встроенные dev-значения скрипта |
+| | PILOT (постоянная) | Package launcher | Автотесты |
+|---|---|---|---|
+| База | `tmp_pilot` | Только явный `TMP_DB_URL` (без default) | Изолированные disposable БД (Testcontainers и аналоги) |
+| Роль приложения | `tmp_pilot_app` (не superuser) | Задаётся вызывающим (`TMP_DB_USERNAME`) | Локальные test credentials |
+| Запуск | `scripts/pilot/run-tmp-pilot.ps1` | `scripts/run-tmp-package.ps1` + обязательный `TMP_DB_URL` | Maven / Testcontainers |
+| Учётные данные | `%LOCALAPPDATA%\TMP-Pilot\credentials.env` | Env vars на время запуска | Не используют `tmp_pilot` / stage |
+
+`tmp_pilot` — **постоянная** пилотная база для разработки и acceptance.
+
+`tmp_gui_stage5` — **legacy** имя базы. Оно остаётся в запрещённых targets пилотных скриптов. После отдельного утверждённого шага удаления живая БД считается retired; до DROP она может ещё существовать на общем контейнере, но **не** является default target.
 
 В выводе пилотного скрипта всегда есть баннер **TMP PILOT**.
 
-Контейнер PostgreSQL общий: `tmp-stage5-pg`, порт хоста `55432`. Базы независимы.
+Контейнер PostgreSQL общий: `tmp-stage5-pg`, порт хоста `55432`.
 
 ## Учётные данные
 
@@ -44,11 +48,20 @@ powershell -ExecutionPolicy Bypass -File .\scripts\pilot\run-tmp-pilot.ps1
 
 - проверяет обязательные настройки БД;
 - отклоняет любое имя базы, кроме `tmp_pilot`;
-- отклоняет stage URL / пользователя `tmp`;
+- отклоняет forbidden legacy URL (`tmp_gui_stage5`) / пользователя `tmp`;
 - **не** завершает уже запущенные процессы TMP;
 - по умолчанию **не** применяет новые Flyway-миграции (`SPRING_FLYWAY_ENABLED=false`).
 
 Логин в приложение — значение `TMP_SECURITY_BOOTSTRAP_ADMIN_LOGIN` из `credentials.env` (при первом старте на пустой БД создаётся администратор).
+
+## Package launcher (явная цель обязательна)
+
+```powershell
+$env:TMP_DB_URL = "jdbc:postgresql://localhost:55432/<explicit-database>"
+powershell -ExecutionPolicy Bypass -File .\scripts\run-tmp-package.ps1
+```
+
+`scripts/run-tmp-package.ps1` **не** подставляет default ни на `tmp_pilot`, ни на `tmp_gui_stage5`. Без `TMP_DB_URL` скрипт завершается с ошибкой. Для постоянного пилота используйте `run-tmp-pilot.ps1`.
 
 ## Инициализация / обновление схемы
 
@@ -62,7 +75,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\pilot\run-tmp-pilot.ps1 -Appl
 
 Ограничение текущего пакета: при `SPRING_FLYWAY_ENABLED=false` Flyway не выполняет и validate-only. Контролируемое обновление схемы — снова явный `-ApplyMigrations` после решения о допуске новой версии пакета.
 
-Не копируйте схему/данные из `tmp_gui_stage5`.
+Не копируйте схему/данные из legacy stage (`tmp_gui_stage5`).
 
 ## Резервное копирование
 
@@ -89,7 +102,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\pilot\verify-tmp-pilot-backup
 ```
 
 Процедура создаёт только `tmp_pilot_restore_check`, восстанавливает туда дамп, проверяет Flyway/схемы и удаляет **только** эту временную базу.  
-Никогда не восстанавливает поверх `tmp_pilot` или `tmp_gui_stage5`. Если `tmp_pilot_restore_check` уже есть — остановка без перезаписи.
+Никогда не восстанавливает поверх `tmp_pilot` или forbidden legacy name `tmp_gui_stage5`. Если `tmp_pilot_restore_check` уже есть — остановка без перезаписи.  
+Живая legacy stage DB **не** требуется для успешной проверки.
 
 ## Ручное восстановление в отдельную базу
 
@@ -112,9 +126,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\pilot\verify-tmp-pilot-backup
 
 - Подключать пилот к `tmp_gui_stage5` или подставлять stage-пароли
 - Запускать пилот под ролью `tmp` / `postgres`
-- Клонировать/копировать данные из stage в `tmp_pilot` без отдельной задачи
-- `DROP` существующих баз (`tmp_pilot`, `tmp_gui_stage5`, …)
-- Восстанавливать дамп поверх пилота или stage
+- Клонировать/копировать данные из legacy stage в `tmp_pilot` без отдельной задачи
+- `DROP` защищённых баз (`tmp_pilot`; `tmp_gui_stage5` — только отдельным утверждённым retirement-шагом)
+- Восстанавливать дамп поверх пилота или legacy stage
 - Коммитить `credentials.env`, дампы, пароли
 - Импортировать реальные заказы / создавать остатки в рамках только инфраструктурной подготовки (отдельные задачи)
 - Менять порты/volumes/auth контейнера `tmp-stage5-pg` или пересоздавать его ради пилота

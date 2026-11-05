@@ -1,4 +1,4 @@
-﻿# Shared helpers for TMP Pilot scripts. Dot-source only; do not execute directly.
+# Shared helpers for TMP Pilot scripts. Dot-source only; do not execute directly.
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -6,14 +6,16 @@ $ErrorActionPreference = "Stop"
 function Get-TmpPilotPaths {
     $credDir = Join-Path $env:LOCALAPPDATA "TMP-Pilot"
     [pscustomobject]@{
-        CredDir      = $credDir
-        CredFile     = Join-Path $credDir "credentials.env"
-        BackupDir    = Join-Path $credDir "backups"
-        Container    = "tmp-stage5-pg"
-        ExpectedDb   = "tmp_pilot"
-        ExpectedUser = "tmp_pilot_app"
-        StageDb      = "tmp_gui_stage5"
-        HostPort     = "55432"
+        CredDir            = $credDir
+        CredFile           = Join-Path $credDir "credentials.env"
+        BackupDir          = Join-Path $credDir "backups"
+        Container          = "tmp-stage5-pg"
+        ExpectedDb         = "tmp_pilot"
+        ExpectedUser       = "tmp_pilot_app"
+        # Forbidden JDBC / restore target name. Must not be used as pilot DB.
+        # A live database with this name is not required for pilot scripts.
+        ForbiddenLegacyDb  = "tmp_gui_stage5"
+        HostPort           = "55432"
     }
 }
 
@@ -61,7 +63,7 @@ function Assert-TmpPilotDatabaseTarget {
         [Parameter(Mandatory = $true)]
         [string] $ExpectedUser,
         [Parameter(Mandatory = $true)]
-        [string] $StageDb
+        [string] $ForbiddenLegacyDb
     )
     $url = [string]$Credentials["TMP_DB_URL"]
     $user = [string]$Credentials["TMP_DB_USERNAME"]
@@ -79,13 +81,16 @@ function Assert-TmpPilotDatabaseTarget {
     if ($url -notmatch '(?i)jdbc:postgresql://') {
         throw "TMP_DB_URL must be a PostgreSQL JDBC URL."
     }
-    if ($url -match [regex]::Escape($StageDb)) {
-        throw "Rejected TMP_DB_URL: contains stage database $StageDb."
+    if ($url -match [regex]::Escape($ForbiddenLegacyDb)) {
+        throw "Rejected TMP_DB_URL: contains forbidden legacy database $ForbiddenLegacyDb."
     }
     if ($url -notmatch '(?i)jdbc:postgresql://[^/]+/([^?;]+)') {
         throw "Could not parse database name from TMP_DB_URL."
     }
     $dbName = $Matches[1]
+    if ($dbName -eq $ForbiddenLegacyDb) {
+        throw "Rejected database name '$dbName'. Forbidden legacy target."
+    }
     if ($dbName -ne $ExpectedDb) {
         throw "Rejected database name '$dbName'. Only '$ExpectedDb' is allowed."
     }
@@ -102,7 +107,7 @@ function Write-TmpPilotBanner {
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host " TMP PILOT - $Action" -ForegroundColor Cyan
     Write-Host " Environment: PILOT (tmp_pilot)" -ForegroundColor Cyan
-    Write-Host " NOT stage (tmp_gui_stage5)" -ForegroundColor Cyan
+    Write-Host " Forbidden legacy DB name: tmp_gui_stage5" -ForegroundColor Cyan
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
 }

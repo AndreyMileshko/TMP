@@ -485,6 +485,10 @@
     -fx-border-width: 0 1 0 0;
 }
 
+.table-view .table-column.tmp-table-col-center {
+    -fx-alignment: CENTER;
+}
+
 .table-view .placeholder .label {
     -fx-text-fill: -tmp-text-secondary;
     -fx-font-size: 13px;

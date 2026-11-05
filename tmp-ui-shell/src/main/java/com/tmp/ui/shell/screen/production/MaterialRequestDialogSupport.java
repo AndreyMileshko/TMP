@@ -841,7 +841,7 @@ public final class MaterialRequestDialogSupport {
     private static TableColumn<MaterialRequestQuantityRow, Boolean> repeatedColumn() {
         TableColumn<MaterialRequestQuantityRow, Boolean> column = new TableColumn<>(COLUMN_REPEATED);
         column.setPrefWidth(90);
-        column.setStyle("-fx-alignment: CENTER;");
+        column.getStyleClass().add("tmp-table-col-center");
         column.setCellValueFactory(
                 c -> {
                     MaterialRequestQuantityRow row = c.getValue();

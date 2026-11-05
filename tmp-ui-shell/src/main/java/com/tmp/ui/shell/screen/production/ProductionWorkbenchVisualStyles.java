@@ -16,6 +16,9 @@ public final class ProductionWorkbenchVisualStyles {
 
     public static final String TREE_STYLE = "tmp-production-workbench-tree";
 
+    /** Multi-line material-requests coverage label: clip overrun (no ellipsis). */
+    public static final String MATERIAL_REQUESTS_MULTILINE = "tmp-prod-material-requests-multiline";
+
     public static final String ROW_ORDER = "tmp-prod-row-order";
     public static final String ROW_ITEM = "tmp-prod-row-item";
 

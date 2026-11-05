@@ -133,6 +133,10 @@
     -fx-border-width: 0 1 0 0;
 }
 
+.tmp-production-workbench-tree .tmp-prod-material-requests-multiline {
+    -fx-text-overrun: clip;
+}
+
 .tmp-production-workbench-tree .placeholder .label {
     -fx-text-fill: -tmp-text-secondary;
     -fx-font-size: 13px;

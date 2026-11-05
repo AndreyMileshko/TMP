@@ -55,6 +55,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
         })
 class LastAdministratorRevokePostgresIntegrationIT {
 
+    private static final String BOOTSTRAP_ADMIN_LOGIN = "admin";
+
     private static final char[] ADMIN_PASSWORD = "bootstrap-secret-value".toCharArray();
 
     @Container
@@ -81,8 +83,11 @@ class LastAdministratorRevokePostgresIntegrationIT {
     private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
-    void clearSession() {
+    void clearSessionAndResetSoleBootstrapAdministrator() {
         authenticationService.logout();
+        // Concurrent tests may leave alternate ROLES_ASSIGN roles/users or soft-delete admin.
+        // Reset before login so last-admin assertions see exactly one eligible administrator.
+        resetToSoleBootstrapAdministrator();
     }
 
     @Test
@@ -351,9 +356,42 @@ class LastAdministratorRevokePostgresIntegrationIT {
     }
 
     private RoleId ensureSoleBootstrapAdministrator(UserId bootstrapAdminId) {
+        RoleId adminRoleId = resetToSoleBootstrapAdministrator();
+        assertEquals(bootstrapAdminId, bootstrapAdminUserId());
+        assertEquals(1L, countUsersForRole(adminRoleId));
+        assertEquals(1L, countActiveEligibleAdministrators());
+        assertTrue(rolePermissionIds(adminRoleId).contains(SecurityPermissions.ROLES_ASSIGN.value()));
+        return adminRoleId;
+    }
+
+    /**
+     * Deterministic fixture: exactly one ACTIVE eligible administrator (bootstrap {@code admin})
+     * with the canonical Security Administrator role. Removes leftover users/roles/overrides from
+     * prior tests in this class (especially concurrent races that create alternate ROLES_ASSIGN
+     * paths).
+     */
+    private RoleId resetToSoleBootstrapAdministrator() {
+        jdbcTemplate.update("DELETE FROM security.user_permission_overrides");
+        jdbcTemplate.update("DELETE FROM security.user_ui_preferences");
+        jdbcTemplate.update("DELETE FROM security.security_audit_events");
+        jdbcTemplate.update("DELETE FROM security.user_roles");
+        jdbcTemplate.update(
+                "DELETE FROM security.users WHERE lower(login) <> lower(?)", BOOTSTRAP_ADMIN_LOGIN);
+        jdbcTemplate.update(
+                """
+                DELETE FROM security.role_permissions
+                 WHERE role_id IN (
+                     SELECT id FROM security.roles WHERE name <> ?
+                 )
+                """,
+                BootstrapAdministratorApplicationService.SECURITY_ADMINISTRATOR_ROLE_NAME);
+        jdbcTemplate.update(
+                "DELETE FROM security.roles WHERE name <> ?",
+                BootstrapAdministratorApplicationService.SECURITY_ADMINISTRATOR_ROLE_NAME);
+
         RoleId adminRoleId = securityAdministratorRoleId();
-        // Restore canonical Security Administrator permissions — prior tests may have stripped them.
-        jdbcTemplate.update("DELETE FROM security.role_permissions WHERE role_id = ?::uuid", adminRoleId.value());
+        jdbcTemplate.update(
+                "DELETE FROM security.role_permissions WHERE role_id = ?::uuid", adminRoleId.value());
         for (String permissionId : SECURITY_ADMINISTRATOR_PERMISSIONS) {
             jdbcTemplate.update(
                     """
@@ -363,17 +401,38 @@ class LastAdministratorRevokePostgresIntegrationIT {
                     adminRoleId.value(),
                     permissionId);
         }
-        jdbcTemplate.update("DELETE FROM security.user_roles WHERE role_id = ?::uuid", adminRoleId.value());
+
+        int reactivated = jdbcTemplate.update(
+                """
+                UPDATE security.users
+                   SET status = 'ACTIVE'
+                 WHERE lower(login) = lower(?)
+                """,
+                BOOTSTRAP_ADMIN_LOGIN);
+        if (reactivated != 1) {
+            throw new IllegalStateException(
+                    "Bootstrap administrator row missing after fixture cleanup");
+        }
+        UserId adminId = bootstrapAdminUserId();
         jdbcTemplate.update(
                 """
                 INSERT INTO security.user_roles (user_id, role_id, assigned_at)
                 VALUES (?::uuid, ?::uuid, now())
                 """,
-                bootstrapAdminId.value(),
+                adminId.value(),
                 adminRoleId.value());
-        assertEquals(1L, countUsersForRole(adminRoleId));
-        assertTrue(rolePermissionIds(adminRoleId).contains(SecurityPermissions.ROLES_ASSIGN.value()));
         return adminRoleId;
+    }
+
+    private UserId bootstrapAdminUserId() {
+        java.util.UUID id = jdbcTemplate.queryForObject(
+                "SELECT id FROM security.users WHERE lower(login) = lower(?)",
+                java.util.UUID.class,
+                BOOTSTRAP_ADMIN_LOGIN);
+        if (id == null) {
+            throw new IllegalStateException("Bootstrap administrator missing");
+        }
+        return UserId.of(id);
     }
 
     private static final Set<String> SECURITY_ADMINISTRATOR_PERMISSIONS = Set.of(
