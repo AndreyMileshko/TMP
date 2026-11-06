@@ -1094,7 +1094,9 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
     /**
      * Server-side history filter. {@code fromInclusive} / {@code toExclusive} use Instant half-open
      * range ({@code occurredAt >= from && occurredAt < to}). {@code operationType} null = all
-     * physical types. {@code materialSearch} matches article or name (trim, case-insensitive).
+     * physical types. {@code materialSearch} matches material article/name, transfer document
+     * number, origin document number, persisted origin order numbers, and related production order
+     * numbers resolved via Demand/Material Requirement relationships (trim, case-insensitive).
      */
     record WarehouseHistoryFilter(
             Instant fromInclusive,
@@ -1541,6 +1543,220 @@ public interface WarehouseApi extends WarehouseQueryApi, WarehouseCommandApi {
                 Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
                 Objects.requireNonNull(sourceWarehouseCode, "sourceWarehouseCode");
             }
+        }
+    }
+
+    /**
+     * Approved printable Warehouse document kinds. Receiving does not have a printable form.
+     */
+    enum TransferPrintDocumentKind {
+        TRANSFER_PICKING,
+        MATERIAL_RETURN
+    }
+
+    /**
+     * Read-only print projection allocation semantics. {@code PLANNED} = current task UI selections
+     * not yet executed; {@code CONFIRMED} = persisted send/return allocations.
+     */
+    enum TransferPrintAllocationKind {
+        PLANNED,
+        CONFIRMED
+    }
+
+    /**
+     * Optional planned cell row for print only (not persisted). Null {@code storageCellId} means
+     * unassigned (print shows «—»). Used for active preparation source cells and active return
+     * destination cells.
+     */
+    record TransferDocumentPrintPlannedCellAllocation(
+            UUID lineId, UUID storageCellId, BigDecimal quantity) {
+
+        public TransferDocumentPrintPlannedCellAllocation {
+            Objects.requireNonNull(lineId, "lineId");
+            Objects.requireNonNull(quantity, "quantity");
+        }
+    }
+
+    /**
+     * @deprecated Use {@link TransferDocumentPrintPlannedCellAllocation}.
+     */
+    @Deprecated
+    record TransferDocumentPrintPlannedSourceAllocation(
+            UUID lineId, UUID sourceStorageCellId, BigDecimal quantity) {
+
+        public TransferDocumentPrintPlannedSourceAllocation {
+            Objects.requireNonNull(lineId, "lineId");
+            Objects.requireNonNull(quantity, "quantity");
+        }
+
+        public TransferDocumentPrintPlannedCellAllocation toCellAllocation() {
+            return new TransferDocumentPrintPlannedCellAllocation(
+                    lineId, sourceStorageCellId, quantity);
+        }
+    }
+
+    /**
+     * One printable row matching Warehouse Stock columns (Ячейка, Артикул, Наименование, Цвет,
+     * Размер, Количество, Ед.). May expand one material line across multiple cells.
+     */
+    record TransferDocumentPrintLineView(
+            int rowNumber,
+            UUID lineId,
+            UUID materialReferenceId,
+            String article,
+            String materialName,
+            String color,
+            String size,
+            String unitOfMeasure,
+            BigDecimal quantity,
+            UUID storageCellId,
+            String storageCellCode,
+            TransferPrintAllocationKind allocationKind) {
+
+        public static final List<String> COLUMN_HEADERS =
+                List.of(
+                        "Ячейка",
+                        "Артикул",
+                        "Наименование",
+                        "Цвет",
+                        "Размер",
+                        "Количество",
+                        "Ед.");
+
+        public TransferDocumentPrintLineView {
+            Objects.requireNonNull(lineId, "lineId");
+            Objects.requireNonNull(materialReferenceId, "materialReferenceId");
+            Objects.requireNonNull(quantity, "quantity");
+            Objects.requireNonNull(allocationKind, "allocationKind");
+            article = article == null ? "" : article;
+            materialName = materialName == null ? "" : materialName;
+            color = color == null ? "" : color;
+            size = size == null ? "" : size;
+            unitOfMeasure = unitOfMeasure == null ? "" : unitOfMeasure;
+            storageCellCode =
+                    storageCellCode == null || storageCellCode.isBlank()
+                            ? "—"
+                            : storageCellCode.trim();
+        }
+    }
+
+    /**
+     * Read-only Transfer Document print projection. Never mutates stock, tasks or documents.
+     *
+     * <p>{@code plannedAllocations} is true when lines come from the active task UI. Confirmed
+     * historical prints use persisted send or return allocations.
+     */
+    record TransferDocumentPrintView(
+            UUID documentId,
+            String documentNumber,
+            Instant documentCreatedAt,
+            String documentStatus,
+            String documentTitle,
+            TransferPrintDocumentKind documentKind,
+            String printHeading,
+            List<String> orderNumbers,
+            UUID sourceWarehouseId,
+            String sourceWarehouseCode,
+            String sourceWarehouseName,
+            UUID destinationWarehouseId,
+            String destinationWarehouseCode,
+            String destinationWarehouseName,
+            TransferPrintAllocationKind allocationKind,
+            boolean plannedAllocations,
+            String advisoryNote,
+            List<TransferDocumentPrintLineView> lines,
+            Instant operationOccurredAt) {
+
+        /**
+         * Active/planned print model without a completed operation timestamp.
+         */
+        public TransferDocumentPrintView(
+                UUID documentId,
+                String documentNumber,
+                Instant documentCreatedAt,
+                String documentStatus,
+                String documentTitle,
+                TransferPrintDocumentKind documentKind,
+                String printHeading,
+                List<String> orderNumbers,
+                UUID sourceWarehouseId,
+                String sourceWarehouseCode,
+                String sourceWarehouseName,
+                UUID destinationWarehouseId,
+                String destinationWarehouseCode,
+                String destinationWarehouseName,
+                TransferPrintAllocationKind allocationKind,
+                boolean plannedAllocations,
+                String advisoryNote,
+                List<TransferDocumentPrintLineView> lines) {
+            this(
+                    documentId,
+                    documentNumber,
+                    documentCreatedAt,
+                    documentStatus,
+                    documentTitle,
+                    documentKind,
+                    printHeading,
+                    orderNumbers,
+                    sourceWarehouseId,
+                    sourceWarehouseCode,
+                    sourceWarehouseName,
+                    destinationWarehouseId,
+                    destinationWarehouseCode,
+                    destinationWarehouseName,
+                    allocationKind,
+                    plannedAllocations,
+                    advisoryNote,
+                    lines,
+                    null);
+        }
+
+        public TransferDocumentPrintView {
+            Objects.requireNonNull(documentId, "documentId");
+            Objects.requireNonNull(documentNumber, "documentNumber");
+            Objects.requireNonNull(documentCreatedAt, "documentCreatedAt");
+            Objects.requireNonNull(documentStatus, "documentStatus");
+            Objects.requireNonNull(documentTitle, "documentTitle");
+            Objects.requireNonNull(documentKind, "documentKind");
+            Objects.requireNonNull(printHeading, "printHeading");
+            Objects.requireNonNull(sourceWarehouseId, "sourceWarehouseId");
+            Objects.requireNonNull(sourceWarehouseCode, "sourceWarehouseCode");
+            Objects.requireNonNull(sourceWarehouseName, "sourceWarehouseName");
+            Objects.requireNonNull(destinationWarehouseId, "destinationWarehouseId");
+            Objects.requireNonNull(destinationWarehouseCode, "destinationWarehouseCode");
+            Objects.requireNonNull(destinationWarehouseName, "destinationWarehouseName");
+            Objects.requireNonNull(allocationKind, "allocationKind");
+            orderNumbers = orderNumbers == null ? List.of() : List.copyOf(orderNumbers);
+            advisoryNote =
+                    advisoryNote == null || advisoryNote.isBlank() ? null : advisoryNote.trim();
+            lines = lines == null ? List.of() : List.copyOf(lines);
+        }
+
+        /**
+         * Attaches a historical SEND/RETURN operation timestamp for reprints. Null clears the
+         * field (active task prints must not invent a completed operation time).
+         */
+        public TransferDocumentPrintView withOperationOccurredAt(Instant operationOccurredAt) {
+            return new TransferDocumentPrintView(
+                    documentId,
+                    documentNumber,
+                    documentCreatedAt,
+                    documentStatus,
+                    documentTitle,
+                    documentKind,
+                    printHeading,
+                    orderNumbers,
+                    sourceWarehouseId,
+                    sourceWarehouseCode,
+                    sourceWarehouseName,
+                    destinationWarehouseId,
+                    destinationWarehouseCode,
+                    destinationWarehouseName,
+                    allocationKind,
+                    plannedAllocations,
+                    advisoryNote,
+                    lines,
+                    operationOccurredAt);
         }
     }
 }

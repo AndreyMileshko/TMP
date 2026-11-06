@@ -55,6 +55,7 @@ class WarehouseWorkspaceHistoryJitterFxTest {
                                     "Ед.",
                                     "Откуда",
                                     "Куда",
+                                    "Заказ",
                                     "Основание",
                                     "Пользователь"),
                             headers);

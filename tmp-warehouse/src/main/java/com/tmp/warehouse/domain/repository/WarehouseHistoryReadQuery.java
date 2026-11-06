@@ -12,7 +12,10 @@ import java.util.UUID;
  * Server-side Warehouse History read model (Stage 3.5.12).
  *
  * <p>Projects completed {@code WarehouseOperation} rows with physical movement semantics. Does not
- * create a parallel history store and does not mutate stock.
+ * create a parallel history store and does not mutate stock. Optional search matches material
+ * article/name, transfer document number, origin document number, persisted origin order numbers,
+ * and transfer documents whose related production order numbers were pre-resolved by the caller
+ * ({@code orderMatchedDocumentIds}).
  */
 public interface WarehouseHistoryReadQuery {
 
@@ -22,6 +25,7 @@ public interface WarehouseHistoryReadQuery {
             Instant toExclusive,
             String materialSearch,
             String operationType,
+            Collection<UUID> orderMatchedDocumentIds,
             int pageIndex,
             int pageSize);
 
@@ -30,7 +34,8 @@ public interface WarehouseHistoryReadQuery {
             Instant fromInclusive,
             Instant toExclusive,
             String materialSearch,
-            String operationType);
+            String operationType,
+            Collection<UUID> orderMatchedDocumentIds);
 
     record HistoryRow(
             UUID entryId,

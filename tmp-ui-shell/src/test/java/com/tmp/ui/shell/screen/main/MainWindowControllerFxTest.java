@@ -109,6 +109,94 @@ class MainWindowControllerFxTest {
     }
 
     @Test
+    void sameUserLogoutLoginReselectLoadsContentIntoNewMainWindow() throws Exception {
+        AtomicReference<Integer> afterReloginChildCount = new AtomicReference<>();
+        AtomicReference<Boolean> priorContentClearedOnLogout = new AtomicReference<>();
+
+        JavaFxTestSupport.runOnFxThread(() -> {
+            MainWindowViewModel viewModel = createViewModelWithNavEntry();
+            Parent firstRoot = loadMainWindow(viewModel);
+            ListView<?> firstNav = (ListView<?>) firstRoot.lookup("#navigationList");
+            firstNav.getSelectionModel().select(0);
+            assertEquals(1, ((StackPane) firstRoot.lookup("#contentArea")).getChildren().size());
+
+            viewModel.logout();
+            priorContentClearedOnLogout.set(viewModel.contentProperty().get() == null
+                    && viewModel.selectedNavigationProperty().get() == null);
+
+            Parent secondRoot = loadMainWindow(viewModel);
+            StackPane secondContent = (StackPane) secondRoot.lookup("#contentArea");
+            assertEquals(0, secondContent.getChildren().size());
+            ListView<?> secondNav = (ListView<?>) secondRoot.lookup("#navigationList");
+            secondNav.getSelectionModel().select(0);
+            afterReloginChildCount.set(secondContent.getChildren().size());
+        });
+
+        assertTrue(priorContentClearedOnLogout.get());
+        assertEquals(1, afterReloginChildCount.get());
+    }
+
+    @Test
+    void userSwitchLogoutLoginReselectLoadsFreshContentWithoutStaleParent() throws Exception {
+        AtomicReference<Parent> firstContent = new AtomicReference<>();
+        AtomicReference<Parent> thirdContent = new AtomicReference<>();
+        AtomicReference<Integer> thirdChildCount = new AtomicReference<>();
+
+        JavaFxTestSupport.runOnFxThread(() -> {
+            MainWindowViewModelTestSupport.StatefulSessionAuthn authn =
+                    new MainWindowViewModelTestSupport.StatefulSessionAuthn();
+            authn.setSession(sessionFor("pilot_storekeeper"));
+            MainWindowViewModel viewModel = createViewModelWithNavEntry(authn);
+
+            Parent firstRoot = loadMainWindow(viewModel);
+            ((ListView<?>) firstRoot.lookup("#navigationList")).getSelectionModel().select(0);
+            firstContent.set(viewModel.contentProperty().get());
+            assertNotNull(firstContent.get());
+
+            viewModel.logout();
+            authn.setSession(sessionFor("pilot_master"));
+            Parent secondRoot = loadMainWindow(viewModel);
+            ((ListView<?>) secondRoot.lookup("#navigationList")).getSelectionModel().select(0);
+            viewModel.logout();
+
+            authn.setSession(sessionFor("pilot_storekeeper"));
+            Parent thirdRoot = loadMainWindow(viewModel);
+            StackPane thirdArea = (StackPane) thirdRoot.lookup("#contentArea");
+            ((ListView<?>) thirdRoot.lookup("#navigationList")).getSelectionModel().select(0);
+            thirdContent.set(viewModel.contentProperty().get());
+            thirdChildCount.set(thirdArea.getChildren().size());
+        });
+
+        assertNotNull(thirdContent.get());
+        assertTrue(firstContent.get() != thirdContent.get());
+        assertEquals(1, thirdChildCount.get());
+    }
+
+    @Test
+    void reselectingAlreadySelectedNavigationReloadsContentArea() throws Exception {
+        AtomicReference<Integer> childCount = new AtomicReference<>();
+
+        JavaFxTestSupport.runOnFxThread(() -> {
+            MainWindowViewModel viewModel = createViewModelWithNavEntry();
+            Parent root = loadMainWindow(viewModel);
+            @SuppressWarnings("unchecked")
+            ListView<NavigationItem> navigationList = (ListView<NavigationItem>) root.lookup("#navigationList");
+            navigationList.getSelectionModel().select(0);
+            // Simulate stale singleton selection surviving into a new MainWindow without logout clear
+            // by selecting again after content was cleared while selection id remains.
+            Parent stale = viewModel.contentProperty().get();
+            assertNotNull(stale);
+            viewModel.contentProperty().set(null);
+            ((StackPane) root.lookup("#contentArea")).getChildren().clear();
+            navigationList.getSelectionModel().clearSelection();
+            navigationList.getSelectionModel().select(0);
+            childCount.set(((StackPane) root.lookup("#contentArea")).getChildren().size());
+        });
+
+        assertEquals(1, childCount.get());
+    }
+
+    @Test
     void layoutAtRepresentativeSizesDoesNotThrow() throws Exception {
         layoutAtSize(1024, 700);
         layoutAtSize(1600, 900);
@@ -222,6 +310,12 @@ class MainWindowControllerFxTest {
     }
 
     private static MainWindowViewModel createViewModelWithNavEntry() {
+        return createViewModelWithNavEntry(
+                new MainWindowViewModelTestSupport.SessionAuthn(sessionFor("admin")));
+    }
+
+    private static MainWindowViewModel createViewModelWithNavEntry(
+            com.tmp.security.api.AuthenticationService authenticationService) {
         MainWindowViewModelTestSupport.SingleEntryCatalogue catalogue =
                 new MainWindowViewModelTestSupport.SingleEntryCatalogue(
                         ShellNavEntry.of("nav.test", "Test", "view.test", 1, List.of()));
@@ -230,15 +324,10 @@ class MainWindowControllerFxTest {
                 "view.test",
                 "fxml/fixture-screen.fxml",
                 () -> new com.tmp.ui.shell.navigation.FixtureViewModel("loaded")));
-        SessionSummary session = new SessionSummary(
-                SessionId.of(UUID.randomUUID()),
-                UserId.of(UUID.randomUUID()),
-                Login.of("admin"),
-                Instant.parse("2026-07-23T04:00:00Z"));
         return new MainWindowViewModel(
                 catalogue,
                 new MainWindowViewModelTestSupport.AllowAllAuthz(),
-                new MainWindowViewModelTestSupport.SessionAuthn(session),
+                authenticationService,
                 navigation);
     }
 

@@ -1,7 +1,9 @@
 package com.tmp.ui.shell.screen.main;
 
 import com.tmp.ui.shell.navigation.ViewModelAware;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import javafx.fxml.FXML;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -9,7 +11,6 @@ import javafx.scene.control.ListView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.StackPane;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"}, justification = "JavaFX ViewModel/Controller intentionally expose observable properties and retain ViewModel for FXML wiring")
 /**
@@ -48,15 +49,14 @@ public final class MainWindowController implements ViewModelAware<MainWindowView
         navigationList.setItems(viewModel.navigationItems());
         navigationList.setFixedCellSize(42);
         navigationList.setCellFactory(list -> new NavigationListCell());
+        // Always dispatch: after logout/login the singleton ViewModel may still hold the same
+        // navigation id while this controller's contentArea is a new empty StackPane.
         navigationList.getSelectionModel().selectedItemProperty().addListener((obs, old, selected) -> {
-            if (selected != null
-                    && (viewModel.selectedNavigationProperty().get() == null
-                            || !selected.navigationId()
-                                    .equals(viewModel.selectedNavigationProperty().get().navigationId()))) {
+            if (selected != null) {
                 viewModel.selectNavigation(selected.navigationId());
             }
         });
-        viewModel.selectedNavigationProperty().addListener((obs, old, selected) -> {
+        viewModel.bindSelectedNavigationListener((obs, old, selected) -> {
             if (selected == null) {
                 return;
             }
@@ -65,12 +65,8 @@ public final class MainWindowController implements ViewModelAware<MainWindowView
                 navigationList.getSelectionModel().select(selected);
             }
         });
-        viewModel.contentProperty().addListener((obs, old, root) -> {
-            contentArea.getChildren().clear();
-            if (root != null) {
-                contentArea.getChildren().add(root);
-            }
-        });
+        viewModel.bindContentListener((obs, old, root) -> applyContent(root));
+        applyContent(viewModel.contentProperty().get());
         userLoginLabel.textProperty().bind(viewModel.currentUserLoginProperty());
         userAvatarLabel.textProperty().bind(viewModel.currentUserInitialProperty());
         logoutButton.setOnAction(event -> viewModel.logout());
@@ -79,6 +75,13 @@ public final class MainWindowController implements ViewModelAware<MainWindowView
         historyBackButton.setOnAction(event -> viewModel.goBack());
         historyForwardButton.setOnAction(event -> viewModel.goForward());
         installAccelerators();
+    }
+
+    private void applyContent(Parent root) {
+        contentArea.getChildren().clear();
+        if (root != null) {
+            contentArea.getChildren().add(root);
+        }
     }
 
     private void installAccelerators() {

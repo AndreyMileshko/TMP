@@ -16,6 +16,7 @@ import com.tmp.document.persistence.JdbcDocumentStorageAdapter;
 import com.tmp.document.persistence.JdbcDocumentVersionAdapter;
 import com.tmp.document.persistence.JdbcLifecycleJournalAdapter;
 import com.tmp.security.api.AuthorizationService;
+import com.tmp.warehouse.api.TransferDocumentOrderReferenceQuery;
 import com.tmp.warehouse.api.WarehouseDemandCommandApi;
 import com.tmp.warehouse.application.DefaultWarehouseApi;
 import com.tmp.warehouse.application.DefaultWarehouseDemandCommandApi;
@@ -154,6 +155,17 @@ public final class WarehouseIntegrationTestSupport {
             AuthorizationService authorization,
             com.tmp.security.api.AuthenticationService authentication,
             WarehouseResponsibilityGuard responsibilityGuard) {
+        return createApiBundle(
+                dataSource, clock, authorization, authentication, responsibilityGuard, null);
+    }
+
+    public static ApiBundle createApiBundle(
+            DataSource dataSource,
+            Clock clock,
+            AuthorizationService authorization,
+            com.tmp.security.api.AuthenticationService authentication,
+            WarehouseResponsibilityGuard responsibilityGuard,
+            TransferDocumentOrderReferenceQuery orderReferences) {
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
         var stockJdbc =
                 new com.tmp.warehouse.persistence.JdbcWarehouseStockRepository(jdbc, clock);
@@ -347,7 +359,8 @@ public final class WarehouseIntegrationTestSupport {
                         returnItems,
                         new com.tmp.warehouse.persistence.JdbcWarehouseStockReadQuery(jdbc),
                         new com.tmp.warehouse.persistence.JdbcWarehouseHistoryReadQuery(jdbc),
-                        documentEngine);
+                        documentEngine,
+                        orderReferences);
         return new ApiBundle(
                 api,
                 jdbc,

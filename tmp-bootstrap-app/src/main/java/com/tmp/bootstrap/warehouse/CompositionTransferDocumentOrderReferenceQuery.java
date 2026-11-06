@@ -3,7 +3,9 @@ package com.tmp.bootstrap.warehouse;
 import com.tmp.warehouse.api.TransferDocumentOrderReferenceQuery;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -69,6 +71,104 @@ public final class CompositionTransferDocumentOrderReferenceQuery
         collectDemandOrdersFromLineSourceItems(ids, collected);
         collectDemandOrdersFromHeaderSourceItems(ids, collected);
         return compose(collected);
+    }
+
+    @Override
+    public Set<UUID> findDocumentIdsByOrderNumberSearch(String orderNumberSearch) {
+        String pattern = toSearchPattern(orderNumberSearch);
+        if (pattern == null) {
+            return Set.of();
+        }
+        LinkedHashSet<UUID> matched = new LinkedHashSet<>();
+        collectDocumentIdsFromGeneratedDocuments(pattern, matched);
+        collectDocumentIdsFromDemandTransferLineSources(pattern, matched);
+        collectDocumentIdsFromDemandTransferHeaderSources(pattern, matched);
+        return Set.copyOf(matched);
+    }
+
+    private void collectDocumentIdsFromGeneratedDocuments(
+            String pattern, Set<UUID> matched) {
+        String sql =
+                "SELECT DISTINCT gd.warehouse_document_id"
+                        + " FROM production.material_requirement_generated_documents gd"
+                        + " JOIN production.material_requirement_source_items si"
+                        + " ON si.requirement_id = gd.requirement_id"
+                        + " JOIN order_management.orders o"
+                        + " ON o.order_id = si.source_order_id"
+                        + " WHERE LOWER(o.order_number) LIKE ? ESCAPE '\\'";
+        jdbcTemplate.query(
+                sql,
+                rs -> {
+                    UUID documentId = rs.getObject("warehouse_document_id", UUID.class);
+                    if (documentId != null) {
+                        matched.add(documentId);
+                    }
+                },
+                pattern);
+    }
+
+    private void collectDocumentIdsFromDemandTransferLineSources(
+            String pattern, Set<UUID> matched) {
+        String sql =
+                "SELECT DISTINCT link.transfer_document_id"
+                        + " FROM warehouse.warehouse_demand_transfer_links link"
+                        + " JOIN warehouse.warehouse_demand_lines dl"
+                        + " ON dl.id = link.demand_line_id"
+                        + " JOIN production.material_requirement_line_source_items lsi"
+                        + " ON lsi.line_id = dl.source_material_requirement_line_id"
+                        + " JOIN order_management.orders o"
+                        + " ON o.order_id = lsi.source_order_id"
+                        + " WHERE LOWER(o.order_number) LIKE ? ESCAPE '\\'";
+        jdbcTemplate.query(
+                sql,
+                rs -> {
+                    UUID documentId = rs.getObject("transfer_document_id", UUID.class);
+                    if (documentId != null) {
+                        matched.add(documentId);
+                    }
+                },
+                pattern);
+    }
+
+    private void collectDocumentIdsFromDemandTransferHeaderSources(
+            String pattern, Set<UUID> matched) {
+        String sql =
+                "SELECT DISTINCT link.transfer_document_id"
+                        + " FROM warehouse.warehouse_demand_transfer_links link"
+                        + " JOIN warehouse.warehouse_demand_lines dl"
+                        + " ON dl.id = link.demand_line_id"
+                        + " JOIN warehouse.warehouse_demands d"
+                        + " ON d.id = dl.demand_id"
+                        + " JOIN production.material_requirement_source_items si"
+                        + " ON si.requirement_id = d.source_material_requirement_id"
+                        + " JOIN order_management.orders o"
+                        + " ON o.order_id = si.source_order_id"
+                        + " WHERE LOWER(o.order_number) LIKE ? ESCAPE '\\'";
+        jdbcTemplate.query(
+                sql,
+                rs -> {
+                    UUID documentId = rs.getObject("transfer_document_id", UUID.class);
+                    if (documentId != null) {
+                        matched.add(documentId);
+                    }
+                },
+                pattern);
+    }
+
+    private static String toSearchPattern(String search) {
+        if (search == null) {
+            return null;
+        }
+        String trimmed = search.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        String escaped =
+                trimmed.toLowerCase(Locale.ROOT)
+                        .replace("\\", "\\\\")
+                        .replace("%", "\\%")
+                        .replace("_", "\\_");
+        return "%" + escaped + "%";
     }
 
     private void collectDemandOrdersFromHeaderSourceItems(

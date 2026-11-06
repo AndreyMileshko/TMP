@@ -20,5 +20,8 @@ class CompositionTransferDocumentOrderReferenceQueryTest {
         Map<UUID, String> result = query.findOrderNumbersByDocumentIds(List.of());
         assertTrue(result.isEmpty());
         assertTrue(query.findOrderNumbersByDemandIds(List.of()).isEmpty());
+        assertTrue(query.findDocumentIdsByOrderNumberSearch("").isEmpty());
+        assertTrue(query.findDocumentIdsByOrderNumberSearch("   ").isEmpty());
+        assertTrue(query.findDocumentIdsByOrderNumberSearch(null).isEmpty());
     }
 }

@@ -179,6 +179,8 @@
                                         <argument>--java-options</argument>
                                         <argument>-Dspring.profiles.active=package</argument>
                                         <argument>--java-options</argument>
+                                        <argument>-Djava.awt.headless=false</argument>
+                                        <argument>--java-options</argument>
                                         <argument>-XX:+ShowCodeDetailsInExceptionMessages</argument>
                                     </arguments>
                                 </configuration>

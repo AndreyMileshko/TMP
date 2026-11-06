@@ -1,3 +1,62 @@
+## Warehouse Print A4 Landscape MediaBox Corrective (P1) — 2026-11-06
+
+**Date:** 2026-11-06
+**Base HEAD:** `f391aaed86874a3c54bbb41d8a5679d316c8a0d9`
+**Status:** CODE DONE — focused print tests PASS (26); Checkstyle/SpotBugs 0; package rebuilt with `WarehouseTransferLandscapePdfExport`; pilot V57 read-only; **no commit / no push**
+**Manual acceptance:** PENDING — user must print via packaged app selecting Microsoft Print to PDF and confirm MediaBox ≈ 841.89×595.28
+
+### Confirmed root cause
+Microsoft Print to PDF (and similar virtual PDF drivers) ignore JavaFX/`OrientationRequested.LANDSCAPE` and emit portrait MediaBox `595.32×841.92` even when JobSettings report landscape. Prior landscape JobSettings-only fix was insufficient for PDF acceptance.
+
+### Delivered
+- After native print dialog: `requireA4LandscapeLayout` verifies printable width > height; refuses silent portrait
+- PDF virtual printers: export real A4 landscape PDF (MediaBox long×short edge) via `WarehouseTransferLandscapePdfExport` after dialog (FileChooser); no driver spool
+- Physical printers: same verified landscape `PageLayout` passed to every `printPage`
+- Focused tests: dialog cancel, printer switch, PDF export MediaBox, both document kinds, seven headers, unsupported landscape error
+
+### Preserved
+Warehouse business commands; Flyway; pilot data; History/session uncommitted work; Windows print dialog; no commit/push
+
+---
+
+## Warehouse Print Forms — A4 Landscape — 2026-11-06
+
+**Date:** 2026-11-06
+**Base HEAD:** `f391aaed86874a3c54bbb41d8a5679d316c8a0d9`
+**Status:** SUPERSEDED for PDF MediaBox by P1 corrective same day — JobSettings LANDSCAPE alone does not fix Microsoft Print to PDF MediaBox
+
+### Delivered
+- JavaFX `PrinterJob` forced to A4 `LANDSCAPE` before native dialog and re-asserted after dialog
+- Column weights redistributed for landscape readability (Артикул/Наименование wider; Размер/Количество fully visible)
+- Pagination budget lowered for reduced landscape height (`DEFAULT_ROW_UNITS_PER_PAGE=12`, `NAME_CHARS_PER_LINE=44`)
+- Both picking and return forms share the same landscape path (active + historical)
+
+### Preserved
+History search/Заказ column; Windows print dialog confirm/cancel; session lifecycle; no Flyway; no pilot writes
+
+---
+
+## Warehouse History Search / Print Layout Corrective — 2026-11-05
+
+**Date:** 2026-11-05
+**Base HEAD:** `f391aaed86874a3c54bbb41d8a5679d316c8a0d9`
+**Status:** CODE DONE — focused tests PASS; static analysis PASS; fast package PASS; pilot `tmp_pilot` V57 untouched (read-only check); **no commit / no push**
+
+### Root cause
+History search matched only persisted `warehouse_operations.origin_order_numbers` (Production Release consumption). Transfer SEND/RETURN order numbers are composition-resolved via Demand/MR links and were available to printing but not to History search/display.
+
+### Delivered
+- Server-side History search: composition reverse lookup `findDocumentIdsByOrderNumberSearch` + OR match on transfer document ids in `JdbcWarehouseHistoryReadQuery`
+- History enrichment of `originOrderNumbers` for transfer rows via existing `TransferDocumentOrderReferenceQuery` (batch, no N+1)
+- History UI column «Заказ»; «Основание» remains document-focused
+- Print column weights + non-wrapping headers so «Количество» fits
+- Historical reprints: «Дата документа» + «Дата операции» from History `occurredAt`; active prints do not invent operation time
+
+### Preserved
+Uncommitted printing/session-lifecycle changes; Windows printer dialog; no Flyway; no pilot writes
+
+---
+
 ## Warehouse Optional Resupply Waiver (ADR-038) + Pilot V57 — 2026-11-02
 
 **Date:** 2026-11-02

@@ -12,9 +12,9 @@ import com.tmp.ui.shell.navigation.NavigationServices;
 import com.tmp.ui.shell.navigation.ScreenRegistration;
 import com.tmp.ui.shell.navigation.ShellHistoryEntry;
 import com.tmp.ui.shell.navigation.ShellNavEntry;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import javafx.scene.Parent;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -67,6 +67,126 @@ class MainWindowNavigationHistoryTest {
         assertFalse(viewModel.canGoBackProperty().get());
         assertFalse(viewModel.canGoForwardProperty().get());
         assertTrue(viewModel.historyForTest().current().isEmpty());
+    }
+
+    @Test
+    void logoutClearsSelectedNavigationAndContent() {
+        MainWindowViewModelTestSupport.SingleEntryCatalogue catalogue =
+                new MainWindowViewModelTestSupport.SingleEntryCatalogue(
+                        ShellNavEntry.of("nav.warehouse", "Склад", "view.warehouse", 1, List.of()));
+        NavigationService navigation = NavigationServices.createDefault();
+        register(navigation, "view.warehouse");
+        MainWindowViewModel viewModel = new MainWindowViewModel(
+                catalogue,
+                new MainWindowViewModelTestSupport.AllowAllAuthz(),
+                new MainWindowViewModelTestSupport.FakeAuthn(),
+                navigation);
+        viewModel.selectNavigation("nav.warehouse");
+        assertTrue(viewModel.selectedNavigationProperty().get() != null);
+        assertTrue(viewModel.contentProperty().get() != null);
+
+        viewModel.logout();
+
+        assertTrue(viewModel.selectedNavigationProperty().get() == null);
+        assertTrue(viewModel.contentProperty().get() == null);
+        assertTrue(viewModel.historyForTest().current().isEmpty());
+    }
+
+    @Test
+    void refreshShellStateOnUserChangeClearsPriorSessionSelectionAndContent() {
+        MainWindowViewModelTestSupport.SingleEntryCatalogue catalogue =
+                new MainWindowViewModelTestSupport.SingleEntryCatalogue(
+                        ShellNavEntry.of("nav.warehouse", "Склад", "view.warehouse", 1, List.of()));
+        NavigationService navigation = NavigationServices.createDefault();
+        register(navigation, "view.warehouse");
+        MainWindowViewModelTestSupport.StatefulSessionAuthn authn =
+                new MainWindowViewModelTestSupport.StatefulSessionAuthn();
+        authn.setSession(sessionFor("storekeeper"));
+        MainWindowViewModel viewModel = new MainWindowViewModel(
+                catalogue,
+                new MainWindowViewModelTestSupport.AllowAllAuthz(),
+                authn,
+                navigation);
+        viewModel.refreshShellState();
+        viewModel.selectNavigation("nav.warehouse");
+        assertTrue(viewModel.contentProperty().get() != null);
+
+        authn.setSession(sessionFor("master"));
+        viewModel.refreshShellState();
+
+        assertTrue(viewModel.selectedNavigationProperty().get() == null);
+        assertTrue(viewModel.contentProperty().get() == null);
+        assertTrue(viewModel.historyForTest().current().isEmpty());
+    }
+
+    @Test
+    void reselectSameNavigationAfterLogoutReloadsFreshContent() {
+        MainWindowViewModelTestSupport.SingleEntryCatalogue catalogue =
+                new MainWindowViewModelTestSupport.SingleEntryCatalogue(
+                        ShellNavEntry.of("nav.warehouse", "Склад", "view.warehouse", 1, List.of()));
+        NavigationService navigation = NavigationServices.createDefault();
+        register(navigation, "view.warehouse");
+        MainWindowViewModel viewModel = new MainWindowViewModel(
+                catalogue,
+                new MainWindowViewModelTestSupport.AllowAllAuthz(),
+                new MainWindowViewModelTestSupport.FakeAuthn(),
+                navigation);
+        viewModel.selectNavigation("nav.warehouse");
+        Parent first = viewModel.contentProperty().get();
+        assertTrue(first != null);
+
+        viewModel.logout();
+        viewModel.selectNavigation("nav.warehouse");
+        Parent second = viewModel.contentProperty().get();
+        assertTrue(second != null);
+        assertTrue(first != second);
+    }
+
+    @Test
+    void warehousePermissionStillEnforcedAfterLogoutLoginCycle() {
+        MainWindowViewModelTestSupport.SingleEntryCatalogue catalogue =
+                new MainWindowViewModelTestSupport.SingleEntryCatalogue(
+                        ShellNavEntry.of(
+                                "nav.warehouse",
+                                "Склад",
+                                UiShellScreens.WAREHOUSE_WORKSPACE_SCREEN_ID,
+                                1,
+                                List.of(UiShellScreens.WAREHOUSE_VIEW_PERMISSION)));
+        NavigationService navigation = NavigationServices.createDefault();
+        register(navigation, UiShellScreens.WAREHOUSE_WORKSPACE_SCREEN_ID);
+        GrantingAuthz authz =
+                new GrantingAuthz(java.util.Set.of(PermissionId.of(UiShellScreens.WAREHOUSE_VIEW_PERMISSION)));
+        MainWindowViewModel viewModel = new MainWindowViewModel(
+                catalogue,
+                authz,
+                new MainWindowViewModelTestSupport.FakeAuthn(),
+                navigation);
+        viewModel.refreshNavigation();
+        assertEquals(1, viewModel.navigationItems().size());
+        viewModel.selectNavigation("nav.warehouse");
+        assertTrue(viewModel.contentProperty().get() != null);
+
+        viewModel.logout();
+        authz.denyWarehouseView();
+        viewModel.refreshNavigation();
+        assertEquals(0, viewModel.navigationItems().size());
+        AtomicInteger denied = new AtomicInteger();
+        viewModel.setOnAccessDenied(message -> denied.incrementAndGet());
+        viewModel.navigate(
+                ShellHistoryEntry.of(
+                        UiShellScreens.WAREHOUSE_WORKSPACE_SCREEN_ID,
+                        UiShellScreens.WAREHOUSE_VIEW_PERMISSION,
+                        () -> {}));
+        assertEquals(1, denied.get());
+        assertTrue(viewModel.contentProperty().get() == null);
+    }
+
+    private static com.tmp.security.api.SessionSummary sessionFor(String login) {
+        return new com.tmp.security.api.SessionSummary(
+                com.tmp.security.api.SessionId.of(java.util.UUID.randomUUID()),
+                com.tmp.security.api.UserId.of(java.util.UUID.randomUUID()),
+                com.tmp.security.api.Login.of(login),
+                java.time.Instant.parse("2026-07-23T04:00:00Z"));
     }
 
     @Test
@@ -181,13 +301,23 @@ class MainWindowNavigationHistoryTest {
 
     private static final class GrantingAuthz implements com.tmp.security.api.AuthorizationService {
         private final java.util.Set<PermissionId> granted;
+        private boolean denyWarehouseView;
 
         private GrantingAuthz(java.util.Set<PermissionId> granted) {
-            this.granted = java.util.Set.copyOf(granted);
+            this.granted = new java.util.HashSet<>(granted);
+        }
+
+        private void denyWarehouseView() {
+            this.denyWarehouseView = true;
+            granted.remove(PermissionId.of(UiShellScreens.WAREHOUSE_VIEW_PERMISSION));
         }
 
         @Override
         public boolean hasPermission(PermissionId permissionId) {
+            if (denyWarehouseView
+                    && UiShellScreens.WAREHOUSE_VIEW_PERMISSION.equals(permissionId.value())) {
+                return false;
+            }
             return granted.contains(permissionId);
         }
 
@@ -197,7 +327,7 @@ class MainWindowNavigationHistoryTest {
 
         @Override
         public java.util.Set<PermissionId> effectivePermissions() {
-            return granted;
+            return java.util.Set.copyOf(granted);
         }
     }
 

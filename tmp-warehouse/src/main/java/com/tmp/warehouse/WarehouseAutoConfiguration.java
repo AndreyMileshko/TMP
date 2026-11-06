@@ -604,7 +604,8 @@ public class WarehouseAutoConfiguration {
             TransferReturnSettlementItemRepository transferReturnSettlementItemRepository,
             WarehouseStockReadQuery warehouseStockReadQuery,
             WarehouseHistoryReadQuery warehouseHistoryReadQuery,
-            DocumentEngine documentEngine) {
+            DocumentEngine documentEngine,
+            ObjectProvider<TransferDocumentOrderReferenceQuery> transferDocumentOrderReferenceQuery) {
         return new DefaultWarehouseApi(
                 authorizationService,
                 authenticationService,
@@ -635,7 +636,8 @@ public class WarehouseAutoConfiguration {
                 transferReturnSettlementItemRepository,
                 warehouseStockReadQuery,
                 warehouseHistoryReadQuery,
-                documentEngine);
+                documentEngine,
+                transferDocumentOrderReferenceQuery.getIfAvailable());
     }
 
     @Bean

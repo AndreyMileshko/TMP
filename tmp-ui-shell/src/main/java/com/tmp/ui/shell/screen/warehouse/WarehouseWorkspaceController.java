@@ -48,6 +48,8 @@ import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.stage.Modality;
+import javafx.stage.Window;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
@@ -241,6 +243,9 @@ public final class WarehouseWorkspaceController
 
     @FXML
     private TableColumn<HistoryRow, String> historyDestinationColumn;
+
+    @FXML
+    private TableColumn<HistoryRow, String> historyOrderColumn;
 
     @FXML
     private TableColumn<HistoryRow, String> historyOriginColumn;
@@ -664,13 +669,15 @@ public final class WarehouseWorkspaceController
                         viewModel.canRejectSelectedTaskProperty(),
                         viewModel.canReturnSelectedTaskProperty(),
                         viewModel.canPrepareSelectedSupplyTaskProperty(),
+                        viewModel.canPrintSelectedTaskProperty(),
                         viewModel.taskDetailLoadingProperty(),
                         viewModel::takeSelectedTaskInWork,
                         viewModel::sendSelectedTask,
                         viewModel::receiveSelectedTask,
                         viewModel::rejectSelectedTask,
                         viewModel::returnSelectedTask,
-                        viewModel::prepareSelectedSupplyTaskTransfers);
+                        viewModel::prepareSelectedSupplyTaskTransfers,
+                        this::printActiveTaskDocument);
         openTaskDialogSession = session;
         viewModel.taskDialogErrorMessageProperty()
                 .addListener(
@@ -701,6 +708,11 @@ public final class WarehouseWorkspaceController
                                 viewModel.setTaskDialogOpen(false);
                             }
                         });
+        Window parent = workspaceWindow();
+        if (parent != null) {
+            session.dialog().initOwner(parent);
+            session.dialog().initModality(Modality.WINDOW_MODAL);
+        }
         session.dialog().showAndWait();
     }
 
@@ -1433,6 +1445,10 @@ public final class WarehouseWorkspaceController
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
                                 cell.getValue().destinationText()));
+        historyOrderColumn.setCellValueFactory(
+                cell ->
+                        new javafx.beans.property.SimpleStringProperty(
+                                cell.getValue().orderText()));
         historyOriginColumn.setCellValueFactory(
                 cell ->
                         new javafx.beans.property.SimpleStringProperty(
@@ -1444,6 +1460,34 @@ public final class WarehouseWorkspaceController
                                 cell.getValue().actorText()));
 
         historyTable.setItems(viewModel.historyRows());
+        historyTable.setRowFactory(
+                table -> {
+                    TableRow<HistoryRow> row = new TableRow<>();
+                    MenuItem printItem = new MenuItem("Печать документа");
+                    printItem.setOnAction(
+                            e -> {
+                                HistoryRow item = row.getItem();
+                                if (item != null) {
+                                    printHistoryTransferDocument(item);
+                                }
+                            });
+                    ContextMenu menu = new ContextMenu(printItem);
+                    row.contextMenuProperty()
+                            .bind(
+                                    Bindings.when(
+                                                    row.emptyProperty()
+                                                            .or(
+                                                                    Bindings.createBooleanBinding(
+                                                                            () ->
+                                                                                    row.getItem()
+                                                                                                    == null
+                                                                                            || !row.getItem()
+                                                                                                    .hasPrintableTransferDocument(),
+                                                                            row.itemProperty())))
+                                            .then((ContextMenu) null)
+                                            .otherwise(menu));
+                    return row;
+                });
         historyTable.setOnMouseClicked(
                 event -> {
                     if (event.getClickCount() != 2 || event.getButton() != MouseButton.PRIMARY) {
@@ -1463,6 +1507,50 @@ public final class WarehouseWorkspaceController
         placeholder.getStyleClass().add("tmp-empty-state-hint");
         placeholder.setWrapText(true);
         historyTable.setPlaceholder(placeholder);
+    }
+
+    private void printActiveTaskDocument() {
+        Window owner = workspaceWindow();
+        try {
+            var model = viewModel.loadActiveTaskPrintModel();
+            WarehouseTransferPrintSupport.print(
+                    model,
+                    owner,
+                    message -> WarehouseTransferPrintSupport.showPrintError(owner, message));
+        } catch (RuntimeException ex) {
+            WarehouseTransferPrintSupport.showPrintError(
+                    owner, WarehouseUiErrorMapper.text(ex));
+        }
+    }
+
+    private void printHistoryTransferDocument(HistoryRow row) {
+        Window owner = workspaceWindow();
+        try {
+            var model = viewModel.loadHistoryPrintModel(row);
+            WarehouseTransferPrintSupport.print(
+                    model,
+                    owner,
+                    message -> WarehouseTransferPrintSupport.showPrintError(owner, message));
+        } catch (RuntimeException ex) {
+            WarehouseTransferPrintSupport.showPrintError(owner, WarehouseUiErrorMapper.text(ex));
+        }
+    }
+
+    /**
+     * Main shell window for native print-dialog ownership. Never use the modal task Dialog stage:
+     * on Windows that owner frequently hides or auto-confirms the standard printer dialog.
+     */
+    private Window workspaceWindow() {
+        if (tasksTable != null && tasksTable.getScene() != null) {
+            return tasksTable.getScene().getWindow();
+        }
+        if (historyTable != null && historyTable.getScene() != null) {
+            return historyTable.getScene().getWindow();
+        }
+        if (titleLabel != null && titleLabel.getScene() != null) {
+            return titleLabel.getScene().getWindow();
+        }
+        return null;
     }
 
     private void openHistoryCommentDialog(String comment) {
@@ -1515,10 +1603,12 @@ public final class WarehouseWorkspaceController
                                     + historyUnitColumn.getPrefWidth()
                                     + historySourceColumn.getPrefWidth()
                                     + historyDestinationColumn.getPrefWidth()
+                                    + historyOrderColumn.getPrefWidth()
                                     + historyOriginColumn.getPrefWidth()
                                     + historyActorColumn.getPrefWidth();
                     if (fixed <= 0) {
-                        fixed = 135 + 110 + 135 + 130 + 90 + 90 + 60 + 160 + 160 + 220 + 110;
+                        fixed =
+                                135 + 110 + 135 + 130 + 90 + 90 + 60 + 160 + 160 + 140 + 200 + 110;
                     }
                     double nameWidth = Math.max(180, tableWidth - fixed - verticalScrollGutter);
                     historyNameColumn.setPrefWidth(nameWidth);

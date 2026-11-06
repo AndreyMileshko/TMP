@@ -6,11 +6,15 @@ import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
+import com.tmp.warehouse.api.TransferDocumentOrderReferenceQuery;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseApi.ConsumptionOrigin;
 import com.tmp.warehouse.api.WarehouseApi.CreateStorageCellCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentPrintPlannedCellAllocation;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentPrintView;
+import com.tmp.warehouse.api.WarehouseApi.TransferPrintDocumentKind;
 import com.tmp.warehouse.api.WarehouseApi.UpdateStorageCellCommand;
 import com.tmp.warehouse.api.WarehouseApi.UpdateWarehouseCommand;
 import com.tmp.warehouse.api.WarehouseApi.WarehouseView;
@@ -18,6 +22,7 @@ import com.tmp.warehouse.api.WarehouseCommandApi;
 import com.tmp.warehouse.api.WarehouseQueryApi;
 import com.tmp.warehouse.api.MaterialReferenceDisplay;
 import com.tmp.warehouse.api.MaterialReferenceDisplayPort;
+import com.tmp.warehouse.application.TransferDocumentPrintAssembler.MaterialDisplay;
 import com.tmp.warehouse.api.WarehouseApi.MaterialDemand;
 import com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult;
 import com.tmp.warehouse.api.WarehouseApi.ReceiveTransferDocumentCommand;
@@ -55,6 +60,7 @@ import com.tmp.warehouse.domain.TransferSettlementState;
 import com.tmp.warehouse.domain.UnitOfMeasure;
 import com.tmp.warehouse.domain.Warehouse;
 import com.tmp.warehouse.domain.WarehouseId;
+import com.tmp.warehouse.domain.WarehouseTransferDocument;
 import com.tmp.warehouse.domain.WarehouseOperation;
 import com.tmp.warehouse.domain.WarehouseOperationId;
 import com.tmp.warehouse.domain.repository.MaterialReferenceRepository;
@@ -134,6 +140,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     private final WarehouseStockReadQuery stockRead;
     private final WarehouseHistoryReadQuery historyRead;
     private final DocumentEngine documentEngine;
+    private final TransferDocumentOrderReferenceQuery orderReferences;
 
     public DefaultWarehouseApi(
             AuthorizationService authorization,
@@ -535,6 +542,72 @@ public final class DefaultWarehouseApi implements WarehouseApi {
             WarehouseStockReadQuery stockRead,
             WarehouseHistoryReadQuery historyRead,
             DocumentEngine documentEngine) {
+        this(
+                authorization,
+                authentication,
+                responsibilityGuard,
+                responsibilities,
+                warehouses,
+                stockPositions,
+                materials,
+                materialDisplay,
+                reservationLinks,
+                receipts,
+                moves,
+                transfers,
+                transferDocuments,
+                consumptions,
+                adjustments,
+                operations,
+                transferContexts,
+                sourceRouting,
+                operationalInbox,
+                transferSend,
+                transferReceive,
+                transferReject,
+                transferReturn,
+                sendAllocations,
+                settlements,
+                receiptItems,
+                returnItems,
+                stockRead,
+                historyRead,
+                documentEngine,
+                null);
+    }
+
+    public DefaultWarehouseApi(
+            AuthorizationService authorization,
+            AuthenticationService authentication,
+            WarehouseResponsibilityGuard responsibilityGuard,
+            WarehouseUserResponsibilityRepository responsibilities,
+            WarehouseCatalogRepository warehouses,
+            StockPositionRepository stockPositions,
+            MaterialReferenceRepository materials,
+            MaterialReferenceDisplayPort materialDisplay,
+            WarehouseReservationLinkService reservationLinks,
+            WarehouseReceiptService receipts,
+            WarehouseMoveService moves,
+            WarehouseTransferService transfers,
+            WarehouseTransferDocumentService transferDocuments,
+            WarehouseConsumptionService consumptions,
+            WarehouseAdjustmentService adjustments,
+            WarehouseOperationRepository operations,
+            TransferOperationContextRepository transferContexts,
+            MaterialSourceRoutingService sourceRouting,
+            WarehouseOperationalInboxService operationalInbox,
+            WarehouseTransferSendService transferSend,
+            WarehouseTransferReceiveService transferReceive,
+            WarehouseTransferRejectService transferReject,
+            WarehouseTransferReturnService transferReturn,
+            TransferDocumentSendAllocationRepository sendAllocations,
+            TransferDocumentSettlementRepository settlements,
+            TransferReceiptSettlementItemRepository receiptItems,
+            TransferReturnSettlementItemRepository returnItems,
+            WarehouseStockReadQuery stockRead,
+            WarehouseHistoryReadQuery historyRead,
+            DocumentEngine documentEngine,
+            TransferDocumentOrderReferenceQuery orderReferences) {
         this.authorization = Objects.requireNonNull(authorization, "authorization");
         this.authentication = Objects.requireNonNull(authentication, "authentication");
         this.responsibilityGuard =
@@ -566,6 +639,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         this.stockRead = stockRead;
         this.historyRead = historyRead;
         this.documentEngine = documentEngine;
+        this.orderReferences = orderReferences;
     }
 
     @Override
@@ -1328,6 +1402,86 @@ public final class DefaultWarehouseApi implements WarehouseApi {
     }
 
     @Override
+    public TransferDocumentPrintView getTransferDocumentPrintModel(
+            UUID documentId,
+            TransferPrintDocumentKind documentKind,
+            List<TransferDocumentPrintPlannedCellAllocation> plannedCellAllocations) {
+        Objects.requireNonNull(documentId, "documentId");
+        Objects.requireNonNull(documentKind, "documentKind");
+        authorization.requirePermission(WarehousePermissions.WAREHOUSE_VIEW);
+        WarehouseTransferDocumentService.LoadedTransferDocument loaded =
+                transferDocuments
+                        .findByDocumentId(documentId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Transfer document not found: " + documentId));
+        WarehouseTransferDocument payload = loaded.payload();
+        Warehouse source =
+                warehouses
+                        .findById(payload.sourceWarehouseId())
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Source warehouse not found: "
+                                                        + payload.sourceWarehouseId()));
+        Warehouse destination =
+                warehouses
+                        .findById(payload.destinationWarehouseId())
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Destination warehouse not found: "
+                                                        + payload.destinationWarehouseId()));
+        List<TransferDocumentSendAllocation> allocations =
+                sendAllocations == null
+                        ? List.of()
+                        : sendAllocations.findByDocumentId(documentId);
+        List<TransferReturnSettlementItem> returns =
+                returnItems == null ? List.of() : returnItems.findByDocumentId(documentId);
+        Map<UUID, StorageCell> cellsById = new HashMap<>();
+        cellsById.putAll(
+                TransferDocumentPrintAssembler.indexCells(
+                        warehouses.findStorageCellsByWarehouse(payload.sourceWarehouseId())));
+        cellsById.putAll(
+                TransferDocumentPrintAssembler.indexCells(
+                        warehouses.findStorageCellsByWarehouse(payload.destinationWarehouseId())));
+        Map<UUID, MaterialDisplay> materialsById = new HashMap<>();
+        for (var line : payload.orderedLines()) {
+            UUID materialId = line.materialReferenceId().value();
+            MaterialHumanDisplay human = materialHumanDisplay(materialId);
+            materialsById.put(
+                    materialId,
+                    new MaterialDisplay(
+                            human.article(),
+                            human.materialName(),
+                            human.color(),
+                            human.size(),
+                            human.unitOfMeasure()));
+        }
+        List<String> orderNumbers = List.of();
+        if (orderReferences != null) {
+            String composed =
+                    orderReferences.findOrderNumbersByDocumentIds(List.of(documentId)).get(documentId);
+            if (composed != null && !composed.isBlank()) {
+                orderNumbers = List.of(composed.split(",\\s*"));
+            }
+        }
+        return TransferDocumentPrintAssembler.assemble(
+                loaded.metadata(),
+                payload,
+                source,
+                destination,
+                orderNumbers,
+                documentKind,
+                allocations,
+                returns,
+                cellsById,
+                materialsById,
+                plannedCellAllocations);
+    }
+
+    @Override
     public List<TransferDocumentSourceSuggestionLine> suggestTransferDocumentSourceAllocations(
             UUID documentId) {
         Objects.requireNonNull(documentId, "documentId");
@@ -1564,13 +1718,16 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         if (scope.isEmpty()) {
             return WarehouseHistoryPage.of(List.of(), pageIndex, safePageSize, 0L);
         }
+        Set<UUID> orderMatchedDocumentIds =
+                resolveHistoryOrderMatchedDocumentIds(filter.materialSearch());
         long total =
                 query.countHistory(
                         scope,
                         filter.fromInclusive(),
                         filter.toExclusive(),
                         filter.materialSearch(),
-                        filter.operationType());
+                        filter.operationType(),
+                        orderMatchedDocumentIds);
         if (total == 0L) {
             return WarehouseHistoryPage.of(List.of(), pageIndex, safePageSize, 0L);
         }
@@ -1581,12 +1738,23 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                         filter.toExclusive(),
                         filter.materialSearch(),
                         filter.operationType(),
+                        orderMatchedDocumentIds,
                         pageIndex,
                         safePageSize);
         Map<UUID, String> documentNumbers = resolveDocumentNumbers(rows);
+        Map<UUID, List<String>> relatedOrderNumbers = resolveRelatedOrderNumbers(rows);
         List<WarehouseHistoryEntryView> content =
-                rows.stream().map(row -> toHistoryEntryView(row, documentNumbers)).toList();
+                rows.stream()
+                        .map(row -> toHistoryEntryView(row, documentNumbers, relatedOrderNumbers))
+                        .toList();
         return WarehouseHistoryPage.of(content, pageIndex, safePageSize, total);
+    }
+
+    private Set<UUID> resolveHistoryOrderMatchedDocumentIds(String materialSearch) {
+        if (orderReferences == null || materialSearch == null || materialSearch.isBlank()) {
+            return Set.of();
+        }
+        return orderReferences.findDocumentIdsByOrderNumberSearch(materialSearch);
     }
 
     private Map<UUID, String> resolveDocumentNumbers(
@@ -1610,8 +1778,40 @@ public final class DefaultWarehouseApi implements WarehouseApi {
         return numbers;
     }
 
+    private Map<UUID, List<String>> resolveRelatedOrderNumbers(
+            List<WarehouseHistoryReadQuery.HistoryRow> rows) {
+        if (orderReferences == null || rows.isEmpty()) {
+            return Map.of();
+        }
+        LinkedHashSet<UUID> documentIds = new LinkedHashSet<>();
+        for (WarehouseHistoryReadQuery.HistoryRow row : rows) {
+            if (row.documentId() != null && row.originOrderNumbers().isEmpty()) {
+                documentIds.add(row.documentId());
+            }
+        }
+        if (documentIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, String> composed =
+                orderReferences.findOrderNumbersByDocumentIds(documentIds);
+        if (composed.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, List<String>> result = new HashMap<>();
+        for (Map.Entry<UUID, String> entry : composed.entrySet()) {
+            String value = entry.getValue();
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            result.put(entry.getKey(), List.of(value.split(",\\s*")));
+        }
+        return Map.copyOf(result);
+    }
+
     private WarehouseHistoryEntryView toHistoryEntryView(
-            WarehouseHistoryReadQuery.HistoryRow row, Map<UUID, String> documentNumbers) {
+            WarehouseHistoryReadQuery.HistoryRow row,
+            Map<UUID, String> documentNumbers,
+            Map<UUID, List<String>> relatedOrderNumbers) {
         String persistedOriginNumber = row.originDocumentNumber();
         String documentNumber =
                 persistedOriginNumber != null && !persistedOriginNumber.isBlank()
@@ -1619,6 +1819,13 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                         : row.documentId() == null ? null : documentNumbers.get(row.documentId());
         UUID documentId =
                 row.originDocumentId() != null ? row.originDocumentId() : row.documentId();
+        List<String> originOrderNumbers = row.originOrderNumbers();
+        if (originOrderNumbers.isEmpty() && row.documentId() != null) {
+            List<String> related = relatedOrderNumbers.get(row.documentId());
+            if (related != null && !related.isEmpty()) {
+                originOrderNumbers = related;
+            }
+        }
         return new WarehouseHistoryEntryView(
                 row.entryId(),
                 row.occurredAt(),
@@ -1641,7 +1848,7 @@ public final class DefaultWarehouseApi implements WarehouseApi {
                 row.destinationCellCode(),
                 documentId,
                 documentNumber,
-                row.originOrderNumbers(),
+                originOrderNumbers,
                 row.actorUserId(),
                 row.actorLogin(),
                 row.commentText());

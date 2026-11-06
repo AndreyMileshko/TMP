@@ -13,6 +13,7 @@ import com.tmp.security.api.PermissionId;
 import com.tmp.security.api.SessionId;
 import com.tmp.security.api.SessionSummary;
 import com.tmp.security.api.UserId;
+import com.tmp.warehouse.api.TransferDocumentOrderReferenceQuery;
 import com.tmp.warehouse.api.WarehouseApi;
 import com.tmp.warehouse.api.WarehouseApi.ConsumptionCommand;
 import com.tmp.warehouse.api.WarehouseApi.CreateStorageCellCommand;
@@ -39,7 +40,11 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -312,6 +317,123 @@ class WarehouseHistoryIntegrationTest {
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
         assertEquals(0, opening.add(movementSum).compareTo(available(materialId, cell)));
         assertEquals(0, new BigDecimal("25").compareTo(available(materialId, cell)));
+    }
+
+    @Test
+    void historySearchByRelatedOrderNumberFindsSendAndReturn() {
+        UUID sourceId = createWarehouse("WH-ORD-S", "Order Source");
+        UUID destId = createWarehouse("WH-ORD-D", "Order Dest");
+        assign(sourceId);
+        assign(destId);
+        UUID sourceCell = createCell(sourceId, "OS-1");
+        createCell(destId, "OD-1");
+
+        bundle.api()
+                .receive(
+                        new ReceiptCommand(
+                                "ORD-MAT",
+                                "OrderSearchMat",
+                                "",
+                                "",
+                                "м",
+                                new BigDecimal("50"),
+                                sourceId,
+                                sourceCell));
+        UUID materialId = materialId("ORD-MAT");
+
+        TransferDocumentView draft =
+                bundle.api()
+                        .createTransferDocument(
+                                new CreateTransferDocumentCommand(
+                                        sourceId,
+                                        destId,
+                                        List.of(
+                                                new TransferDocumentLineInput(
+                                                        null,
+                                                        materialId,
+                                                        new BigDecimal("40"),
+                                                        1))));
+        UUID documentId = draft.documentId();
+        String orderNumber = "26106075";
+
+        TransferDocumentOrderReferenceQuery orderRefs =
+                new FixedTransferDocumentOrderReferenceQuery(Map.of(documentId, orderNumber));
+        bundle =
+                WarehouseIntegrationTestSupport.createApiBundle(
+                        dataSource,
+                        CLOCK,
+                        allowAllAuth(),
+                        fixedUser(USER),
+                        WarehouseIntegrationTestSupport.permitAllResponsibility(),
+                        orderRefs);
+
+        bundle.api()
+                .sendTransferDocument(
+                        new SendTransferDocumentCommand(
+                                documentId,
+                                documentVersion(documentId),
+                                draft.payloadRevision(),
+                                List.of(
+                                        new TransferDocumentSourceAllocationInput(
+                                                draft.lines().get(0).lineId(),
+                                                sourceCell,
+                                                new BigDecimal("40")))));
+        TransferDocumentView sent = bundle.api().getTransferDocument(documentId);
+        bundle.api()
+                .rejectTransferDocument(
+                        new RejectTransferDocumentCommand(
+                                sent.documentId(),
+                                sent.operationalRevision() == null
+                                        ? 0L
+                                        : sent.operationalRevision(),
+                                "возврат для поиска"));
+        TransferDocumentView rejected = bundle.api().getTransferDocument(documentId);
+        bundle.api()
+                .returnTransferMaterials(
+                        new ReturnTransferMaterialsCommand(
+                                rejected.documentId(),
+                                rejected.operationalRevision() == null
+                                        ? 1L
+                                        : rejected.operationalRevision(),
+                                List.of()));
+
+        WarehouseHistoryPage byOrder =
+                list(sourceId, FROM, TO_EXCLUSIVE, orderNumber, null, 0, 50);
+        assertTrue(byOrder.totalElements() >= 2);
+        assertTrue(
+                byOrder.content().stream()
+                        .anyMatch(e -> "TRANSFER_SEND".equals(e.operationType())));
+        assertTrue(
+                byOrder.content().stream()
+                        .anyMatch(e -> "TRANSFER_RETURN".equals(e.operationType())));
+        assertTrue(
+                byOrder.content().stream()
+                        .filter(
+                                e ->
+                                        "TRANSFER_SEND".equals(e.operationType())
+                                                || "TRANSFER_RETURN".equals(e.operationType()))
+                        .allMatch(e -> e.originOrderNumbers().contains(orderNumber)));
+
+        String transferNumber = byOrder.content().stream()
+                .filter(e -> "TRANSFER_SEND".equals(e.operationType()))
+                .map(WarehouseHistoryEntryView::documentNumber)
+                .findFirst()
+                .orElseThrow();
+        WarehouseHistoryPage byTransfer =
+                list(sourceId, FROM, TO_EXCLUSIVE, transferNumber, null, 0, 50);
+        assertTrue(byTransfer.totalElements() >= 1);
+        assertTrue(
+                byTransfer.content().stream()
+                        .anyMatch(e -> "TRANSFER_SEND".equals(e.operationType())));
+
+        WarehouseHistoryPage byMaterial =
+                list(sourceId, FROM, TO_EXCLUSIVE, "OrderSearchMat", null, 0, 50);
+        assertTrue(byMaterial.totalElements() >= 1);
+
+        assertEquals(
+                0,
+                list(sourceId, FROM, TO_EXCLUSIVE, "неттакогозаказа999", null, 0, 50)
+                        .totalElements());
     }
 
     @Test
@@ -946,5 +1068,51 @@ class WarehouseHistoryIntegrationTest {
                 return true;
             }
         };
+    }
+
+    /**
+     * Isolated fixture: maps transfer document ids to order numbers the same way composition does
+     * at runtime, without requiring OM/Production tables in the Warehouse IT schema.
+     */
+    private static final class FixedTransferDocumentOrderReferenceQuery
+            implements TransferDocumentOrderReferenceQuery {
+
+        private final Map<UUID, String> byDocumentId;
+
+        private FixedTransferDocumentOrderReferenceQuery(Map<UUID, String> byDocumentId) {
+            this.byDocumentId = Map.copyOf(byDocumentId);
+        }
+
+        @Override
+        public Map<UUID, String> findOrderNumbersByDocumentIds(Collection<UUID> documentIds) {
+            Map<UUID, String> result = new HashMap<>();
+            for (UUID documentId : documentIds) {
+                String order = byDocumentId.get(documentId);
+                if (order != null) {
+                    result.put(documentId, order);
+                }
+            }
+            return Map.copyOf(result);
+        }
+
+        @Override
+        public Map<UUID, String> findOrderNumbersByDemandIds(Collection<UUID> demandIds) {
+            return Map.of();
+        }
+
+        @Override
+        public Set<UUID> findDocumentIdsByOrderNumberSearch(String orderNumberSearch) {
+            if (orderNumberSearch == null || orderNumberSearch.isBlank()) {
+                return Set.of();
+            }
+            String needle = orderNumberSearch.trim().toLowerCase(Locale.ROOT);
+            Set<UUID> matched = new HashSet<>();
+            for (Map.Entry<UUID, String> entry : byDocumentId.entrySet()) {
+                if (entry.getValue().toLowerCase(Locale.ROOT).contains(needle)) {
+                    matched.add(entry.getKey());
+                }
+            }
+            return Set.copyOf(matched);
+        }
     }
 }

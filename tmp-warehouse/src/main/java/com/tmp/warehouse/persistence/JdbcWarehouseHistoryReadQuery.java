@@ -52,6 +52,7 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
             Instant toExclusive,
             String materialSearch,
             String operationType,
+            Collection<UUID> orderMatchedDocumentIds,
             int pageIndex,
             int pageSize) {
         Set<UUID> warehouses = distinctWarehouses(warehouseIds);
@@ -71,17 +72,25 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
 
         String searchPattern = toSearchPattern(materialSearch);
         String type = normalizeOperationType(operationType);
+        Set<UUID> orderMatchedDocs = distinctDocumentIds(orderMatchedDocumentIds);
         String placeholders = String.join(",", Collections.nCopies(warehouses.size(), "?"));
 
         StringBuilder sql = new StringBuilder();
         sql.append(aggregatedSelect())
                 .append(fromJoins())
-                .append(whereClause(placeholders, searchPattern, type))
+                .append(whereClause(placeholders, searchPattern, type, orderMatchedDocs.size()))
                 .append(groupByClause())
                 .append("ORDER BY occurred_at DESC, entry_id DESC ")
                 .append("LIMIT ? OFFSET ?");
 
-        List<Object> args = baseArgs(warehouses, fromInclusive, toExclusive, searchPattern, type);
+        List<Object> args =
+                baseArgs(
+                        warehouses,
+                        fromInclusive,
+                        toExclusive,
+                        searchPattern,
+                        type,
+                        orderMatchedDocs);
         args.add(pageSize);
         args.add((long) pageIndex * (long) pageSize);
         return jdbcTemplate.query(sql.toString(), ROW_MAPPER, args.toArray());
@@ -93,7 +102,8 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
             Instant fromInclusive,
             Instant toExclusive,
             String materialSearch,
-            String operationType) {
+            String operationType,
+            Collection<UUID> orderMatchedDocumentIds) {
         Set<UUID> warehouses = distinctWarehouses(warehouseIds);
         if (warehouses.isEmpty()) {
             return 0L;
@@ -110,6 +120,7 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
 
         String searchPattern = toSearchPattern(materialSearch);
         String type = normalizeOperationType(operationType);
+        Set<UUID> orderMatchedDocs = distinctDocumentIds(orderMatchedDocumentIds);
         String placeholders = String.join(",", Collections.nCopies(warehouses.size(), "?"));
 
         StringBuilder sql = new StringBuilder();
@@ -118,12 +129,19 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                 .append(logicalGroupKey())
                 .append(" AS logical_key ")
                 .append(fromJoins())
-                .append(whereClause(placeholders, searchPattern, type))
+                .append(whereClause(placeholders, searchPattern, type, orderMatchedDocs.size()))
                 .append("GROUP BY ")
                 .append(logicalGroupKey())
                 .append(") history_groups");
 
-        List<Object> args = baseArgs(warehouses, fromInclusive, toExclusive, searchPattern, type);
+        List<Object> args =
+                baseArgs(
+                        warehouses,
+                        fromInclusive,
+                        toExclusive,
+                        searchPattern,
+                        type,
+                        orderMatchedDocs);
         Long count = jdbcTemplate.queryForObject(sql.toString(), Long.class, args.toArray());
         return count == null ? 0L : count;
     }
@@ -309,6 +327,9 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                 LEFT JOIN warehouse.transfer_document_payload payload
                   ON payload.document_id = COALESCE(
                        send_alloc.document_id, recv_item.document_id, ret_item.document_id)
+                LEFT JOIN documents.documents transfer_doc
+                  ON transfer_doc.id = COALESCE(
+                       send_alloc.document_id, recv_item.document_id, ret_item.document_id)
                 LEFT JOIN warehouse.warehouses src_wh
                   ON src_wh.id = payload.source_warehouse_id
                 LEFT JOIN warehouse.warehouses dst_wh
@@ -346,7 +367,8 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                 """;
     }
 
-    private static String whereClause(String placeholders, String searchPattern, String type) {
+    private static String whereClause(
+            String placeholders, String searchPattern, String type, int orderMatchedDocumentCount) {
         StringBuilder sql = new StringBuilder();
         sql.append("WHERE wo.status = ? ")
                 .append("AND wo.operation_type <> ? ")
@@ -357,7 +379,20 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
                 .append("AND wo.updated_at < ? ");
         if (searchPattern != null) {
             sql.append("AND (LOWER(mr.article) LIKE ? ESCAPE '\\' ")
-                    .append("OR LOWER(mr.name) LIKE ? ESCAPE '\\') ");
+                    .append("OR LOWER(mr.name) LIKE ? ESCAPE '\\' ")
+                    .append("OR LOWER(COALESCE(transfer_doc.document_number, '')) LIKE ? ESCAPE '\\' ")
+                    .append("OR LOWER(COALESCE(wo.origin_document_number, '')) LIKE ? ESCAPE '\\' ")
+                    .append("OR LOWER(COALESCE(wo.origin_order_numbers, '')) LIKE ? ESCAPE '\\'");
+            if (orderMatchedDocumentCount > 0) {
+                sql.append(
+                                " OR COALESCE("
+                                        + "send_alloc.document_id, "
+                                        + "recv_item.document_id, "
+                                        + "ret_item.document_id) IN (")
+                        .append(String.join(",", Collections.nCopies(orderMatchedDocumentCount, "?")))
+                        .append(')');
+            }
+            sql.append(") ");
         }
         if (type != null) {
             sql.append("AND wo.operation_type = ? ");
@@ -397,7 +432,8 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
             Instant fromInclusive,
             Instant toExclusive,
             String searchPattern,
-            String type) {
+            String type,
+            Set<UUID> orderMatchedDocs) {
         List<Object> args = new ArrayList<>();
         args.add(WarehouseOperationStatus.COMPLETED.name());
         args.add(WarehouseOperationType.RESERVATION.name());
@@ -407,11 +443,30 @@ public final class JdbcWarehouseHistoryReadQuery implements WarehouseHistoryRead
         if (searchPattern != null) {
             args.add(searchPattern);
             args.add(searchPattern);
+            args.add(searchPattern);
+            args.add(searchPattern);
+            args.add(searchPattern);
+            if (!orderMatchedDocs.isEmpty()) {
+                args.addAll(orderMatchedDocs);
+            }
         }
         if (type != null) {
             args.add(type);
         }
         return args;
+    }
+
+    private static Set<UUID> distinctDocumentIds(Collection<UUID> documentIds) {
+        if (documentIds == null || documentIds.isEmpty()) {
+            return Set.of();
+        }
+        LinkedHashSet<UUID> distinct = new LinkedHashSet<>();
+        for (UUID id : documentIds) {
+            if (id != null) {
+                distinct.add(id);
+            }
+        }
+        return distinct;
     }
 
     private static void validatePage(int pageIndex, int pageSize) {

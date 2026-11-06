@@ -23,6 +23,9 @@ import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentDestinationAllocationInput;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentLineInput;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentLineView;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentPrintPlannedCellAllocation;
+import com.tmp.warehouse.api.WarehouseApi.TransferPrintDocumentKind;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentPrintView;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReceiveResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentRejectResult;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnAllocationInput;
@@ -194,6 +197,9 @@ public final class WarehouseWorkspaceViewModel {
     public static final class HistoryRow {
 
         private final UUID entryId;
+        private final UUID documentId;
+        private final String operationType;
+        private final Instant occurredAt;
         private final String occurredAtText;
         private final String operationLabel;
         private final String articleText;
@@ -204,6 +210,7 @@ public final class WarehouseWorkspaceViewModel {
         private final String quantityText;
         private final String sourceText;
         private final String destinationText;
+        private final String orderText;
         private final String originText;
         private final String documentText;
         private final String actorText;
@@ -211,6 +218,9 @@ public final class WarehouseWorkspaceViewModel {
 
         HistoryRow(
                 UUID entryId,
+                UUID documentId,
+                String operationType,
+                Instant occurredAt,
                 String occurredAtText,
                 String operationLabel,
                 String articleText,
@@ -221,11 +231,15 @@ public final class WarehouseWorkspaceViewModel {
                 String quantityText,
                 String sourceText,
                 String destinationText,
+                String orderText,
                 String originText,
                 String documentText,
                 String actorText,
                 String commentText) {
             this.entryId = Objects.requireNonNull(entryId, "entryId");
+            this.documentId = documentId;
+            this.operationType = operationType == null ? "" : operationType;
+            this.occurredAt = Objects.requireNonNull(occurredAt, "occurredAt");
             this.occurredAtText = occurredAtText;
             this.operationLabel = operationLabel;
             this.articleText = articleText;
@@ -236,6 +250,7 @@ public final class WarehouseWorkspaceViewModel {
             this.quantityText = quantityText;
             this.sourceText = sourceText;
             this.destinationText = destinationText;
+            this.orderText = orderText;
             this.originText = originText;
             this.documentText = documentText;
             this.actorText = actorText;
@@ -245,6 +260,9 @@ public final class WarehouseWorkspaceViewModel {
         static HistoryRow from(WarehouseHistoryEntryView view, boolean allWarehousesMode) {
             return new HistoryRow(
                     view.entryId(),
+                    view.documentId(),
+                    view.operationType(),
+                    view.occurredAt(),
                     DateTimePresentation.format(view.occurredAt()),
                     view.operationDisplayName(),
                     blankDash(view.materialArticle()),
@@ -261,15 +279,57 @@ public final class WarehouseWorkspaceViewModel {
                             view.destinationWarehouseName(),
                             view.destinationCellCode(),
                             allWarehousesMode),
+                    formatHistoryOrders(view),
                     formatHistoryOrigin(view),
                     blankDash(view.documentNumber()),
                     blankDash(view.actorDisplayName()),
                     view.comment());
         }
 
+        public UUID documentId() {
+            return documentId;
+        }
+
+        public String operationType() {
+            return operationType;
+        }
+
+        public Instant occurredAt() {
+            return occurredAt;
+        }
+
+        public boolean hasTransferDocument() {
+            return documentId != null
+                    && ("TRANSFER_SEND".equals(operationType)
+                            || "TRANSFER_RECEIVE".equals(operationType)
+                            || "TRANSFER_RETURN".equals(operationType));
+        }
+
         /**
-         * Formats the History «Основание» column. Production Release consumption shows order +
-         * release number; other operations show an existing document number when present.
+         * Approved printable history operations only: SEND (picking) and RETURN. Receiving has no
+         * printable document.
+         */
+        public boolean hasPrintableTransferDocument() {
+            return documentId != null
+                    && ("TRANSFER_SEND".equals(operationType)
+                            || "TRANSFER_RETURN".equals(operationType));
+        }
+
+        /**
+         * Formats the History «Заказ» column from persisted or composition-resolved order numbers.
+         */
+        static String formatHistoryOrders(WarehouseHistoryEntryView view) {
+            Objects.requireNonNull(view, "view");
+            List<String> orderNumbers = view.originOrderNumbers();
+            if (orderNumbers == null || orderNumbers.isEmpty()) {
+                return "—";
+            }
+            return String.join(", ", orderNumbers);
+        }
+
+        /**
+         * Formats the History «Основание» column with document information only. Order numbers are
+         * shown in the separate «Заказ» column.
          */
         static String formatHistoryOrigin(WarehouseHistoryEntryView view) {
             Objects.requireNonNull(view, "view");
@@ -277,12 +337,9 @@ public final class WarehouseWorkspaceViewModel {
             String documentNumber = view.documentNumber();
             boolean hasDocument =
                     documentNumber != null && !documentNumber.isBlank();
-            if (orderNumbers != null && !orderNumbers.isEmpty() && hasDocument) {
-                String orderPart =
-                        orderNumbers.size() == 1
-                                ? "Заказ " + orderNumbers.getFirst()
-                                : "Заказы " + String.join(", ", orderNumbers);
-                return orderPart + " · Выпуск " + documentNumber.trim();
+            boolean hasOrders = orderNumbers != null && !orderNumbers.isEmpty();
+            if (hasDocument && hasOrders && "CONSUMPTION".equals(view.operationType())) {
+                return "Выпуск " + documentNumber.trim();
             }
             if (hasDocument) {
                 return documentNumber.trim();
@@ -332,6 +389,10 @@ public final class WarehouseWorkspaceViewModel {
 
         public String destinationText() {
             return destinationText;
+        }
+
+        public String orderText() {
+            return orderText;
         }
 
         public String originText() {
@@ -1128,6 +1189,7 @@ public final class WarehouseWorkspaceViewModel {
     private final BooleanProperty canConsumption = new SimpleBooleanProperty(false);
     private final BooleanProperty canAdjustment = new SimpleBooleanProperty(false);
     private final BooleanProperty canTakeSelectedTaskInWork = new SimpleBooleanProperty(false);
+    private final BooleanProperty canPrintSelectedTask = new SimpleBooleanProperty(false);
     private final BooleanProperty taskActionEditorsEnabled = new SimpleBooleanProperty(false);
     private final BooleanProperty canSendSelectedTask = new SimpleBooleanProperty(false);
     private final BooleanProperty canReceiveSelectedTask = new SimpleBooleanProperty(false);
@@ -2125,6 +2187,97 @@ public final class WarehouseWorkspaceViewModel {
         return canTakeSelectedTaskInWork;
     }
 
+    public BooleanProperty canPrintSelectedTaskProperty() {
+        return canPrintSelectedTask;
+    }
+
+    /**
+     * Builds a read-only print model for the open TRANSFER_PREPARATION or RETURN_MATERIALS dialog
+     * using current UI cell selections (planned, not persisted).
+     */
+    public TransferDocumentPrintView loadActiveTaskPrintModel() {
+        TaskRow row = selectedTask.get();
+        TransferDocumentView document = loadedDocument;
+        if (row == null || document == null) {
+            throw new IllegalStateException("Active task print requires an open task dialog");
+        }
+        return switch (row.taskKind()) {
+            case TRANSFER_PREPARATION ->
+                    warehouseApi.getTransferDocumentPrintModel(
+                            document.documentId(),
+                            TransferPrintDocumentKind.TRANSFER_PICKING,
+                            buildPlannedPrintAllocations());
+            case RETURN_MATERIALS ->
+                    warehouseApi.getTransferDocumentPrintModel(
+                            document.documentId(),
+                            TransferPrintDocumentKind.MATERIAL_RETURN,
+                            buildPlannedReturnPrintAllocations());
+            default ->
+                    throw new IllegalStateException(
+                            "Print is not available for task kind: " + row.taskKind());
+        };
+    }
+
+    /** @deprecated Use {@link #loadActiveTaskPrintModel()}. */
+    @Deprecated
+    public TransferDocumentPrintView loadPreparationPrintModel() {
+        return loadActiveTaskPrintModel();
+    }
+
+    /**
+     * Loads a read-only print model for history SEND (picking) or RETURN. Receiving is not
+     * printable.
+     */
+    public TransferDocumentPrintView loadHistoryPrintModel(HistoryRow historyRow) {
+        Objects.requireNonNull(historyRow, "historyRow");
+        if (!historyRow.hasPrintableTransferDocument()) {
+            throw new IllegalStateException(
+                    "History row has no printable transfer document: "
+                            + historyRow.operationType());
+        }
+        TransferPrintDocumentKind kind =
+                "TRANSFER_RETURN".equals(historyRow.operationType())
+                        ? TransferPrintDocumentKind.MATERIAL_RETURN
+                        : TransferPrintDocumentKind.TRANSFER_PICKING;
+        return warehouseApi
+                .getTransferDocumentPrintModel(historyRow.documentId(), kind, List.of())
+                .withOperationOccurredAt(historyRow.occurredAt());
+    }
+
+    List<TransferDocumentPrintPlannedCellAllocation> buildPlannedPrintAllocations() {
+        List<TransferDocumentPrintPlannedCellAllocation> planned = new ArrayList<>();
+        for (ActionEditRow row : actionLines) {
+            if (!(row instanceof SourceAllocationEditRow source)) {
+                continue;
+            }
+            StorageCellChoice cell = source.storageCellProperty().get();
+            BigDecimal qty = parsePositiveQuantity(source.quantityTextProperty().get());
+            if (qty == null) {
+                qty = source.requiredQuantity();
+            }
+            planned.add(
+                    new TransferDocumentPrintPlannedCellAllocation(
+                            source.lineId(), cell == null ? null : cell.id(), qty));
+        }
+        return List.copyOf(planned);
+    }
+
+    List<TransferDocumentPrintPlannedCellAllocation> buildPlannedReturnPrintAllocations() {
+        List<TransferDocumentPrintPlannedCellAllocation> planned = new ArrayList<>();
+        for (ActionEditRow row : actionLines) {
+            if (!(row instanceof ReturnAllocationEditRow ret)) {
+                continue;
+            }
+            StorageCellChoice cell = ret.storageCellProperty().get();
+            planned.add(
+                    new TransferDocumentPrintPlannedCellAllocation(
+                            ret.lineId(),
+                            cell == null ? ret.defaultReturnStorageCellId() : cell.id(),
+                            ret.outstandingQuantity()));
+        }
+        return List.copyOf(planned);
+    }
+
     /**
      * Cell / quantity editors in the task dialog are enabled only after Take (IN_WORK). NEW remains
      * read-only.
@@ -2774,6 +2927,16 @@ public final class WarehouseWorkspaceViewModel {
                         && !busy
                         && (isNew || (supply && assignedToOther));
         canTakeSelectedTaskInWork.set(takeEligible);
+        canPrintSelectedTask.set(
+                canView.get()
+                        && row != null
+                        && !busy
+                        && !supply
+                        && inWork
+                        && assignedToMe
+                        && loadedDocument != null
+                        && (row.taskKind() == WarehouseTaskKind.TRANSFER_PREPARATION
+                                || row.taskKind() == WarehouseTaskKind.RETURN_MATERIALS));
         taskActionEditorsEnabled.set(
                 canTransfer.get() && row != null && inWork && !busy && !supply);
         canSendSelectedTask.set(

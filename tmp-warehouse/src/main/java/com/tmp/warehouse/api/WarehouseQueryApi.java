@@ -9,6 +9,9 @@ import com.tmp.warehouse.api.WarehouseApi.MaterialSourceRoutingResult;
 import com.tmp.warehouse.api.WarehouseApi.ReservationLinkView;
 import com.tmp.warehouse.api.WarehouseApi.StockView;
 import com.tmp.warehouse.api.WarehouseApi.StorageCellView;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentPrintPlannedCellAllocation;
+import com.tmp.warehouse.api.WarehouseApi.TransferDocumentPrintView;
+import com.tmp.warehouse.api.WarehouseApi.TransferPrintDocumentKind;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentReturnPlanItem;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentSourceSuggestionLine;
 import com.tmp.warehouse.api.WarehouseApi.TransferDocumentView;
@@ -98,6 +101,28 @@ public interface WarehouseQueryApi {
      * payload). Does not mutate stock.
      */
     TransferDocumentView getTransferDocument(UUID documentId);
+
+    /**
+     * Read-only print projection for an approved Warehouse print document kind.
+     *
+     * <ul>
+     *   <li>{@link TransferPrintDocumentKind#TRANSFER_PICKING} — planned UI source cells or
+     *       persisted send allocations
+     *   <li>{@link TransferPrintDocumentKind#MATERIAL_RETURN} — planned UI return cells or
+     *       persisted return settlement items
+     * </ul>
+     *
+     * Receiving has no printable form. Does not mutate stock, tasks or documents.
+     *
+     * @param plannedCellAllocations used only for planned/active prints; ignored for confirmed
+     *     historical reprints based on persisted allocations
+     */
+    default TransferDocumentPrintView getTransferDocumentPrintModel(
+            UUID documentId,
+            TransferPrintDocumentKind documentKind,
+            List<TransferDocumentPrintPlannedCellAllocation> plannedCellAllocations) {
+        throw new UnsupportedOperationException("getTransferDocumentPrintModel is not available");
+    }
 
     /**
      * Suggests source-cell allocations for a Transfer Document whose source warehouse is already

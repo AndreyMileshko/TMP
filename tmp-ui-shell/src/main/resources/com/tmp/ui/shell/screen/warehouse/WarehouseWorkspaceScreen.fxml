@@ -61,7 +61,7 @@
                 <DatePicker fx:id="historyFromDatePicker" prefWidth="140"/>
                 <Label text="—"/>
                 <DatePicker fx:id="historyToDatePicker" prefWidth="140"/>
-                <TextField fx:id="historySearchField" promptText="Поиск по материалу..." prefWidth="240"/>
+                <TextField fx:id="historySearchField" promptText="Поиск: материал, документ, заказ..." prefWidth="280"/>
                 <Button fx:id="historySearchButton" text="Найти" styleClass="tmp-button-secondary"/>
                 <ComboBox fx:id="historyOperationCombo" prefWidth="180"/>
                 <Button fx:id="historyRefreshButton" text="Обновить" styleClass="tmp-button-secondary"/>
@@ -80,7 +80,8 @@
                         <TableColumn fx:id="historyUnitColumn" text="Ед." prefWidth="60" minWidth="55"/>
                         <TableColumn fx:id="historySourceColumn" text="Откуда" prefWidth="160" minWidth="140"/>
                         <TableColumn fx:id="historyDestinationColumn" text="Куда" prefWidth="160" minWidth="140"/>
-                        <TableColumn fx:id="historyOriginColumn" text="Основание" prefWidth="220" minWidth="160"/>
+                        <TableColumn fx:id="historyOrderColumn" text="Заказ" prefWidth="140" minWidth="110"/>
+                        <TableColumn fx:id="historyOriginColumn" text="Основание" prefWidth="200" minWidth="150"/>
                         <TableColumn fx:id="historyActorColumn" text="Пользователь" prefWidth="110" minWidth="90"/>
                     </columns>
                 </TableView>

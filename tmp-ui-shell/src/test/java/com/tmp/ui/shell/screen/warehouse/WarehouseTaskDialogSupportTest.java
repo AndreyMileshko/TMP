@@ -187,11 +187,13 @@ class WarehouseTaskDialogSupportTest {
                                         canReject,
                                         canReturn,
                                         canPrepare,
+                                        new SimpleBooleanProperty(false),
                                         loading,
                                         () -> {},
                                         () -> {},
                                         () -> {},
                                         (reason, resupply) -> {},
+                                        () -> {},
                                         () -> {},
                                         () -> {});
 
@@ -281,10 +283,12 @@ class WarehouseTaskDialogSupportTest {
                                     new SimpleBooleanProperty(false),
                                     new SimpleBooleanProperty(false),
                                     new SimpleBooleanProperty(false),
+                                    new SimpleBooleanProperty(false),
                                     () -> {},
                                     () -> {},
                                     () -> {},
                                     (reason, resupply) -> {},
+                                    () -> {},
                                     () -> {},
                                     () -> {});
                     TableView<ActionEditRow> table = session.table();
@@ -354,11 +358,13 @@ class WarehouseTaskDialogSupportTest {
                                     canReject,
                                     canReturn,
                                     canPrepare,
+                                    new SimpleBooleanProperty(false),
                                     loading,
                                     () -> {},
                                     () -> {},
                                     () -> {},
                                     (reason, resupply) -> {},
+                                    () -> {},
                                     () -> {},
                                     () -> {});
 
@@ -504,10 +510,12 @@ class WarehouseTaskDialogSupportTest {
                                     new SimpleBooleanProperty(false),
                                     new SimpleBooleanProperty(false),
                                     new SimpleBooleanProperty(false),
+                                    new SimpleBooleanProperty(false),
                                     () -> {},
                                     () -> {},
                                     () -> {},
                                     (reason, resupply) -> {},
+                                    () -> {},
                                     () -> {},
                                     () -> {});
                     TableView<ActionEditRow> table = session.table();

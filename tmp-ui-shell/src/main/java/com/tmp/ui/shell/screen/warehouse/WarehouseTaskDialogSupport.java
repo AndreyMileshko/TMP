@@ -45,6 +45,7 @@ public final class WarehouseTaskDialogSupport {
     public static final String TITLE = "Задача склада";
     public static final String CLOSE_BUTTON = "Закрыть";
     public static final String TAKE_BUTTON = "Взять в работу";
+    public static final String PRINT_BUTTON = "Печать";
     public static final String SEND_BUTTON = "Передать";
     public static final String RECEIVE_BUTTON = "Принять";
     public static final String REJECT_BUTTON = "Отклонить";
@@ -158,19 +159,23 @@ public final class WarehouseTaskDialogSupport {
             BooleanProperty canReject,
             BooleanProperty canReturn,
             BooleanProperty canPrepare,
+            BooleanProperty canPrint,
             BooleanProperty detailLoading,
             Runnable onTake,
             Runnable onSend,
             Runnable onReceive,
             java.util.function.BiConsumer<String, Boolean> onReject,
             Runnable onReturn,
-            Runnable onPrepare) {
+            Runnable onPrepare,
+            Runnable onPrint) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(actionLines, "actionLines");
         Objects.requireNonNull(cellChoices, "cellChoices");
         Objects.requireNonNull(editorsEnabled, "editorsEnabled");
         Objects.requireNonNull(canPrepare, "canPrepare");
+        Objects.requireNonNull(canPrint, "canPrint");
         Objects.requireNonNull(onPrepare, "onPrepare");
+        Objects.requireNonNull(onPrint, "onPrint");
 
         boolean supply = task.taskKind() == WarehouseTaskKind.PRODUCTION_MATERIAL_SUPPLY;
 
@@ -237,6 +242,13 @@ public final class WarehouseTaskDialogSupport {
         takeButton.managedProperty().bind(canTake);
         takeButton.setOnAction(e -> onTake.run());
 
+        Button printButton = new Button(PRINT_BUTTON);
+        printButton.getStyleClass().add("tmp-button-secondary");
+        printButton.disableProperty().bind(canPrint.not());
+        printButton.visibleProperty().bind(canPrint);
+        printButton.managedProperty().bind(canPrint);
+        printButton.setOnAction(e -> onPrint.run());
+
         Button prepareButton = new Button(PREPARE_BUTTON);
         prepareButton.getStyleClass().add("tmp-button-primary");
         prepareButton.disableProperty().bind(canPrepare.not());
@@ -280,6 +292,7 @@ public final class WarehouseTaskDialogSupport {
                 new HBox(
                         8,
                         takeButton,
+                        printButton,
                         prepareButton,
                         sendButton,
                         receiveButton,

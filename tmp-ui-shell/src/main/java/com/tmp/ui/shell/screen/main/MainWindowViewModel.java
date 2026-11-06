@@ -16,16 +16,17 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.Parent;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"}, justification = "JavaFX ViewModel/Controller intentionally expose observable properties and retain ViewModel for FXML wiring")
 /**
@@ -51,6 +52,8 @@ public final class MainWindowViewModel {
     };
     private Consumer<String> onSidebarScreen = screenId -> {
     };
+    private ChangeListener<NavigationItem> boundSelectedNavigationListener;
+    private ChangeListener<Parent> boundContentListener;
     private UserId lastUserId;
 
     public MainWindowViewModel(
@@ -75,6 +78,30 @@ public final class MainWindowViewModel {
 
     public void setOnSidebarScreen(Consumer<String> onSidebarScreen) {
         this.onSidebarScreen = Objects.requireNonNull(onSidebarScreen, "onSidebarScreen");
+    }
+
+    /**
+     * Replaces the single MainWindow content-area listener so repeated login does not stack
+     * listeners from previous controller instances on this singleton ViewModel.
+     */
+    public void bindContentListener(ChangeListener<Parent> listener) {
+        if (boundContentListener != null) {
+            content.removeListener(boundContentListener);
+        }
+        boundContentListener = Objects.requireNonNull(listener, "listener");
+        content.addListener(boundContentListener);
+    }
+
+    /**
+     * Replaces the single MainWindow selection listener for the same reason as
+     * {@link #bindContentListener(ChangeListener)}.
+     */
+    public void bindSelectedNavigationListener(ChangeListener<NavigationItem> listener) {
+        if (boundSelectedNavigationListener != null) {
+            selectedNavigation.removeListener(boundSelectedNavigationListener);
+        }
+        boundSelectedNavigationListener = Objects.requireNonNull(listener, "listener");
+        selectedNavigation.addListener(boundSelectedNavigationListener);
     }
 
     public void showAccessDenied(String message) {
@@ -109,9 +136,8 @@ public final class MainWindowViewModel {
     public void refreshShellState() {
         UserId current = authenticationService.currentSession().map(SessionSummary::userId).orElse(null);
         if (!Objects.equals(current, lastUserId)) {
-            history.clear();
+            clearSessionUiState();
             lastUserId = current;
-            updateHistoryFlags();
         }
         refreshCurrentUser();
         refreshNavigation();
@@ -188,15 +214,25 @@ public final class MainWindowViewModel {
     }
 
     public void logout() {
-        history.clear();
+        clearSessionUiState();
         lastUserId = null;
-        updateHistoryFlags();
         authenticationService.logout();
         afterLogout.run();
     }
 
     ShellNavigationHistory historyForTest() {
         return history;
+    }
+
+    /**
+     * Drops prior-session navigation selection, loaded content and history so a new MainWindow
+     * after re-login cannot reuse a detached Parent or skip reload for a stale selected nav id.
+     */
+    private void clearSessionUiState() {
+        history.clear();
+        selectedNavigation.set(null);
+        content.set(null);
+        updateHistoryFlags();
     }
 
     private void apply(ShellHistoryEntry entry) {

@@ -2,6 +2,72 @@
 
 ## Latest result
 
+**Date:** 2026-11-06
+**Scope:** Warehouse print A4 landscape MediaBox corrective (P1)
+**Overall:** CODE/PACKAGE PASS — **manual PDF MediaBox acceptance PENDING** (do not claim landscape PASS until user PDF verified)
+**Base HEAD:** `f391aaed86874a3c54bbb41d8a5679d316c8a0d9`
+**Working tree:** dirty (prior print/History/session + MediaBox fix); **no commit / no push**
+
+### Focused tests
+| Suite | Result |
+|-------|--------|
+| `WarehouseTransferPrintDialogPathTest` (15: dialog, landscape require, PDF export MediaBox, cancel, switch printer, seven headers) | PASS |
+| `WarehouseTransferPrintSupportTest` (6) | PASS |
+| `WarehouseTransferPrintPaginationTest` (5) | PASS |
+| Combined focused print UI | PASS (26) |
+
+### Static analysis
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-ui-shell -am verify -DskipTests` | BUILD SUCCESS |
+| Checkstyle / SpotBugs | 0 / 0 |
+
+### Package / Pilot
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-ui-shell clean install -DskipTests` then bootstrap `pre-integration-test -Ppackage -DskipTests` | BUILD SUCCESS |
+| Packaged `tmp-ui-shell` contains `WarehouseTransferLandscapePdfExport` | YES (867310 bytes) |
+| `dist/jpackage/TMP/TMP.exe` | PRESENT (453632 bytes; 2026-11-06 09:06:50) |
+| Pilot `tmp_pilot` Flyway | **V57** (read-only; docker exec) |
+| Manual PDF MediaBox 841.89×595.28 | **PENDING user** |
+
+### Automated PDF MediaBox evidence
+Dialog-path PDF export tests assert `/MediaBox [0 0 841.89 595.28]` (Paper.A4 height×width). Not a substitute for packaged-app manual acceptance.
+
+---
+## Previous result
+
+**Date:** 2026-11-05
+**Scope:** Warehouse History search by order + History «Заказ» column + print «Количество» / date labels
+**Overall:** PASS
+**Base HEAD:** `f391aaed86874a3c54bbb41d8a5679d316c8a0d9`
+**Working tree:** dirty (prior print/session changes + this corrective); **no commit / no push**
+
+### Focused tests
+| Suite | Result |
+|-------|--------|
+| `WarehouseHistoryIntegrationTest` (8, incl. order-number search fixture) | PASS |
+| `TransferDocumentPrintAssemblerTest` (5) | PASS |
+| UI History/print tests (`OriginFormat`, `HistoryJitter`, print support/dialog/pagination, document-id) | PASS (27) |
+| `CompositionTransferDocumentOrderReferenceQueryTest` | PASS |
+
+### Static analysis
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-warehouse,:tmp-ui-shell,:tmp-bootstrap-app -am verify -DskipTests` | BUILD SUCCESS |
+| Checkstyle / SpotBugs on changed modules | 0 violations / 0 bugs |
+
+### Package / Pilot
+| Check | Result |
+|-------|--------|
+| `mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests` | BUILD SUCCESS |
+| Artifact `dist/jpackage/TMP/TMP.exe` | PRESENT (453632 bytes; 2026-11-05 16:54:10) |
+| Pilot `tmp_pilot` Flyway | **V57** (read-only; no writes this pass) |
+| Pilot row counts (read-only) | demands=13, ops=182, stock_positions=78 |
+
+---
+## Previous result
+
 **Date:** 2026-11-02
 **Scope:** Warehouse Optional Resupply Waiver + Direct Pilot V57
 **Overall:** PASS

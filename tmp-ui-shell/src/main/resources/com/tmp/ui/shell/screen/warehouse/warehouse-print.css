@@ -1,0 +1,69 @@
+.tmp-warehouse-print-root {
+    -fx-background-color: white;
+    -fx-padding: 8;
+}
+
+.tmp-warehouse-print-company {
+    -fx-text-fill: black;
+    -fx-font-weight: bold;
+}
+
+.tmp-warehouse-print-heading {
+    -fx-text-fill: black;
+    -fx-font-weight: bold;
+}
+
+.tmp-warehouse-print-meta {
+    -fx-text-fill: black;
+}
+
+.tmp-warehouse-print-note {
+    -fx-text-fill: black;
+}
+
+.tmp-warehouse-print-table {
+    -fx-background-color: white;
+    -fx-hgap: 0;
+    -fx-vgap: 0;
+    -fx-border-color: black;
+    -fx-border-width: 1;
+    -fx-border-style: solid;
+    -fx-padding: 0;
+}
+
+.tmp-warehouse-print-table-header {
+    -fx-background-color: white;
+    -fx-text-fill: black;
+    -fx-font-weight: bold;
+    -fx-alignment: center;
+    -fx-border-color: black;
+    -fx-border-width: 0 0.5 0.5 0;
+    -fx-border-style: solid;
+    -fx-padding: 3 4 3 4;
+}
+
+.tmp-warehouse-print-cell {
+    -fx-background-color: white;
+    -fx-text-fill: black;
+    -fx-border-color: black;
+    -fx-border-width: 0 0.5 0.5 0;
+    -fx-border-style: solid;
+    -fx-padding: 3 4 3 4;
+}
+
+.tmp-warehouse-print-cell-first-col {
+    -fx-border-width: 0 0.5 0.5 0.5;
+}
+
+.tmp-warehouse-print-cell-last-row {
+    -fx-border-width: 0 0.5 0.5 0;
+}
+
+.tmp-warehouse-print-footer {
+    -fx-padding: 14 0 0 0;
+    -fx-text-fill: black;
+}
+
+.tmp-warehouse-print-signature {
+    -fx-text-fill: black;
+}
