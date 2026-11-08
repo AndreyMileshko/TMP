@@ -267,6 +267,27 @@ Read only:
 
 ---
 
+# Reference Data / Colors Context (COL track)
+
+Основные документы (минимальный набор):
+
+- `docs/development-control/stages/STAGE-COL-REFERENCE-DATA-COLORS.md`;
+- `docs/TMP/TMP_Initial_Documents/architecture/Reference book/Colors/TMP-Reference-Data-Colors-Specification.md` (TMP-SPEC-015 **v1.0**) — разделы, указанные в задаче;
+- `docs/TMP/TMP_Initial_Documents/architecture/Reference book/Colors/TMP-Colors-Implementation-Plan.md` (**v1.0**) — §4 и раздел текущей задачи в §5;
+- ADR-039 (только этот ADR; при необходимости ADR-032 §4, ADR-038 п.6);
+- `COL-000-Architecture-Audit.md` — только разделы со ссылками на код текущей задачи (файл в кодировке UTF-16LE);
+- Database Specification — только §3–§5, §10, §11 (задачи схемы / persistence);
+- Security Specification — только для COL-023 и проверок прав;
+- TMP UI Standard — только разделы, перечисленные в UI-задаче.
+
+### Правила загрузки
+
+1. Код Order Management — только `com.tmp.order.api.imports` и файлы, прямо перечисленные в задаче (COL-040A / COL-040B / COL-041B).
+2. Код Warehouse / Production — только тесты и публичные контракты в COL-050A / COL-050B.
+3. Не загружать полную реализацию Document Engine, Security, Warehouse, Production.
+
+---
+
 # Stage 9 — Analytics Context
 
 Основные документы:

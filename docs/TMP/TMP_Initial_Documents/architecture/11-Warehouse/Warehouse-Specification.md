@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-011  
 **Status:** Accepted  
-**Version:** 1.19
+**Version:** 1.20
 
 ---
 
@@ -98,6 +98,8 @@ TMP:                         "VEKA 103.211 WHITE"
 - Warehouse не отвечает за сопоставление;
 - сопоставление не является складской операцией;
 - отсутствие сопоставления не блокирует импорт.
+
+Каталог цветов TMP и сопоставление цветов СО7 принадлежат Capability Reference Data (ADR-039, TMP-SPEC-015). Warehouse не читает каталог цветов и не зависит от Reference Data; цвет в материальной идентичности остаётся итоговой строкой спецификации, сравнение — точное (после `trim`), без изменений. Справочные и разовые цвета проходят приёмку, Demand, перемещения и историю одинаково, без дополнительных складских шагов.
 
 **Запрещено** вводить постоянную конфигурацию:
 
@@ -388,7 +390,7 @@ Warehouse Demand — отдельный Warehouse-owned aggregate относит
 - Status / `receivedQuantity` **не** persistятся как source of truth; future statuses derived. Terminal whole-Demand cancellation metadata — только на header (`cancelledAt` / `cancelledBy`).
 - `waitingReason` — attribute на line (`MATERIAL_UNMATCHED` / `MATERIAL_AMBIGUOUS` / `NO_AVAILABLE_STOCK` / `ROUTING_DEFERRED`), не business status.
 - Demand line ↔ Transfer line links: 0..N; duplicate link к одному Transfer line запрещён.
-- Нет Material Catalog / Color Catalog / Procurement / нового reference-data subsystem.
+- Нет Material Catalog / Color Catalog / Procurement / нового reference-data subsystem **в составе Warehouse**. Каталог цветов Reference Data (ADR-039) находится вне Warehouse; Warehouse его не использует.
 
 Foundation (B3B-1) не подключает Production Submit, не создаёт Transfer из Demand и не меняет receive/routing/cancellation flows.
 
@@ -744,3 +746,4 @@ Warehouse выполняет только складскую часть опер
 | 1.17 | B3-MA-FIX1: Transfer read model resolves MaterialReference article/name/UoM (never UUID as article); Warehouse Tasks order column via Demand/Demand-link composition (cross-order compose); UI action «Создать перемещение» + result messages; no migration. |
 | 1.18 | P1-4: durable opaque Consumption origin on Warehouse operations (V55); History «Основание»; Production supplies order number(s) + Release identity via public consume API; no cross-module FK; legacy rows show «—». |
 | 1.19 | Optional resupply waiver after full Transfer receipt reject: checkbox default CHECKED; UNCHECKED waives only rejected-Transfer linked quantities; `remaining = required − received − waived`; derived `RESUPPLY_WAIVED`; ledger SoT; reject-TX atomic with return separate; no Production coverage / no new permission (ADR-038 amendment). |
+| 1.20 | COL-005 / ADR-039: §4 и §15.1.1 уточнены — каталог цветов и сопоставление цветов СО7 принадлежат Reference Data; запрет Color Catalog относится к Warehouse; Warehouse не зависит от Reference Data; точное сравнение цвета без изменений. Без изменения поведения Warehouse. |

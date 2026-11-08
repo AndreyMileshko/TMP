@@ -7,6 +7,7 @@
 **UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.14 COMPLETE; **3.5.15 IN PROGRESS** — Final Regression & Checkpoint PASS 2026-09-28; awaiting manual confirmation; Write-off deferred)
 **Current Task:** Warehouse print A4 landscape P1 MediaBox fix CODE DONE (2026-11-06); manual PDF acceptance PENDING (verify MediaBox 841.89×595.28 via Microsoft Print to PDF path); prior History/reject/Demand / P1-4 / B3-MA-13-02-FIX1 / 3.5.15 acceptance still PENDING
 **Last completed task:** Warehouse Print A4 Landscape MediaBox corrective (PDF-printer export) (2026-11-06) PASS focused/package; no commit
+**Reference Data / Colors (COL track):** **COL-005 DONE** (2026-11-08, documentation only) — ADR-039 Accepted; TMP-SPEC-015 v1.0 Accepted; Implementation Plan v1.0 (19 tasks); Stage Manifest `stages/STAGE-COL-REFERENCE-DATA-COLORS.md` Start Gate PASSED; **COL-010 READY** (start on explicit user command); V58/V59 reserved; no code / migration / DB change; no commit
 **Pilot DB:** `tmp_pilot` Flyway **V57** (unchanged this pass); `tmp_gui_stage5` **V54** untouched
 **Stage 3.5 Checkpoint (2026-09-28):** PASS — `docs/development-control/STAGE-3.5-CHECKPOINT.md`; DB delta 0; Flyway 47; Full reactor NOT RUN
 **RBAC UX completion (2026-09-28):** PASS — User double-click card; roles + effective permissions (roles ∪ GRANT/REVOKE via `listEffectivePermissionsForUser` / EffectivePermissionCalculator); Roles assignment search no longer faded; Apply button dirty gating; no migration / no RBAC model change
@@ -151,6 +152,7 @@ Manual Warehouse acceptance = READY FROM Склад → Задачи (then Ис�
 | 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0–3.5.14 COMPLETE; 3.5.15 IN PROGRESS (History redesign + jitter COMPLETE 2026-09-24; write-off deferred; manual UX from Склад → История) |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
+| COL | Reference Data / Colors | START GATE PASSED (COL-005 DONE); COL-010 READY | 0% (0 / 19 implementation tasks) |
 
 ---
 

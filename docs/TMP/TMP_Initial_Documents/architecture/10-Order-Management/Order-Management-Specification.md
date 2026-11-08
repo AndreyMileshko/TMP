@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-SPEC-010
 **Status:** Accepted
-**Version:** 1.10
+**Version:** 1.12
 
 ---
 
@@ -806,13 +806,14 @@ Order Management предоставляет стабильные `Order ID`, `Or
 # 25. Связанные документы
 
 * TMP Constitution (v1.2)
-* TMP Architecture Decisions (ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030**, **ADR-031**, **ADR-032**, **ADR-033**)
+* TMP Architecture Decisions (ADR-003, ADR-004, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021, ADR-022, **ADR-028**, **ADR-029**, **ADR-030**, **ADR-031**, **ADR-032**, **ADR-033**, **ADR-039**)
 * Document Engine Specification
 * Platform Core Specification (Event API)
 * Capability Engine Specification
 * Security Specification
 * Production Specification (v2.1)
 * Warehouse / Cutting Optimization / Procurement Specifications
+* Reference Data — Colors & SO7 Mapping Specification (TMP-SPEC-015)
 
 ---
 
@@ -834,6 +835,7 @@ Order Management предоставляет стабильные `Order ID`, `Or
 | 1.9 | **Stage 7 docs alignment (ADR-033):** Production-facing contract без обязательного Order Item Revision в состоянии Production; `getCurrentItemSpecification`; §10/§15/§17/§20 обновлены; внутренняя Revision-модель OM и Stage 5 lifecycle сохранены. |
 | 1.10 | **Corrective pass:** публичный stable `SpecificationId`; `getSpecificationById`; Production фиксирует Specification Reference при Launch без возврата Revision в Production contract. |
 | 1.11 | **UI Stage 3.4:** после `ACTIVE` / «Передать в работу» заказ полностью immutable (header, items, specifications, Revision N+1). Новый производственный запуск — только новым заказом. `OrderStatus` без production-derived values. |
+| 1.12 | **COL-005 (ADR-039):** §28.5 — сопоставление цветов СО7 принадлежит Reference Data; OM не зависит от Reference Data; контракт `color` без изменений; аддитивный read-only контракт ограничений цвета в `com.tmp.order.api.imports`; §27.6 — точка применения между разбором и preview. Номер версии в заголовке синхронизирован с историей. |
 ---
 
 # 28. Material Responsibility and Mapping (ADR-032)
@@ -899,6 +901,17 @@ Warehouse получает из ACTIVE Specification (через Production) б�
 | `lineQuantity` | Количество (норма на 1 изделие) |
 
 Warehouse **не требует** отдельного каталога материалов.
+
+## 28.5 Сопоставление цветов СО7 (ADR-039, TMP-SPEC-015)
+
+Сопоставление текстовых цветов СО7 с цветами TMP — частный случай Material Mapping (§28.3) для поля `color`. Каталог цветов, глобальные соответствия и общесистемный переключатель принадлежат Capability **Reference Data** (`reference`), а не Order Management.
+
+- Order Management **не** зависит от Reference Data (compile-time и runtime); сопоставление выполняется в оркестрации импорта после разбора STXT и **до** `OrderImportService.preview(...)`; в OM поступают уже итоговые строки цвета через публичные фабрики `com.tmp.order.api.imports`.
+- Контракт `SpecificationLine.color` не меняется: nullable immutable строка ≤ 64, производственный снимок; ссылки на каталог и исходный текст СО7 / `CLRNO` в спецификации не хранятся.
+- Итоговый цвет — код TMP, пара `ВНУТРИ/СНАРУЖИ`, исходный текст СО7 или допустимый свой цвет.
+- Парсер STXT, `OrderImportValidator`, план preview, транзакция confirm и Public Query не изменяются; при выключенном переключателе импорт работает прежним образом.
+- Order Management предоставляет read-only публичный контракт ограничений итогового цвета в `com.tmp.order.api.imports` (≤ 64; запрещённые плейсхолдеры по `CommercialPlaceholderValidator`) для проверки значений до preview; контракт аддитивный и не меняет момент ошибок импорта при выключенном переключателе.
+- Изменения каталога и соответствий не затрагивают существующие заказы и спецификации.
 
 ---
 
@@ -1057,6 +1070,8 @@ OrderImportBatch (один заказ; файл → List<OrderImportBatch>)
 STXT Adapter парсит **блоковый** формат (не таблицу колонок). Повторяющийся заголовок `Номер заказа:` перед каждым изделием (SuperOkna) **объединяется** в один Order с несколькими позициями. Спецификация читается фиксированным порядком полей `Артикул / Наименование / Цвет / Размер / Единица / Кол-во` (строка-заголовок опциональна).
 
 До подтверждения: заказ, позиции, редакции и строки **не** создаются. Итоговый статус импорта — **ACTIVE**, не долгоживущий DRAFT. Прямая активация агрегатов в обход Document Engine запрещена.
+
+При включённом переключателе «Автоматически сопоставлять цвета СО7» (Reference Data, §28.5) оркестрация импорта между разбором файла и preview разрешает цвета строк спецификации и передаёт в `preview` пересобранные пакеты с итоговыми цветами; глобальные соответствия цветов сохраняются Reference Data отдельной транзакцией только после успешного подтверждения. Процесс Order Management выше при этом не изменяется.
 
 ### Preview (минимум)
 

@@ -2,6 +2,28 @@
 
 ## Latest result
 
+**Date:** 2026-11-08
+**Scope:** COL-005 — Reference Data / Colors architecture finalization (documentation only)
+**Overall:** PASS
+**Base HEAD:** `d29a4fcdc9299758fecfb4dbc3bcee9aaedfeaa1` (`master`)
+**Working tree:** documentation changes only; **no commit / no push**
+
+| Check | Result |
+|-------|--------|
+| ADR-039 present, Status Accepted; ADR registry v1.24 | PASS |
+| TMP-SPEC-015 / Accepted / 1.0 | PASS |
+| Q-01 … Q-07, Q-05-bis mapped to spec sections (§24) | PASS |
+| Plan: 19 tasks, each with objective / deps / scope / forbidden / acceptance / verification / GUI / DB | PASS |
+| V58 / V59 free (latest V57); TMP-SPEC-015 unused before | PASS |
+| WORK-QUEUE / Stage Manifest / STATUS / CONTEXT-MAP updated | PASS |
+| No production code, migration, pom or DB change | PASS (`git status`) |
+| `git diff --check` | PASS |
+| Build / tests | NOT RUN (documentation-only task; prohibited by COL-005) |
+
+---
+
+## Previous result
+
 **Date:** 2026-11-06
 **Scope:** Warehouse print A4 landscape MediaBox corrective (P1)
 **Overall:** CODE/PACKAGE PASS — **manual PDF MediaBox acceptance PENDING** (do not claim landscape PASS until user PDF verified)

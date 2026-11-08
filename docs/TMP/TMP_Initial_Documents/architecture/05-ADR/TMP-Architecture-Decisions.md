@@ -2,7 +2,7 @@
 
 **Document ID:** TMP-005  
 **Status:** Accepted  
-**Version:** 1.23
+**Version:** 1.24
 
 ---
 
@@ -1861,6 +1861,67 @@ Production Material Requirement фиксирует, что Production запро
 
 ---
 
+# ADR-039
+
+## Название
+
+Reference Data Capability Architecture.
+
+### Статус
+
+Accepted (COL-005, 2026-11-08)
+
+### Контекст
+
+Для импорта заказов из «СуперОкна 7» (СО7, файл `.stxt`) требуется собственный перечень одиночных кодов цветов TMP и глобальные соответствия «текстовое обозначение цвета СО7 → цвет внутри + цвет снаружи TMP», а также общесистемный переключатель автоматического сопоставления (TMP-SPEC-015).
+
+Read-only аудит COL-000 (HEAD `d29a4fcdc9299758fecfb4dbc3bcee9aaedfeaa1`) установил:
+
+- цвет в TMP — nullable строка, которая без разбора и нормализации проходит путь `STXT → OrderImportSpecificationLine → OrderItemRevisionPayloadLine → SpecificationLine.color VARCHAR(64) → Public Query → Production → Warehouse`; Production и Warehouse сравнивают цвет точно (после `trim`), регистрозависимо;
+- ArchUnit-правило `orderInternalsUseOnlyAllowedDependencies` разрешает Order Management зависеть только от `core/capability/document/security .api`;
+- между `StxtOrderFileParser.parseFile(...)` и `OrderImportService.preview(...)` существует точка интеграции, не затрагивающая парсер и транзакцию `confirm`; модель импорта неизменяема и пересобирается публичными фабриками `com.tmp.order.api.imports`;
+- общесистемного механизма хранимых настроек нет (`SettingsContribution` — только метаданные, `PlatformConfiguration` — локальные свойства, `security.user_ui_preferences` — личные настройки);
+- справочные данные Warehouse (склады, ячейки, ответственные) и Security (роли, пользователи) изменяются application-сервисами владельца с проверкой права, без бизнес-документов Document Engine;
+- ADR-032 §4 и ADR-038 п.6 запрещают Material Master и Color Catalog **внутри Warehouse / Production** и относят пользовательское сопоставление внешних наименований к механизму вне Warehouse и Production.
+
+Размещение каталога цветов в Order Management нарушило бы его границу ответственности (заказы и спецификации) и потребовало бы изменения принятой ArchUnit-границы; размещение в Warehouse прямо запрещено ADR-038 п.6 и Warehouse Specification §4. Constitution п.15, 18, 22–24 требуют единственного владельца и ADR до реализации новой Capability.
+
+### Решение
+
+1. **Новая Capability Reference Data.** `CapabilityId = "reference"`, Maven-модуль `tmp-reference-data`, Java-пакет `com.tmp.reference`, схема PostgreSQL `reference` (schema-per-module, Database Specification §3). Первая и единственная функциональная область — Colors (TMP-SPEC-015).
+2. **Владение.** Reference Data — единственный владелец каталога одиночных цветов TMP, глобальных соответствий текстов цветов СО7 и общесистемного переключателя «Автоматически сопоставлять цвета СО7». Переключатель хранится в схеме `reference`; общий платформенный Settings framework не создаётся (Constitution п.1, 13).
+3. **Идентификаторы и хранение.** Первичные ключи — UUID; технические поля, optimistic locking и Flyway — по Database Specification. Связи «соответствие → цвет внутри / цвет снаружи» — FK только внутри схемы `reference`; межсхемные FK и JOIN к данным других Capability отсутствуют.
+4. **Модель изменения справочных данных.** Записи Reference Data изменяются только авторизованными application-сервисами Capability (проверка `PermissionId` на сервере, optimistic locking, `created_by/updated_by`, `created_at/updated_at`). Новые типы бизнес-документов Document Engine и новые Domain Events для справочника не вводятся. Обоснование: справочные данные Capability — конфигурация, а не состояние позиции заказа / складское или производственное состояние предприятия; решение следует установленному прецеденту Warehouse/Security и выполняет Constitution п.23 (явное ADR-решение). Reference Data не изменяет данные других Capability (Constitution п.8, 21).
+5. **Зависимости.** `tmp-reference-data` зависит только от публичных API `tmp-platform-core`, `tmp-capability-engine`, `tmp-security` и от `tmp-infra-db`. Reference Data **не** зависит от Order Management, Warehouse, Production и UI. Order Management, Warehouse и Production **не** получают compile-time зависимости от Reference Data. От `tmp-reference-data` зависят только `tmp-ui-shell` (через `com.tmp.reference.api`) и `tmp-bootstrap-app` (композиция). Границы фиксируются ArchUnit-правилами.
+6. **Точка применения сопоставления.** Сопоставление цветов выполняется в оркестрации импорта (`tmp-ui-shell`) **после** разбора STXT и **до** `OrderImportService.preview(...)`: неизменяемые пакеты импорта пересобираются с итоговыми цветами через публичные фабрики Order Management. Парсер STXT, `OrderImportValidator`, план `preview` и транзакция `confirm` не изменяются. При выключенном переключателе путь импорта остаётся прежним.
+7. **Бизнес-правила сопоставления** (нормализация ключа СО7, состав итоговой строки цвета, активность цветов, конфликты ключей) реализуются только в Reference Data. Ограничения итогового цвета, принадлежащие Order Management (длина, запрещённые плейсхолдеры), предоставляются Order Management через собственный read-only публичный контракт в `com.tmp.order.api..`; Order Management при этом не зависит от Reference Data.
+8. **Сохранение глобальных соответствий из импорта** выполняется только после успешного `confirm`, отдельной транзакцией Reference Data. Отменённый или неуспешный импорт ничего не сохраняет; ошибка сохранения не откатывает созданный заказ и сообщается пользователю; существующее соответствие никогда не перезаписывается молча. Межмодульная общая транзакция (ADR-036) для этого не используется.
+9. **Итоговый цвет в заказе.** Строка Item Specification хранит итоговую immutable строку цвета (`color`, nullable, ≤ 64), а не ссылку на каталог. Контракты Order Management, Warehouse и Production не изменяются; downstream не читает Reference Data для интерпретации утверждённой спецификации. Точное сравнение цвета в Warehouse и Production сохраняется.
+10. **Без ретроспективы.** Изменение, архивирование цветов и изменение / отключение соответствий влияют только на будущие импорты; существующие документы, спецификации, остатки и производственные данные не изменяются. Автоматическая конвертация исторических строк цвета и слои совместимости не создаются.
+11. **Развитие.** В Capability Reference Data в будущем допускается добавление других справочников отдельными решениями. Универсальный (generic) framework справочников сейчас не создаётся.
+12. **Уточнение формулировок ADR-032 §4 и ADR-038 п.6** (без их пересмотра): запрет Color Catalog относится к Warehouse и Production; каталог цветов Reference Data не является Material Master и не используется Warehouse как материальная идентичность. Пользовательское сопоставление цветов СО7 — частный случай Material Mapping ADR-032 §4 для поля `color`.
+
+### Последствия
+
+- Создаётся модуль `tmp-reference-data` и схема `reference` (миграции V58 — схема, V59 — начальные данные; номера зарезервированы COL-005).
+- Order Management получает только аддитивный read-only контракт ограничений цвета; парсер, валидатор импорта, payload, persistence и Public Query не меняются.
+- Warehouse и Production — без изменений production-кода; регрессия подтверждается тестами.
+- В Security появляется область прав `reference` (`reference.color.view`, `reference.color.edit`, `reference.color-mapping.edit`, `reference.color-setting.edit`), выдаваемых системной роли Security Administrator существующим bootstrap-механизмом; новые бизнес-роли не создаются.
+- При включении автосопоставления новые заказы получают коды TMP вместо текстов СО7; складские остатки, оприходованные под прежними текстами, не сопоставятся автоматически. Для текущих тестовых данных допускается контролируемый сброс по отдельному разрешению (TMP-SPEC-015 §19); для будущих производственных данных переход — отдельное решение без ретроспективных изменений.
+- Изменение решения (например, перенос сопоставления в Order Management или общая транзакция с импортом) требует нового ADR.
+
+### Связанные документы
+
+- TMP-Reference-Data-Colors-Specification.md (TMP-SPEC-015)
+- COL-000-Architecture-Audit.md
+- Order-Management-Specification.md (§27.6, §28.5)
+- Warehouse-Specification.md (§4, §15.1.1)
+- Database-Specification.md (§3, §4, §5, §10)
+- Security-Specification.md
+- ADR-002, ADR-028, ADR-029, ADR-031, ADR-032, ADR-036, ADR-038
+
+---
+
 # 5. Матрица соответствия спецификациям
 
 Данный раздел показывает, в какой спецификации подробно раскрывается каждое архитектурное решение.
@@ -1905,6 +1966,7 @@ Production Material Requirement фиксирует, что Production запро
 | ADR-036 | Document-Engine-Specification.md, Production-Specification.md, Warehouse-Specification.md |
 | ADR-037 | Warehouse-Specification.md, Production-Specification.md, TMP-UI-Standard.md |
 | ADR-038 | Warehouse-Specification.md, Production-Specification.md |
+| ADR-039 | TMP-Reference-Data-Colors-Specification.md (TMP-SPEC-015), Order-Management-Specification.md, Warehouse-Specification.md |
 
 > **Architecture Rule**  
 > Настоящий документ фиксирует только архитектурные решения. Подробная реализация и бизнес-логика описываются в соответствующих спецификациях.
@@ -1980,6 +2042,7 @@ Production Material Requirement фиксирует, что Production запро
 | 1.21 | ADR-038 amendment B3B-3C4: focused dead-code cleanup; remove write-dead routing-snapshot helper; full reactor / package / startup; B3 implementation complete; manual acceptance PENDING. |
 | 1.22 | ADR-038 amendment B3-MA-FIX1: MaterialReference human fields on Transfer read model; Demand/Transfer order composition; «Создать перемещение» UX wording; no migration. |
 | 1.23 | ADR-038 amendment: optional resupply waiver after full Transfer receipt reject — checkbox default CHECKED; link-attributed `linked_quantity` waiver ledger; `remaining = required − received − waived`; derived `RESUPPLY_WAIVED`; reject-TX atomic; return separate; no Production coverage / no new permission. |
+| 1.24 | ADR-039 (COL-005): Reference Data Capability `reference` / `tmp-reference-data` / схема `reference`; цвета, соответствия СО7 и общесистемный переключатель принадлежат Reference Data; изменение справочных данных через авторизованные application-сервисы без новых типов документов; нет зависимости OM → Reference Data; сопоставление после разбора STXT и до OM preview; глобальные соответствия — отдельной TX после успешного confirm; итоговый цвет — immutable строка; без ретроспективы; уточнение ADR-032 §4 / ADR-038 п.6 без пересмотра. |
 
 ---
 
@@ -1996,4 +2059,5 @@ Production Material Requirement фиксирует, что Production запро
 - Warehouse-Specification.md
 - Production-Specification.md
 - Cutting-Optimization-Specification.md
+- TMP-Reference-Data-Colors-Specification.md
 

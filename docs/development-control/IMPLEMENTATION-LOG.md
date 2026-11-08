@@ -1,3 +1,30 @@
+## COL-005 — Finalize Reference Data / Colors Architecture and Implementation Plan — 2026-11-08
+
+**Date:** 2026-11-08
+**Base HEAD:** `d29a4fcdc9299758fecfb4dbc3bcee9aaedfeaa1` (`master`)
+**Status:** DONE — documentation only; no Java / FXML / SQL / Maven / DB changes; **no commit / no push**
+
+### Inputs
+COL-000 audit (READY WITH CONDITIONS); product-owner decisions Q-01 … Q-07 and Q-05-bis (final, 2026-11-08).
+
+### Delivered
+- ADR-039 «Reference Data Capability Architecture» — Accepted; ADR registry v1.24 (matrix, history, related documents).
+- TMP-SPEC-015 v1.0 Accepted (`Reference book/Colors/TMP-Reference-Data-Colors-Specification.md`): ownership, syntax, immutable codes without deletion, case-insensitive uniqueness, Java key normalization, unified dialog incl. override of matched lines, «Проверить цвета», `Без цвета` ≠ `00`, OM color-constraint validation before preview, post-confirm mapping save in separate TX, `reference.*` permissions, schema V58/V59, acceptance `COL-AC-01…33`, test-data transition (Q-01).
+- Implementation Plan v1.0: 19 governance-sized tasks COL-010 … COL-060B with scope / forbidden / acceptance / verification / GUI / DB impact; GUI acceptance protocol on isolated `tmp_col_acceptance`.
+- OM Spec v1.12 (§27.6 note, §28.5); Warehouse Spec v1.20 (§4, §15.1.1 clarification).
+- Stage Manifest `stages/STAGE-COL-REFERENCE-DATA-COLORS.md`; WORK-QUEUE COL section; STATUS; CONTEXT-MAP.
+
+### Decisions taken within documentation scope
+- Color code max length 31 so that an `inside/outside` pair always fits OM `color ≤ 64`.
+- OM exposes an additive read-only color-constraint contract in `com.tmp.order.api.imports` (OM public API cannot depend on OM domain; UI must not duplicate rules; `OrderImportValidator` untouched).
+- Import-access rule (`reference.color.view` OR full five-permission import set) checked by string `PermissionId` in Reference Data; consistency test in bootstrap.
+- Acceptance scenarios renamed `COL-AC-nn` to avoid collision with task IDs.
+
+### Preserved
+All production code, migrations, databases (`tmp_pilot` V57), accepted ADR-001…038, COL-000 audit file; no data deleted.
+
+---
+
 ## Warehouse Print A4 Landscape MediaBox Corrective (P1) — 2026-11-06
 
 **Date:** 2026-11-06

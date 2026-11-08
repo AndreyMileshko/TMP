@@ -12536,3 +12536,525 @@ Stage 3.5.12 = COMPLETE.
 **Goal:** Separate safe pilot environment (DB/backup/launch) without importing real business data.
 **Result:** `tmp_pilot` + `tmp_pilot_app`; credentials in `%LOCALAPPDATA%\TMP-Pilot\`; scripts under `scripts/pilot/`; guide `docs/pilot/PILOT-ENVIRONMENT.md`; Flyway v53 on pilot only; stage unchanged; backup+restore-check PASS.
 **Commit:** NONE
+
+---
+
+# Reference Data / Colors (COL track)
+
+**Stage Manifest:** `docs/development-control/stages/STAGE-COL-REFERENCE-DATA-COLORS.md`
+**Specification:** TMP-SPEC-015 v1.0 Accepted — `docs/TMP/TMP_Initial_Documents/architecture/Reference book/Colors/TMP-Reference-Data-Colors-Specification.md`
+**ADR:** ADR-039 (Accepted)
+**Plan (authoritative task definitions):** `docs/TMP/TMP_Initial_Documents/architecture/Reference book/Colors/TMP-Colors-Implementation-Plan.md` v1.0 §5
+**Common rules for every COL task:** Plan §4 (общие запреты, базовые проверки, протокол GUI-приёмки, обновление документов). Allowed scope, Forbidden и Acceptance criteria каждой задачи — Plan §5 (раздел задачи), обязательны к прочтению перед началом.
+**Order:** COL-010 → COL-011 → COL-023 → COL-020A → COL-021A → COL-020B → COL-021B → COL-022A → COL-022B → COL-030A → COL-030B → COL-040A → COL-040B → COL-041A → COL-041B → COL-050A → COL-050B → COL-060A → COL-060B
+
+## COL-000 — Reference Data / Colors read-only architecture audit
+
+**Status:** DONE
+**Stage:** COL
+**Date:** 2026-11-08
+**Result:** `docs/TMP/TMP_Initial_Documents/architecture/Reference book/Colors/COL-000-Architecture-Audit.md` — READY WITH CONDITIONS; no code / DB changes.
+
+## COL-005 — Finalize Reference Data / Colors architecture and implementation plan
+
+**Status:** DONE
+**Stage:** COL
+**Depends on:** COL-000
+**Module:** docs only
+**Date:** 2026-11-08
+
+### Goal
+
+Зафиксировать утверждённые решения Q-01 … Q-07, Q-05-bis в ADR-039, TMP-SPEC-015 v1.0 и плане реализации; зарегистрировать задачи.
+
+### Acceptance criteria
+
+- [x] ADR-039 Accepted (ADR registry v1.24)
+- [x] TMP-SPEC-015 v1.0 Accepted
+- [x] Implementation Plan v1.0: 19 задач по лимитам governance
+- [x] OM Spec v1.12 (§27.6, §28.5), Warehouse Spec v1.20 (§4, §15.1.1) — минимальные уточнения
+- [x] Stage Manifest, WORK-QUEUE, STATUS, CONTEXT-MAP, логи обновлены
+- [x] Нет изменений production-кода, миграций, БД; V58 / V59 зарезервированы
+
+### Verification
+
+`git diff --check`; `git status` — только документы. См. VERIFICATION-LOG COL-005 (2026-11-08).
+
+---
+
+## COL-010 — Module and schema
+
+**Status:** READY
+**Stage:** COL
+**Depends on:** COL-005
+**Module:** `tmp-reference-data` (+ root pom, bootstrap registration, `tmp-architecture-tests`)
+
+### Goal
+
+Модуль `tmp-reference-data`, минимальная Capability `reference`, миграция `V58__reference_colors_schema.sql` (схема `reference`, три таблицы без данных), ArchUnit-границы Reference Data.
+
+### Required documents
+
+TMP-SPEC-015 §3, §16.1–§16.3; ADR-039; Plan §4, §5 COL-010; Database Specification §3–§5, §10, §11.
+
+### Allowed code scope / Forbidden / Acceptance criteria
+
+Plan §5 COL-010. Исключение по размеру: атомарная инфраструктурная настройка нового модуля.
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-reference-data -am verify
+mvn -pl :tmp-architecture-tests -am test
+mvn -pl :tmp-bootstrap-app -am verify -DskipITs
+git diff --check
+```
+
+**GUI:** нет. **DB:** V58 (только Testcontainers).
+
+## COL-011 — Initial data
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-010
+**Module:** `tmp-reference-data`
+
+### Goal
+
+`V59__reference_colors_initial_data.sql`: 860 цветов, 245 соответствий, переключатель OFF; Java-нормализация ключей и тест согласованности.
+
+### Required documents
+
+TMP-SPEC-015 §5.4, §6.2, §6.5, §16.4; Plan §5 COL-011; согласованный Excel.
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-reference-data -am verify
+git diff --check
+```
+
+**GUI:** нет. **DB:** V59 (только Testcontainers).
+
+## COL-023 — Security
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-010
+**Module:** `tmp-reference-data` (+ `tmp-bootstrap-app` ensure, `tmp-ui-shell` `PermissionNamespaceGroup`)
+
+### Goal
+
+Права `reference.color.view`, `reference.color.edit`, `reference.color-mapping.edit`, `reference.color-setting.edit`; выдача Security Administrator; область «Справочники» на экране ролей.
+
+### Required documents
+
+TMP-SPEC-015 §15; Plan §5 COL-023; Security Specification.
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-reference-data -am verify -DskipITs
+mvn -pl :tmp-bootstrap-app -am verify
+mvn -pl :tmp-ui-shell -am verify -DskipITs
+mvn -pl :tmp-architecture-tests -am test
+git diff --check
+```
+
+**GUI:** нет. **DB:** нет миграций.
+
+## COL-020A — Color catalog: domain and persistence
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-011
+**Module:** `tmp-reference-data`
+
+### Goal
+
+Агрегат `Color` (правила кода §5.2, регистронезависимая уникальность, архив/восстановление, без изменения кода и удаления) и `JdbcColorRepository`.
+
+### Required documents
+
+TMP-SPEC-015 §5, §16.1; Plan §5 COL-020A.
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-reference-data -am verify
+mvn -pl :tmp-architecture-tests -am test
+git diff --check
+```
+
+**GUI:** нет. **DB:** нет миграций.
+
+## COL-021A — SO7 mappings: domain and persistence
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-020A
+**Module:** `tmp-reference-data`
+
+### Goal
+
+Агрегат `So7ColorMapping`, итоговый цвет пары, `JdbcSo7ColorMappingRepository` (поиск по ключу, массовое отключение по цвету, подсчёт активных).
+
+### Required documents
+
+TMP-SPEC-015 §6, §16.2; Plan §5 COL-021A.
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-reference-data -am verify
+mvn -pl :tmp-architecture-tests -am test
+git diff --check
+```
+
+**GUI:** нет. **DB:** нет миграций.
+
+## COL-020B — Color catalog: application API
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-020A, COL-021A, COL-023
+**Module:** `tmp-reference-data`
+
+### Goal
+
+`ColorCatalogQueryApi` / `ColorCatalogCommandApi` с проверкой прав; атомарное архивирование с отключением соответствий; восстановление без их включения.
+
+### Required documents
+
+TMP-SPEC-015 §5.3, §15.1, §17; Plan §5 COL-020B.
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-reference-data -am verify
+mvn -pl :tmp-architecture-tests -am test
+git diff --check
+```
+
+**GUI:** нет. **DB:** нет миграций.
+
+## COL-021B — SO7 mappings: application API
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-020B
+**Module:** `tmp-reference-data`
+
+### Goal
+
+`So7ColorMappingQueryApi` / `So7ColorMappingCommandApi`, включая `saveMappingsFromImport` с результатами по ключам (без перезаписи существующих).
+
+### Required documents
+
+TMP-SPEC-015 §6.4, §11, §15.1, §17; Plan §5 COL-021B.
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-reference-data -am verify
+mvn -pl :tmp-architecture-tests -am test
+git diff --check
+```
+
+**GUI:** нет. **DB:** нет миграций.
+
+## COL-022A — Global matching setting
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-020B
+**Module:** `tmp-reference-data`
+
+### Goal
+
+`ColorMatchingSettingApi` (чтение по §15.2, изменение по `reference.color-setting.edit`) и политика доступа импорта `ReferenceImportAccessPolicy`.
+
+### Required documents
+
+TMP-SPEC-015 §7, §15, §16.3, §17; Plan §5 COL-022A.
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-reference-data -am verify
+mvn -pl :tmp-architecture-tests -am test
+git diff --check
+```
+
+**GUI:** нет. **DB:** нет миграций.
+
+## COL-022B — Import resolution API
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-021B, COL-022A
+**Module:** `tmp-reference-data` (+ тест композиции в `tmp-bootstrap-app`)
+
+### Goal
+
+`ColorImportResolutionApi`: переключатель, `resolveSourceTexts`, активные цвета, `composePair`, `canSaveGlobalMappings`; тест согласованности набора прав импорта.
+
+### Required documents
+
+TMP-SPEC-015 §6.2, §6.3, §8.4, §9, §15.2, §17; Plan §5 COL-022B.
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-reference-data -am verify
+mvn -pl :tmp-bootstrap-app -am verify -DskipITs
+mvn -pl :tmp-architecture-tests -am test
+git diff --check
+```
+
+**GUI:** нет. **DB:** нет миграций.
+
+## COL-030A — Reference Data JavaFX UI: screen, «Цвета TMP», switch
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-020B, COL-022A, COL-023
+**Module:** `tmp-ui-shell` (+ регистрация в `tmp-bootstrap-app`)
+
+### Goal
+
+Пункт «Справочники», раздел «Цвета», вкладка «Цвета TMP», переключатель автосопоставления.
+
+### Required documents
+
+TMP-SPEC-015 §14.1, §14.3, §14.4, §15; Plan §4.3, §5 COL-030A; TMP UI Standard (указанные разделы).
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-ui-shell -am verify -DskipITs
+mvn -pl :tmp-bootstrap-app -am verify -DskipITs
+mvn -pl :tmp-architecture-tests -am test
+mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests
+git diff --check
+```
+
+**GUI:** да — свежий `TMP.exe` на `tmp_col_acceptance`, приложение оставить открытым, статус VERIFYING до подтверждения пользователя. **DB:** нет миграций.
+
+## COL-030B — Reference Data JavaFX UI: «Сопоставления СО7»
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-021B, COL-030A
+**Module:** `tmp-ui-shell`
+
+### Goal
+
+Вкладка «Сопоставления СО7» (по умолчанию) с поиском, фильтром и диалогом пары.
+
+### Required documents
+
+TMP-SPEC-015 §6.4, §14.2; Plan §4.3, §5 COL-030B.
+
+### Verification commands
+
+Как COL-030A.
+
+**GUI:** да (Plan §4.3). **DB:** нет миграций.
+
+## COL-040A — Order Management color constraint contract
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-005
+**Module:** `tmp-order-management`
+
+### Goal
+
+Аддитивный read-only контракт `SpecificationColorConstraint` в `com.tmp.order.api.imports` (≤ 64, плейсхолдеры через `CommercialPlaceholderValidator`); `OrderImportValidator` не изменяется.
+
+### Required documents
+
+TMP-SPEC-015 §10, §12; OM Specification §27.6, §28.5; ADR-039 п.7; Plan §5 COL-040A.
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-order-management -am verify
+mvn -pl :tmp-architecture-tests -am test
+git diff --check
+```
+
+**GUI:** нет. **DB:** нет.
+
+## COL-040B — Import resolution orchestration
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-022B, COL-040A
+**Module:** `tmp-ui-shell`
+
+### Goal
+
+Не-JavaFX координатор разрешения цветов: OFF-тождество, автоматическое разрешение, модель строк, массовые операции, проверка через контракт OM, пересборка пакетов, кандидаты на сохранение.
+
+### Required documents
+
+TMP-SPEC-015 §8–§11; OM Specification §27.4; Plan §5 COL-040B.
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-ui-shell -am verify -DskipITs
+mvn -pl :tmp-architecture-tests -am test
+git diff --check
+```
+
+**GUI:** нет. **DB:** нет.
+
+## COL-041A — Unified resolution dialog
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-040B
+**Module:** `tmp-ui-shell`
+
+### Goal
+
+JavaFX-диалог единого окна разрешения (таблица, фильтры, массовые команды, редакторы сторон, режимы, флажок сохранения, ошибки у поля).
+
+### Required documents
+
+TMP-SPEC-015 §8, §10, §14.5; Plan §5 COL-041A; TMP UI Standard §16, §22, §23, §27, §39.9.
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-ui-shell -am verify -DskipITs
+mvn -pl :tmp-architecture-tests -am test
+git diff --check
+```
+
+**GUI:** нет (FX-тесты; ручная приёмка — COL-041B). **DB:** нет.
+
+## COL-041B — Import integration and post-confirm mapping save
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-041A, COL-030B
+**Module:** `tmp-ui-shell` (+ wiring `tmp-bootstrap-app`)
+
+### Goal
+
+Подключение координатора и окна к импорту, «Проверить цвета», сохранение соответствий после успешного confirm и отчёт; OFF без изменений.
+
+### Required documents
+
+TMP-SPEC-015 §7, §8.7, §9, §11, §14.5; Plan §4.3, §5 COL-041B.
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-ui-shell -am verify -DskipITs
+mvn -pl :tmp-order-management -am verify
+mvn -pl :tmp-bootstrap-app -am verify -DskipITs
+mvn -pl :tmp-architecture-tests -am test
+mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests
+git diff --check
+```
+
+**GUI:** да (Plan §4.3). **DB:** нет миграций; тестовые заказы только в `tmp_col_acceptance`.
+
+## COL-050A — Warehouse regression
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-005 (в очереди после COL-041B)
+**Module:** `tmp-warehouse` (только `src/test`)
+
+### Goal
+
+Характеризационные тесты: разовые / составные цвета и модификации проходят Warehouse без изменения поведения; точное сравнение сохраняется.
+
+### Required documents
+
+TMP-SPEC-015 §13; Warehouse Specification §4, §15.1.1–§15.1.2; Plan §5 COL-050A.
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-warehouse -am verify
+git diff --check
+```
+
+**GUI:** нет. **DB:** нет (Testcontainers).
+
+## COL-050B — Production regression
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-005 (в очереди после COL-050A)
+**Module:** `tmp-production` (только `src/test`)
+
+### Goal
+
+Характеризационные тесты: итоговый цвет проходит Launch и агрегирование потребностей точно.
+
+### Required documents
+
+TMP-SPEC-015 §13; Plan §5 COL-050B.
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-production -am verify
+git diff --check
+```
+
+**GUI:** нет. **DB:** нет (Testcontainers).
+
+## COL-060A — Acceptance environment preparation (Q-01)
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-041B, COL-050A, COL-050B
+**Module:** — (окружение)
+
+### Goal
+
+Чистая изолированная БД **или** контролируемый сброс тестовых заказов / остатков / зависимых операций `tmp_pilot` с сохранением пользователей, ролей, справочных данных и конфигурации.
+
+### Required documents
+
+TMP-SPEC-015 §19; Plan §5 COL-060A; `docs/pilot/PILOT-ENVIRONMENT.md`.
+
+### Gate
+
+Destructive-операции — только после `backup-tmp-pilot.ps1` + `verify-tmp-pilot-backup.ps1` PASS, показа перечня таблиц / SQL и **отдельного явного разрешения пользователя**. Без разрешения — BLOCKED.
+
+**GUI:** нет. **DB:** destructive по разрешению (вариант 2) / новая БД (вариант 1).
+
+## COL-060B — Packaged acceptance
+
+**Status:** PLANNED
+**Stage:** COL
+**Depends on:** COL-060A
+**Module:** —
+
+### Goal
+
+`mvn clean verify`, свежий `TMP.exe`, ручная приёмка COL-AC-01 … 33 пользователем; приложение оставить открытым; без commit.
+
+### Required documents
+
+TMP-SPEC-015 §18, §20; Plan §4.3, §5 COL-060B, §8.
+
+### Verification commands
+
+```powershell
+mvn clean verify
+mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests
+git diff --check
+```
+
+**GUI:** да. **DB:** только тестовые данные приёмки в подготовленной БД.
