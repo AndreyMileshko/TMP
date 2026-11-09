@@ -42,12 +42,15 @@ class Stage5OrderManagementArchitectureTest {
     @ArchTest
     static final ArchRule externalModulesUseOnlyOrderPublicApi =
             noClasses()
-                    .that().resideOutsideOfPackage("com.tmp.order..")
+                    .that()
+                    .resideOutsideOfPackages("com.tmp.order..", "com.tmp.bootstrap..")
                     .should().dependOnClassesThat(
                             resideInAnyPackage("com.tmp.order..")
                                     .and(resideOutsideOfPackage("com.tmp.order.api..")))
                     .because("External modules may depend on Order Management only through "
-                            + "com.tmp.order.api.. (read-only Query API); no external mutating API");
+                            + "com.tmp.order.api.. (read-only Query API); no external mutating API. "
+                            + "Bootstrap composition may read Order permission catalogue for "
+                            + "Security Administrator ensure.");
 
     @ArchTest
     static final ArchRule orderPublicApiDoesNotDependOnInternals =

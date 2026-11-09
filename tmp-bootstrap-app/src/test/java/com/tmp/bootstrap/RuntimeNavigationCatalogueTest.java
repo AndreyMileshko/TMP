@@ -7,6 +7,7 @@ import com.tmp.capability.api.CapabilityEngine;
 import com.tmp.capability.sample.SampleTechnicalCapability;
 import com.tmp.order.capability.OrderManagementCapability;
 import com.tmp.production.security.ProductionCapability;
+import com.tmp.reference.capability.ReferenceDataCapability;
 import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.Login;
 import com.tmp.security.capability.SecurityAdministrationCapability;
@@ -89,6 +90,8 @@ class RuntimeNavigationCatalogueTest extends AbstractBootstrapPostgresSpringTest
                 .anyMatch(descriptor -> WarehouseCapability.ID.equals(descriptor.id())));
         assertTrue(capabilityEngine.registeredCapabilities().stream()
                 .anyMatch(descriptor -> ProductionCapability.ID.equals(descriptor.id())));
+        assertTrue(capabilityEngine.registeredCapabilities().stream()
+                .anyMatch(descriptor -> ReferenceDataCapability.ID.equals(descriptor.id())));
 
         authenticationService.login(Login.of("admin"), ADMIN_PASSWORD.clone());
         mainWindowViewModel.refreshNavigation();

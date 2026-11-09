@@ -3,6 +3,27 @@
 ## Latest result
 
 **Date:** 2026-11-08
+**Scope:** COL-010 — Reference Data module skeleton and V58 schema
+**Overall:** PASS
+**Base HEAD:** `0069b20a5b0466c202e82c9b545123c3069b9270` (`master`)
+**Working tree:** COL-010 code + governance docs; **no commit / no push**
+**Pilot DB:** `tmp_pilot` **V57** untouched (no migrate applied)
+
+| Check | Result |
+|-------|--------|
+| Preflight: COL-010 READY; COL-005 DONE; V58 free; code limit 31 / final color 64 in Accepted Spec | PASS |
+| `mvn -pl :tmp-reference-data -am verify` | BUILD SUCCESS (module + Flyway IT on Testcontainers) |
+| `mvn -pl :tmp-architecture-tests test` (deps installed) | BUILD SUCCESS — 165 tests, 0 failures (incl. ReferenceData + Stage5 restore) |
+| `mvn -pl :tmp-bootstrap-app -am verify -DskipITs` | BUILD SUCCESS (Capability `reference` registered; discovered=7 with samples) |
+| `git diff --check` | PASS (CRLF warning only on Stage5 file; no whitespace errors) |
+| OM / Warehouse / Production production sources unchanged | PASS |
+| No pilot / production DB writes | PASS |
+
+---
+
+## Previous result
+
+**Date:** 2026-11-08
 **Scope:** COL-005 — Reference Data / Colors architecture finalization (documentation only)
 **Overall:** PASS
 **Base HEAD:** `d29a4fcdc9299758fecfb4dbc3bcee9aaedfeaa1` (`master`)
@@ -22,7 +43,7 @@
 
 ---
 
-## Previous result
+## Older result
 
 **Date:** 2026-11-06
 **Scope:** Warehouse print A4 landscape MediaBox corrective (P1)

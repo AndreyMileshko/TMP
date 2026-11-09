@@ -821,8 +821,8 @@ COL-005 (DONE)
 |---|---|---|---|---|---|
 | COL-000 | Read-only audit | docs | — | — | DONE |
 | COL-005 | Architecture finalization | docs | — | — | DONE |
-| COL-010 | Module and schema | reference-data | нет | V58 | READY |
-| COL-011 | Initial data | reference-data | нет | V59 | PLANNED |
+| COL-010 | Module and schema | reference-data | нет | V58 | DONE |
+| COL-011 | Initial data | reference-data | нет | V59 | READY |
 | COL-023 | Security | reference-data (+bootstrap, ui-shell) | нет | — | PLANNED |
 | COL-020A | Color domain + persistence | reference-data | нет | — | PLANNED |
 | COL-021A | Mapping domain + persistence | reference-data | нет | — | PLANNED |

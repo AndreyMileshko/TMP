@@ -39,6 +39,7 @@
         <module>tmp-order-management</module>
         <module>tmp-warehouse</module>
         <module>tmp-production</module>
+        <module>tmp-reference-data</module>
         <module>tmp-bootstrap-app</module>
         <module>tmp-ui-shell</module>
         <module>tmp-infra-db</module>
@@ -122,6 +123,11 @@
             <dependency>
                 <groupId>com.tmp</groupId>
                 <artifactId>tmp-production</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.tmp</groupId>
+                <artifactId>tmp-reference-data</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

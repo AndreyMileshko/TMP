@@ -12584,10 +12584,15 @@ Stage 3.5.12 = COMPLETE.
 
 ## COL-010 — Module and schema
 
-**Status:** READY
+**Status:** DONE
 **Stage:** COL
 **Depends on:** COL-005
 **Module:** `tmp-reference-data` (+ root pom, bootstrap registration, `tmp-architecture-tests`)
+**Date:** 2026-11-08
+**Base HEAD:** `0069b20a5b0466c202e82c9b545123c3069b9270` (`master`)
+**Commit:** NONE
+**Push:** NONE
+**DB:** untouched (`tmp_pilot` remains V57; V58 applied only in Testcontainers)
 
 ### Goal
 
@@ -12600,6 +12605,14 @@ TMP-SPEC-015 §3, §16.1–§16.3; ADR-039; Plan §4, §5 COL-010; Database Spec
 ### Allowed code scope / Forbidden / Acceptance criteria
 
 Plan §5 COL-010. Исключение по размеру: атомарная инфраструктурная настройка нового модуля.
+
+### Acceptance criteria
+
+- [x] Reactor собирается с новым модулем; Capability `reference` регистрируется при старте Spring-контекста.
+- [x] V58 применяется на чистой PostgreSQL (Testcontainers): схема `reference`, три таблицы, все UNIQUE / FK / CHECK; данных нет.
+- [x] Повторный старт Flyway не изменяет схему.
+- [x] ArchUnit-правила (1)–(4) зелёные и падают на намеренном нарушении (negative-тест).
+- [x] OM / Warehouse / Production production-код не изменён.
 
 ### Verification commands
 
@@ -12614,7 +12627,7 @@ git diff --check
 
 ## COL-011 — Initial data
 
-**Status:** PLANNED
+**Status:** READY
 **Stage:** COL
 **Depends on:** COL-010
 **Module:** `tmp-reference-data`

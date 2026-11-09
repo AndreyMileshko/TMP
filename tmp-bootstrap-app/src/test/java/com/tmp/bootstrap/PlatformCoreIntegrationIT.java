@@ -16,6 +16,7 @@ import com.tmp.core.api.component.PlatformComponentMetadata;
 import com.tmp.core.api.event.platform.PlatformStartedEvent;
 import com.tmp.order.capability.OrderManagementCapability;
 import com.tmp.production.security.ProductionCapability;
+import com.tmp.reference.capability.ReferenceDataCapability;
 import com.tmp.security.capability.SecurityAdministrationCapability;
 import com.tmp.warehouse.security.WarehouseCapability;
 import java.util.List;
@@ -46,6 +47,7 @@ class PlatformCoreIntegrationIT extends AbstractBootstrapPostgresSpringTest {
             OrderManagementCapability.ID.value(),
             WarehouseCapability.ID.value(),
             ProductionCapability.ID.value(),
+            ReferenceDataCapability.ID.value(),
             MANUAL_CAPABILITY_ID);
 
     @Autowired

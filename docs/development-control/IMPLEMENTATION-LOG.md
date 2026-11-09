@@ -1,3 +1,22 @@
+## COL-010 — Module and schema — 2026-11-08
+
+**Date:** 2026-11-08
+**Base HEAD:** `0069b20a5b0466c202e82c9b545123c3069b9270` (`master`)
+**Status:** DONE — module skeleton + V58 schema + ArchUnit; **no commit / no push**
+**Pilot DB:** untouched (`tmp_pilot` remains Flyway V57)
+
+### Delivered
+- Maven module `tmp-reference-data` (`com.tmp.reference`), wired into root reactor / dependencyManagement.
+- Minimal Capability `reference` via `ReferenceDataCapability` + `ReferenceDataAutoConfiguration` (no permissions / navigation / public services yet).
+- Flyway `V58__reference_colors_schema.sql`: schema `reference`; tables `colors`, `so7_color_mappings`, `color_matching_settings` per TMP-SPEC-015 §16.1–§16.3 (UUID PKs, `code`/`code_key` VARCHAR(31), `source_*` VARCHAR(64), FK `ON DELETE RESTRICT`, singleton settings `id=1`); no seed data.
+- Bootstrap depends on `tmp-reference-data`; Capability discovered at Spring start (`discovered=7` with sample diagnostics).
+- ArchUnit `ReferenceDataArchitectureTest` + negative suite; incidental Stage 5 rule tweak excluding bootstrap composition from strict Order public-API rule (pre-existing `OrderAdminNavigationAccessEnsure` → `OrderManagementPermissions`).
+
+### Out of scope (preserved)
+COL-011+ seed/services/UI/security; OM / Warehouse / Production production code; STXT parser; pilot DB migrations.
+
+---
+
 ## COL-005 — Finalize Reference Data / Colors Architecture and Implementation Plan — 2026-11-08
 
 **Date:** 2026-11-08
