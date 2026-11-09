@@ -12690,10 +12690,15 @@ git diff --check
 
 ## COL-020A — Color catalog: domain and persistence
 
-**Status:** READY
+**Status:** DONE
 **Stage:** COL
 **Depends on:** COL-011
 **Module:** `tmp-reference-data`
+**Date:** 2026-11-09
+**Base HEAD:** `ec888b254a59e53ac96141288fb191b44d9ca05f` (`master`)
+**Commit:** NONE
+**Push:** NONE
+**DB:** no migrations; `tmp_pilot` untouched (V57)
 
 ### Goal
 
@@ -12703,6 +12708,14 @@ git diff --check
 
 TMP-SPEC-015 §5, §16.1; Plan §5 COL-020A.
 
+### Acceptance criteria
+
+- [x] Правила кода §5.2 (не пусто, ≤ 31, без `/` `\`, не более одного `|` с непустыми частями) — в домене, с понятными ошибками.
+- [x] Регистронезависимый дубликат отклоняется (`ral7016` при `RAL7016`) как controlled business exception; написание сохраняется.
+- [x] Архивирование / восстановление на уровне агрегата; optimistic locking (`version`); `created_by/updated_by`.
+- [x] В репозитории нет методов удаления и изменения кода.
+- [x] Testcontainers IT: вставка, поиск по коду / ключу, фильтр активности, поиск, конфликт версии; чтение seed 860.
+
 ### Verification commands
 
 ```powershell
@@ -12711,11 +12724,11 @@ mvn -pl :tmp-architecture-tests -am test
 git diff --check
 ```
 
-**GUI:** нет. **DB:** нет миграций.
+**Result:** PASS (2026-11-09). **GUI:** нет. **DB:** нет миграций.
 
 ## COL-021A — SO7 mappings: domain and persistence
 
-**Status:** PLANNED
+**Status:** READY
 **Stage:** COL
 **Depends on:** COL-020A
 **Module:** `tmp-reference-data`

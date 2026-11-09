@@ -3,6 +3,27 @@
 ## Latest result
 
 **Date:** 2026-11-09
+**Scope:** COL-020A — Color catalog domain and persistence
+**Overall:** PASS
+**Base HEAD:** `ec888b254a59e53ac96141288fb191b44d9ca05f` (`master`)
+**Working tree:** COL-020A code + governance docs; **no commit / no push**
+**Pilot DB:** `tmp_pilot` **V57** untouched (no migrate applied)
+
+| Check | Result |
+|-------|--------|
+| Preflight: COL-020A was READY; COL-011/023 DONE; working tree clean at start; no DB migrations | PASS |
+| Domain §5.2 validation + archive/restore; no code-change / delete APIs | PASS |
+| `mvn -pl :tmp-reference-data -am verify` | BUILD SUCCESS — ColorTest + JdbcColorRepositoryIT (seed 860, insert/dup key, search, optimistic lock); Checkstyle/SpotBugs clean for module |
+| `mvn -pl :tmp-architecture-tests -am test` | BUILD SUCCESS — ReferenceDataArchitectureTest 4/4; Negative 4/4; full architecture suite green |
+| `git diff --check` | PASS |
+| V58/V59 unchanged; OM / Warehouse / Production / UI / STXT unchanged | PASS |
+| No pilot / production DB writes | PASS |
+
+---
+
+## Previous result
+
+**Date:** 2026-11-09
 **Scope:** COL-023 — Reference Data Security Integration
 **Overall:** PASS
 **Base HEAD:** `67e940112242ac25b5ee07f0b1614b65d7c710e6` (`master`)

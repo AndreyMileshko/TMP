@@ -1,3 +1,22 @@
+## COL-020A — Color catalog domain and persistence — 2026-11-09
+
+**Date:** 2026-11-09
+**Base HEAD:** `ec888b254a59e53ac96141288fb191b44d9ca05f` (`master`)
+**Status:** DONE — Color aggregate + JDBC repository over `reference.colors`; **no commit / no push**
+**Pilot DB:** untouched (`tmp_pilot` remains Flyway V57)
+
+### Delivered
+- Domain: `ColorId`, `Color` (create / archive / restore / rehydrate; §5.2 code rules; nested `InvalidCodeException`, `DuplicateCodeException`, `OptimisticLockConflictException`); reuses `ColorCodeKey`.
+- Port: `ColorRepository` — `insert`, `update` (no code mutation), `findById` / `findByCode` / `findByCodeKey`, `search(activeFilter, searchText)`; no delete API.
+- Persistence: `JdbcColorRepository` — INSERT full row; UPDATE only `active`/`version`/`updated_at`/`updated_by`; UNIQUE `code_key` → `DuplicateCodeException`; version mismatch → `OptimisticLockConflictException`.
+- Wiring: `ReferenceDataAutoConfiguration` registers `ColorRepository` when `JdbcTemplate` present; `spring-boot-starter-jdbc` added to module pom.
+- Tests: `ColorTest` (approved codes, invalid rules, archive/restore); `JdbcColorRepositoryIT` (seed 860, insert/dup, search filters, optimistic lock) on Testcontainers + V58/V59.
+
+### Out of scope (preserved)
+COL-020B application APIs; COL-021A mappings; UI; SO7; Security beyond existing; migrations; OM / Warehouse / Production; `tmp_pilot`.
+
+---
+
 ## COL-023 — Security — 2026-11-09
 
 **Date:** 2026-11-09
