@@ -7,7 +7,8 @@ import org.springframework.context.annotation.Bean;
 /**
  * Registers the Reference Data Capability bean for Capability Engine discovery.
  *
- * <p>COL-010: descriptor only — no permissions, navigation, persistence adapters or public APIs.
+ * <p>COL-023: Capability descriptor includes the four {@code reference.*} permissions. Navigation,
+ * persistence adapters and public APIs remain later COL tasks.
  */
 @AutoConfiguration
 public class ReferenceDataAutoConfiguration {

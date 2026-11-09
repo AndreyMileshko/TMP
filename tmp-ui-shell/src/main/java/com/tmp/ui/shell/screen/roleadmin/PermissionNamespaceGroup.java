@@ -75,6 +75,7 @@ public final class PermissionNamespaceGroup {
             case "order" -> "Заказы";
             case "warehouse" -> "Склад";
             case "production" -> "Производство";
+            case "reference" -> "Справочники";
             case "cutting" -> "Раскрой";
             case "analytics" -> "Аналитика";
             case "other" -> "Прочее";
@@ -88,8 +89,9 @@ public final class PermissionNamespaceGroup {
             case "order" -> 1;
             case "warehouse" -> 2;
             case "production" -> 3;
-            case "cutting" -> 4;
-            case "analytics" -> 5;
+            case "reference" -> 4;
+            case "cutting" -> 5;
+            case "analytics" -> 6;
             default -> 100;
         };
     }

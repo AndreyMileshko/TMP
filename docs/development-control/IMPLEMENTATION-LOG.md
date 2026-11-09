@@ -1,3 +1,64 @@
+## COL-023 — Security — 2026-11-09
+
+**Date:** 2026-11-09
+**Base HEAD:** `67e940112242ac25b5ee07f0b1614b65d7c710e6` (`master`)
+**Status:** DONE — four `reference.*` permissions + Security Administrator ensure + «Справочники»; **no commit / no push**
+**Pilot DB:** untouched (`tmp_pilot` remains Flyway V57)
+
+### Delivered
+- `ReferenceDataPermissions` / `ReferenceDataPermissionCatalog`: exactly four PermissionId codes in TMP `area.resource.action` format (hyphen allowed): `reference.color.view`, `reference.color.edit`, `reference.color-mapping.edit`, `reference.color-setting.edit`.
+- `ReferenceDataCapability` contributes the four `PermissionDescriptor`s (owner Capability `reference`); no navigation / views / public services yet (deferred to COL-030A+).
+- `ReferenceDataAdminNavigationAccessEnsure` (bootstrap): on `PlatformStartedEvent` grants all four codes to system role **Security Administrator** via `SystemRolePermissionEnsureService` (idempotent); uses stable string codes only — no compile-time dependency on `com.tmp.reference.security` (ArchUnit COL-010).
+- `PermissionNamespaceGroup`: namespace `reference` → display «Справочники», known order after `production`.
+- Tests: catalog/capability unit tests; bootstrap ensure unit test; UI namespace grouping test.
+
+### Out of scope (preserved)
+COL-020A+ domain/API/UI/import; new roles; Security model changes; OM / Warehouse / Production; STXT; V58/V59; `tmp_pilot`.
+
+---## COL-011 — Initial data — 2026-11-09
+
+**Date:** 2026-11-09
+**Base HEAD:** `67e940112242ac25b5ee07f0b1614b65d7c710e6` (`master`)
+**Status:** DONE — V59 seed 860/245/OFF + Java key normalization; **no commit / no push**
+**Pilot DB:** untouched (`tmp_pilot` remains Flyway V57)
+
+### Delivered
+- Flyway `V59__reference_colors_initial_data.sql` generated from the approved Excel (sheets «Цвета TMP» / «Сопоставления СО7»).
+- Exactly **860** active colors (639 RAL + 219 lamination + `Белый` + `00`) with preserved spelling, `code_key` = `ColorCodeKey.of(code)`, UUID via `gen_random_uuid()`, `ON CONFLICT (code_key) DO NOTHING`.
+- Exactly **245** active SO7 mappings; `source_key` = `So7SourceKey.of(source_text)`; inside/outside resolved by catalog `code_key` (Excel numeric IDs unused); `ON CONFLICT (source_key) DO NOTHING`.
+- `reference.color_matching_settings` singleton `(1, FALSE)` — automatic matching OFF.
+- Domain helpers `ColorCodeKey` / `So7SourceKey` (Locale.ROOT; SPEC-015 section 6.2 trim/collapse/upper); unit + Testcontainers consistency tests for the full approved dataset.
+- Schema Flyway test pinned to target `58` so empty-schema assertions remain valid alongside V59.
+
+### Integrity proven
+860 unique `code_key`; 245 unique `source_key`; 0 orphan FKs; all Excel inside/outside pairs match; 33 slash sources (example `RAL7016/30` maps to `RAL7016|30`); no `Без цвета` mapping; replay of V59 INSERT blocks does not duplicate or overwrite user edits.
+
+### Out of scope (preserved)
+COL-023+ security/CRUD/UI/import; OM / Warehouse / Production; STXT parser; V58; Excel file; `tmp_pilot`.
+
+---
+## COL-011 — Initial data — 2026-11-09
+
+**Date:** 2026-11-09
+**Base HEAD:** `67e940112242ac25b5ee07f0b1614b65d7c710e6` (`master`)
+**Status:** DONE — V59 seed 860/245/OFF + Java key normalization; **no commit / no push**
+**Pilot DB:** untouched (`tmp_pilot` remains Flyway V57)
+
+### Delivered
+- Flyway `V59__reference_colors_initial_data.sql` generated from approved Excel `TMP_Цвета_и_сопоставления_СО7_согласовано.xlsx` (sheets «Цвета TMP» / «Сопоставления СО7»).
+- Exactly **860** active colors (639 RAL + 219 lamination + `Белый` + `00`) with preserved spelling, `code_key` = `ColorCodeKey.of(code)`, UUID via `gen_random_uuid()`, `ON CONFLICT (code_key) DO NOTHING`.
+- Exactly **245** active SO7 mappings; `source_key` = `So7SourceKey.of(source_text)`; inside/outside resolved by catalog `code_key` (Excel numeric IDs unused); `ON CONFLICT (source_key) DO NOTHING`.
+- `reference.color_matching_settings` singleton `(1, FALSE)` — automatic matching OFF.
+- Domain helpers `ColorCodeKey` / `So7SourceKey` (Locale.ROOT; §6.2 trim/collapse/upper); unit + Testcontainers consistency tests for the full approved dataset.
+- Schema Flyway test pinned to target `58` so empty-schema assertions remain valid alongside V59.
+
+### Integrity proven
+860 unique `code_key`; 245 unique `source_key`; 0 orphan FKs; all Excel inside/outside pairs match; 33 slash sources (e.g. `RAL7016/30т → RAL7016|30`); no `Без цвета` mapping; replay of V59 INSERT blocks does not duplicate or overwrite user edits.
+
+### Out of scope (preserved)
+COL-023+ security/CRUD/UI/import; OM / Warehouse / Production; STXT parser; V58; Excel file; `tmp_pilot`.
+
+---
 ## COL-010 — Module and schema — 2026-11-08
 
 **Date:** 2026-11-08

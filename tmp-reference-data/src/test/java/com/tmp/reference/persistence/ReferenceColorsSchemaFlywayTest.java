@@ -14,7 +14,11 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/** Verifies Flyway V58 creates the Reference Data Colors schema without seed data. */
+/**
+ * Verifies Flyway V58 creates the Reference Data Colors schema without seed data.
+ *
+ * <p>Target is pinned to version 58 so COL-011 seed (V59) does not affect schema-only assertions.
+ */
 @Testcontainers
 class ReferenceColorsSchemaFlywayTest {
 
@@ -34,6 +38,7 @@ class ReferenceColorsSchemaFlywayTest {
                                 POSTGRES.getUsername(),
                                 POSTGRES.getPassword())
                         .locations("classpath:db/migration")
+                        .target("58")
                         .load();
         flyway.migrate();
 

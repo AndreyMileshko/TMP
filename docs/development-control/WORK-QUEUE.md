@@ -12627,7 +12627,7 @@ git diff --check
 
 ## COL-011 — Initial data
 
-**Status:** READY
+**Status:** DONE
 **Stage:** COL
 **Depends on:** COL-010
 **Module:** `tmp-reference-data`
@@ -12651,10 +12651,15 @@ git diff --check
 
 ## COL-023 — Security
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** COL
 **Depends on:** COL-010
 **Module:** `tmp-reference-data` (+ `tmp-bootstrap-app` ensure, `tmp-ui-shell` `PermissionNamespaceGroup`)
+**Date:** 2026-11-09
+**Base HEAD:** `67e940112242ac25b5ee07f0b1614b65d7c710e6` (`master`)
+**Commit:** NONE
+**Push:** NONE
+**DB:** no migrations; `tmp_pilot` untouched (V57)
 
 ### Goal
 
@@ -12663,6 +12668,13 @@ git diff --check
 ### Required documents
 
 TMP-SPEC-015 §15; Plan §5 COL-023; Security Specification.
+
+### Acceptance criteria
+
+- [x] Ровно четыре права: `reference.color.view`, `reference.color.edit`, `reference.color-mapping.edit`, `reference.color-setting.edit`, владелец — Capability `reference`.
+- [x] После старта роль Security Administrator имеет все четыре права; повторный старт идемпотентен (через `SystemRolePermissionEnsureService`).
+- [x] Экран ролей группирует область `reference` как «Справочники» (`PermissionNamespaceGroup`).
+- [x] Новых ролей не создано.
 
 ### Verification commands
 
@@ -12674,11 +12686,11 @@ mvn -pl :tmp-architecture-tests -am test
 git diff --check
 ```
 
-**GUI:** нет. **DB:** нет миграций.
+**Result:** PASS (2026-11-09). Bootstrap ensure uses stable permission code strings (no `com.tmp.reference.security` dependency) to satisfy ArchUnit COL-010 public-API boundary. **GUI:** нет. **DB:** нет миграций.
 
 ## COL-020A — Color catalog: domain and persistence
 
-**Status:** PLANNED
+**Status:** READY
 **Stage:** COL
 **Depends on:** COL-011
 **Module:** `tmp-reference-data`

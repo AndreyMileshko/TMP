@@ -4,13 +4,14 @@ import com.tmp.capability.api.Capability;
 import com.tmp.capability.api.CapabilityDescriptor;
 import com.tmp.capability.api.CapabilityId;
 import com.tmp.capability.api.CapabilityVersion;
+import com.tmp.reference.security.ReferenceDataPermissionCatalog;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Reference Data Capability descriptor (ADR-039 / TMP-SPEC-015).
  *
- * <p>COL-010 registers the Capability without permissions, navigation or public services. Those
- * contributions are added in later COL tasks.
+ * <p>COL-023 registers the four {@code reference.*} permissions. Navigation and public services are
+ * added in later COL tasks.
  */
 public final class ReferenceDataCapability implements Capability {
 
@@ -28,6 +29,7 @@ public final class ReferenceDataCapability implements Capability {
                         .description(
                                 "Reference data owned by TMP: TMP color catalog, SO7 color mappings"
                                         + " and automatic color-matching settings")
+                        .permissions(ReferenceDataPermissionCatalog.all())
                         .build();
     }
 

@@ -2,6 +2,52 @@
 
 ## Latest result
 
+**Date:** 2026-11-09
+**Scope:** COL-023 — Reference Data Security Integration
+**Overall:** PASS
+**Base HEAD:** `67e940112242ac25b5ee07f0b1614b65d7c710e6` (`master`)
+**Working tree:** COL-010/011/023 code + governance docs; **no commit / no push**
+**Pilot DB:** `tmp_pilot` **V57** untouched (no migrate applied)
+
+| Check | Result |
+|-------|--------|
+| Preflight: COL-023 was READY; depends on COL-010 DONE; no DB migrations | PASS |
+| Four PermissionId codes valid three-segment TMP format (incl. hyphen resources) | PASS |
+| `mvn -pl :tmp-reference-data -am verify -DskipITs` | BUILD SUCCESS — ReferenceDataPermissionCatalogTest 6/6; CapabilityTest updated |
+| `mvn -pl :tmp-bootstrap-app -am verify` | BUILD SUCCESS — ReferenceDataAdminNavigationAccessEnsureTest 1/1; ensure grants exactly 4 codes to Security Administrator |
+| `mvn -pl :tmp-ui-shell -am verify -DskipITs` | BUILD SUCCESS — PermissionNamespaceGroupTest 2/2 («Справочники» after production) |
+| `mvn -pl :tmp-architecture-tests test` | BUILD SUCCESS — 165 tests, 0 failures (bootstrap uses string codes; no `reference.security` dependency) |
+| `git diff --check` | PASS |
+| No new roles; no grants beyond Security Administrator ensure; Security model unchanged | PASS |
+| OM / Warehouse / Production / V58 / V59 / STXT unchanged by COL-023 | PASS |
+| No pilot / production DB writes | PASS |
+
+---
+
+## Previous result
+**Date:** 2026-11-09
+**Scope:** COL-011 — Reference Data initial seed (V59)
+**Overall:** PASS
+**Base HEAD:** `67e940112242ac25b5ee07f0b1614b65d7c710e6` (`master`)
+**Working tree:** COL-011 code + governance docs; **no commit / no push**
+**Pilot DB:** `tmp_pilot` **V57** untouched (no migrate applied)
+
+| Check | Result |
+|-------|--------|
+| Preflight: COL-010 DONE; COL-011 was READY; V58 present; V59 free; Excel authoritative | PASS |
+| Excel parse counts 860 / 245; suffixes 213/213/73/73; 33 slash mappings; no `Без цвета` | PASS |
+| `mvn -pl :tmp-reference-data -am verify` | BUILD SUCCESS — 19 tests (1+4+5+5+4), 0 failures; Checkstyle 0; SpotBugs 0 |
+| Flyway V59 on Testcontainers: 860 colors / 245 mappings / matching OFF; Java key consistency for all rows | PASS |
+| Idempotent replay of V59 INSERT blocks (no dupes; preserves user edits) | PASS |
+| `git diff --check` | PASS |
+| OM / Warehouse / Production production sources unchanged; V58 unchanged; Excel unchanged | PASS |
+| No pilot / production DB writes | PASS |
+
+---
+
+## Previous result
+
+
 **Date:** 2026-11-08
 **Scope:** COL-010 — Reference Data module skeleton and V58 schema
 **Overall:** PASS

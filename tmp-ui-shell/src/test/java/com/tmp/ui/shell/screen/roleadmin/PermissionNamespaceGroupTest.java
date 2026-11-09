@@ -19,6 +19,7 @@ class PermissionNamespaceGroupTest {
                                 summary("order.order.view", "Просмотр заказов"),
                                 summary("warehouse.stock.view", "Просмотр склада"),
                                 summary("production.order.view", "Просмотр производства"),
+                                summary("reference.color.view", "Просмотр справочника цветов"),
                                 summary("security.roles.view", "Просмотр ролей"),
                                 summary("cutting.plan.view", "Просмотр раскроя"),
                                 summary("analytics.report.view", "Отчёты"),
@@ -27,12 +28,20 @@ class PermissionNamespaceGroupTest {
         assertEquals("Заказы", groups.get(1).displayName());
         assertEquals("Склад", groups.get(2).displayName());
         assertEquals("Производство", groups.get(3).displayName());
-        assertEquals("Раскрой", groups.get(4).displayName());
-        assertEquals("Аналитика", groups.get(5).displayName());
+        assertEquals("Справочники", groups.get(4).displayName());
+        assertEquals("Раскрой", groups.get(5).displayName());
+        assertEquals("Аналитика", groups.get(6).displayName());
         assertTrue(groups.stream().anyMatch(g -> g.displayName().equals("Custom")
                 || g.namespace().equals("custom")));
         int total = groups.stream().mapToInt(g -> g.permissions().size()).sum();
-        assertEquals(7, total);
+        assertEquals(8, total);
+    }
+
+    @Test
+    void referenceNamespaceDisplaysAsDirectoriesLabel() {
+        assertEquals("Справочники", PermissionNamespaceGroup.displayNameFor("reference"));
+        assertEquals("reference", PermissionNamespaceGroup.namespaceOf(
+                PermissionId.of("reference.color-mapping.edit")));
     }
 
     private static PermissionSummary summary(String id, String display) {
