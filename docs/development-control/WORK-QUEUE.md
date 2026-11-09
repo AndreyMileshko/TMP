@@ -12842,10 +12842,15 @@ git diff --check
 
 ## COL-022A — Global matching setting
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** COL
 **Depends on:** COL-020B
 **Module:** `tmp-reference-data`
+**Date:** 2026-11-09
+**Base HEAD:** `4174ed7d554832c913db54a44e2a3b0e3f7d691c` (`master`)
+**Commit:** NONE
+**Push:** NONE
+**DB:** untouched (`tmp_pilot` remains V57; no migrations)
 
 ### Goal
 
@@ -12855,15 +12860,21 @@ git diff --check
 
 TMP-SPEC-015 §7, §15, §16.3, §17; Plan §5 COL-022A.
 
+### Acceptance criteria
+
+- [x] Чтение: `reference.color.view` или полный набор прав импорта; неполный набор (только `order.order.create`) — отказ.
+- [x] Изменение: только `reference.color-setting.edit`; конфликт версии — понятная ошибка.
+- [x] Значение по умолчанию после seed — OFF.
+
 ### Verification commands
 
 ```powershell
-mvn -pl :tmp-reference-data -am verify
-mvn -pl :tmp-architecture-tests -am test
+mvn -pl :tmp-reference-data verify
+mvn -pl :tmp-architecture-tests test
 git diff --check
 ```
 
-**GUI:** нет. **DB:** нет миграций.
+**Result:** PASS (2026-11-09) — module verify surefire 74 + failsafe 35; architecture 165; no `-am` (deps already installed). **GUI:** нет. **DB:** нет миграций.
 
 ## COL-022B — Import resolution API
 

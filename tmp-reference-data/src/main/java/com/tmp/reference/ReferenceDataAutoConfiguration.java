@@ -1,12 +1,16 @@
 package com.tmp.reference;
 
 import com.tmp.reference.application.DefaultColorCatalogService;
+import com.tmp.reference.application.DefaultColorMatchingSettingService;
 import com.tmp.reference.application.DefaultSo7ColorMappingService;
 import com.tmp.reference.capability.ReferenceDataCapability;
+import com.tmp.reference.domain.ColorMatchingSettingRepository;
 import com.tmp.reference.domain.ColorRepository;
 import com.tmp.reference.domain.So7ColorMappingRepository;
+import com.tmp.reference.persistence.JdbcColorMatchingSettingRepository;
 import com.tmp.reference.persistence.JdbcColorRepository;
 import com.tmp.reference.persistence.JdbcSo7ColorMappingRepository;
+import com.tmp.reference.security.ReferenceImportAccessPolicy;
 import com.tmp.security.api.AuthenticationService;
 import com.tmp.security.api.AuthorizationService;
 import java.time.Clock;
@@ -22,7 +26,7 @@ import org.springframework.transaction.PlatformTransactionManager;
  * Registers the Reference Data Capability, persistence adapters and public application APIs.
  *
  * <p>COL-020B: color catalog query/command. COL-021B: SO7 mapping query/command including {@code
- * saveMappingsFromImport}.
+ * saveMappingsFromImport}. COL-022A: automatic matching setting and import access policy.
  */
 @AutoConfiguration
 @AutoConfigureAfter(JdbcTemplateAutoConfiguration.class)
@@ -38,6 +42,18 @@ public class ReferenceDataAutoConfiguration {
     @ConditionalOnBean(JdbcTemplate.class)
     So7ColorMappingRepository so7ColorMappingRepository(JdbcTemplate jdbcTemplate) {
         return new JdbcSo7ColorMappingRepository(jdbcTemplate);
+    }
+
+    @Bean
+    @ConditionalOnBean(JdbcTemplate.class)
+    ColorMatchingSettingRepository colorMatchingSettingRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcColorMatchingSettingRepository(jdbcTemplate);
+    }
+
+    @Bean
+    @ConditionalOnBean(AuthorizationService.class)
+    ReferenceImportAccessPolicy referenceImportAccessPolicy(AuthorizationService authorizationService) {
+        return new ReferenceImportAccessPolicy(authorizationService);
     }
 
     @Bean
@@ -89,14 +105,41 @@ public class ReferenceDataAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnBean({DefaultColorCatalogService.class, DefaultSo7ColorMappingService.class})
+    @ConditionalOnBean({
+        AuthorizationService.class,
+        AuthenticationService.class,
+        ReferenceImportAccessPolicy.class,
+        ColorMatchingSettingRepository.class
+    })
+    DefaultColorMatchingSettingService defaultColorMatchingSettingService(
+            AuthorizationService authorizationService,
+            AuthenticationService authenticationService,
+            ReferenceImportAccessPolicy referenceImportAccessPolicy,
+            ColorMatchingSettingRepository colorMatchingSettingRepository,
+            Clock clock) {
+        return new DefaultColorMatchingSettingService(
+                authorizationService,
+                authenticationService,
+                referenceImportAccessPolicy,
+                colorMatchingSettingRepository,
+                clock);
+    }
+
+    @Bean
+    @ConditionalOnBean({
+        DefaultColorCatalogService.class,
+        DefaultSo7ColorMappingService.class,
+        DefaultColorMatchingSettingService.class
+    })
     ReferenceDataCapability referenceDataCapability(
             DefaultColorCatalogService colorCatalogService,
-            DefaultSo7ColorMappingService so7ColorMappingService) {
+            DefaultSo7ColorMappingService so7ColorMappingService,
+            DefaultColorMatchingSettingService colorMatchingSettingService) {
         return new ReferenceDataCapability(
                 colorCatalogService,
                 colorCatalogService,
                 so7ColorMappingService,
-                so7ColorMappingService);
+                so7ColorMappingService,
+                colorMatchingSettingService);
     }
 }

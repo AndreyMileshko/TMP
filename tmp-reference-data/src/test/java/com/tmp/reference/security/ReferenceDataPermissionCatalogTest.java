@@ -8,6 +8,7 @@ import com.tmp.capability.api.PermissionDescriptor;
 import com.tmp.reference.api.ColorCatalogCommandApi;
 import com.tmp.reference.api.ColorCatalogQueryApi;
 import com.tmp.reference.api.ColorDto;
+import com.tmp.reference.api.ColorMatchingSettingApi;
 import com.tmp.reference.api.ImportMappingSaveReport;
 import com.tmp.reference.api.So7ColorMappingCommandApi;
 import com.tmp.reference.api.So7ColorMappingDto;
@@ -136,15 +137,28 @@ class ReferenceDataPermissionCatalogTest {
                         throw new UnsupportedOperationException();
                     }
                 };
+        ColorMatchingSettingApi settingApi =
+                new ColorMatchingSettingApi() {
+                    @Override
+                    public ColorMatchingSettingDto getAutomaticMatchingSetting() {
+                        return new ColorMatchingSettingDto(false, 0L);
+                    }
+
+                    @Override
+                    public ColorMatchingSettingDto setAutomaticMatchingEnabled(
+                            boolean enabled, long expectedVersion) {
+                        throw new UnsupportedOperationException();
+                    }
+                };
         ReferenceDataCapability capability =
                 new ReferenceDataCapability(
-                        queryApi, commandApi, mappingQueryApi, mappingCommandApi);
+                        queryApi, commandApi, mappingQueryApi, mappingCommandApi, settingApi);
         assertEquals(ReferenceDataCapability.ID, capability.descriptor().id());
         assertEquals(4, capability.descriptor().permissions().size());
         assertTrue(capability.descriptor().navigationContributions().isEmpty());
         assertTrue(capability.descriptor().views().isEmpty());
         assertTrue(capability.descriptor().commands().isEmpty());
-        assertEquals(4, capability.descriptor().publicServices().size());
+        assertEquals(5, capability.descriptor().publicServices().size());
         assertEquals(
                 ReferenceDataPermissions.all().stream()
                         .map(PermissionId::value)

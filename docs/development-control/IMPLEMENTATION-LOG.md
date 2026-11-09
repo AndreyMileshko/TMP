@@ -1,3 +1,23 @@
+## COL-022A — Global matching setting — 2026-11-09
+
+**Date:** 2026-11-09
+**Base HEAD:** `4174ed7d554832c913db54a44e2a3b0e3f7d691c` (`master`, COL-021B committed)
+**Status:** DONE — `ColorMatchingSettingApi` + `DefaultColorMatchingSettingService` + `ReferenceImportAccessPolicy`; **no commit / no push**
+**Pilot DB:** untouched (`tmp_pilot` remains Flyway V57)
+
+### Delivered
+- Public API: `ColorMatchingSettingApi` with nested `ColorMatchingSettingDto` — `getAutomaticMatchingSetting()`, `setAutomaticMatchingEnabled(enabled, expectedVersion)`.
+- Domain/persistence: `ColorMatchingSettingRepository` (+ nested singleton `ColorMatchingSetting`, optimistic-lock exception) and `JdbcColorMatchingSettingRepository` over `reference.color_matching_settings` (id=1); no migrations.
+- Application: `DefaultColorMatchingSettingService` — read via `ReferenceImportAccessPolicy` (§15.2); mutation only with `reference.color-setting.edit`; actor from session; clear version-conflict error; seed default OFF preserved.
+- Security: `ReferenceImportAccessPolicy` — `reference.color.view` **or** full five OM import permission strings (no Maven dependency on OM); incomplete subset (e.g. only `order.order.create`) denied.
+- Capability: fifth public service `ColorMatchingSettingApi`; AutoConfiguration wires repository, policy, service.
+- Tests: `ReferenceImportAccessPolicyTest` (5), `DefaultColorMatchingSettingServiceTest` (5), `DefaultColorMatchingSettingServiceIT` (7), capability/permission registration updates.
+
+### Out of scope (preserved)
+COL-022B `ColorImportResolutionApi` / resolveSourceTexts; UI; order-import coordination; V58/V59; OM / Warehouse / Production / STXT; `tmp_pilot`.
+
+---
+
 ## COL-021B — SO7 mappings application API — 2026-11-09
 
 **Date:** 2026-11-09

@@ -1,6 +1,33 @@
 ## Latest result
 
 **Date:** 2026-11-09
+**Scope:** COL-022A — Global matching setting
+**Overall:** PASS
+**Base HEAD:** `4174ed7d554832c913db54a44e2a3b0e3f7d691c` (`master`)
+**Working tree:** COL-022A code + governance docs; **no commit / no push**
+**Pilot DB:** `tmp_pilot` **V57** untouched (no migrate applied)
+
+| Check | Result |
+|-------|--------|
+| Preflight: COL-021B committed at HEAD; product owner authorized COL-022A PLANNED→READY→execute; Start Gate already PASSED | PASS |
+| Question Gate (behavior, ownership, boundaries, contracts, AC, verifiability) | PASS — no blocker |
+| Scope difference vs user narrative: SO7 text resolution is COL-022B, not COL-022A | NOTED — followed Plan §5 COL-022A only |
+| 5 new production files + registration; no ColorImportResolutionApi | PASS |
+| Targeted unit: ReferenceImportAccessPolicyTest 5/5 + DefaultColorMatchingSettingServiceTest 5/5 + Capability/Permission | PASS |
+| Targeted IT: DefaultColorMatchingSettingServiceIT 7/7 (seed OFF, view, full import set, only-create deny, edit deny, enable, stale version) | PASS |
+| `mvn -pl :tmp-reference-data verify` (no `-am`; deps already installed) | BUILD SUCCESS — surefire 74 + failsafe 35; Checkstyle 0; SpotBugs 0 |
+| `mvn -pl :tmp-architecture-tests test` (no `-am`; deps already built) | BUILD SUCCESS — 165 tests; ReferenceDataArchitecture* 8/8 |
+| `git diff --check` | PASS |
+| UTF-8 without BOM on new/changed text files (UTF8Encoding(false); LF) | PASS |
+| V58/V59 / OM / Warehouse / Production / UI / tmp_pilot unchanged | PASS |
+
+**Maven timing (approx.):** unit targeted ~11s; IT targeted ~18s; module verify ~133s; architecture suite ~13s.
+
+---
+
+## Previous result
+
+**Date:** 2026-11-09
 **Scope:** COL-021B — SO7 mappings application API
 **Overall:** PASS
 **Base HEAD:** `edec66393901c38170827538a63bc977f297a183` (`master`)
