@@ -186,9 +186,9 @@ class ReferenceDataPermissionCatalogTest {
                         });
         assertEquals(ReferenceDataCapability.ID, capability.descriptor().id());
         assertEquals(4, capability.descriptor().permissions().size());
-        assertTrue(capability.descriptor().navigationContributions().isEmpty());
-        assertTrue(capability.descriptor().views().isEmpty());
-        assertTrue(capability.descriptor().commands().isEmpty());
+        assertEquals(1, capability.descriptor().navigationContributions().size());
+        assertEquals(1, capability.descriptor().views().size());
+        assertEquals(1, capability.descriptor().commands().size());
         assertEquals(6, capability.descriptor().publicServices().size());
         assertEquals(
                 ReferenceDataPermissions.all().stream()

@@ -12917,10 +12917,14 @@ git diff --check
 
 ## COL-030A — Reference Data JavaFX UI: screen, «Цвета TMP», switch
 
-**Status:** PLANNED
+**Status:** VERIFYING
 **Stage:** COL
 **Depends on:** COL-020B, COL-022A, COL-023
 **Module:** `tmp-ui-shell` (+ регистрация в `tmp-bootstrap-app`)
+**Authorized:** product owner (PLANNED → READY → start; Start Gate already PASSED)
+**Base HEAD:** `243fe91c805d3614d4a5282b37d01e5dff672ba0` (`master`, COL-022B)
+**Automated verify:** PASS (2026-11-09) — UI/ViewModel/capability/bootstrap/architecture; `TMP.exe` packaged
+**Manual GUI:** BLOCKED — `tmp_col_acceptance` отсутствует на `tmp-stage5-pg` (есть только `tmp_pilot`); создание БД требует явного согласия PO; `tmp_pilot` не использовался. Статус не DONE до GUI-приёмки.
 
 ### Goal
 

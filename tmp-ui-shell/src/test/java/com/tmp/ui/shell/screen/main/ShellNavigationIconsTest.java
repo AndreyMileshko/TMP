@@ -19,7 +19,8 @@ class ShellNavigationIconsTest {
         ShellNavigationIcons.NAV_AUDIT,
         ShellNavigationIcons.NAV_ORDERS,
         ShellNavigationIcons.NAV_WAREHOUSE,
-        ShellNavigationIcons.NAV_PRODUCTION
+        ShellNavigationIcons.NAV_PRODUCTION,
+        ShellNavigationIcons.NAV_REFERENCE_COLORS
     };
 
     @BeforeAll

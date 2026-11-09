@@ -1,5 +1,11 @@
 package com.tmp.reference;
 
+import com.tmp.reference.api.ColorCatalogCommandApi;
+import com.tmp.reference.api.ColorCatalogQueryApi;
+import com.tmp.reference.api.ColorImportResolutionApi;
+import com.tmp.reference.api.ColorMatchingSettingApi;
+import com.tmp.reference.api.So7ColorMappingCommandApi;
+import com.tmp.reference.api.So7ColorMappingQueryApi;
 import com.tmp.reference.application.DefaultColorCatalogService;
 import com.tmp.reference.application.DefaultColorImportResolutionService;
 import com.tmp.reference.application.DefaultColorMatchingSettingService;
@@ -20,6 +26,7 @@ import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
@@ -28,7 +35,8 @@ import org.springframework.transaction.PlatformTransactionManager;
  *
  * <p>COL-020B: color catalog query/command. COL-021B: SO7 mapping query/command including {@code
  * saveMappingsFromImport}. COL-022A: automatic matching setting and import access policy.
- * COL-022B: import resolution API.
+ * COL-022B: import resolution API. COL-030A: navigation contribution; Capability bean uses
+ * {@code @Lazy} public-service collaborators (same cycle break as ProductionCapability).
  */
 @AutoConfiguration
 @AutoConfigureAfter(JdbcTemplateAutoConfiguration.class)
@@ -157,16 +165,18 @@ public class ReferenceDataAutoConfiguration {
         DefaultColorImportResolutionService.class
     })
     ReferenceDataCapability referenceDataCapability(
-            DefaultColorCatalogService colorCatalogService,
-            DefaultSo7ColorMappingService so7ColorMappingService,
-            DefaultColorMatchingSettingService colorMatchingSettingService,
-            DefaultColorImportResolutionService colorImportResolutionService) {
+            @Lazy ColorCatalogQueryApi colorCatalogQueryApi,
+            @Lazy ColorCatalogCommandApi colorCatalogCommandApi,
+            @Lazy So7ColorMappingQueryApi so7ColorMappingQueryApi,
+            @Lazy So7ColorMappingCommandApi so7ColorMappingCommandApi,
+            @Lazy ColorMatchingSettingApi colorMatchingSettingApi,
+            @Lazy ColorImportResolutionApi colorImportResolutionApi) {
         return new ReferenceDataCapability(
-                colorCatalogService,
-                colorCatalogService,
-                so7ColorMappingService,
-                so7ColorMappingService,
-                colorMatchingSettingService,
-                colorImportResolutionService);
+                colorCatalogQueryApi,
+                colorCatalogCommandApi,
+                so7ColorMappingQueryApi,
+                so7ColorMappingCommandApi,
+                colorMatchingSettingApi,
+                colorImportResolutionApi);
     }
 }

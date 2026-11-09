@@ -273,6 +273,8 @@ public final class MainWindowViewModel {
                     UiShellScreens.WAREHOUSE_STRUCTURE_VIEW_PERMISSION;
             case UiShellScreens.PRODUCTION_WORKBENCH_SCREEN_ID ->
                     UiShellScreens.PRODUCTION_VIEW_PERMISSION;
+            case UiShellScreens.REFERENCE_COLORS_SCREEN_ID ->
+                    UiShellScreens.REFERENCE_COLOR_VIEW_PERMISSION;
             case UiShellScreens.USER_ADMIN_SCREEN_ID -> "security.users.view";
             case UiShellScreens.ROLE_ADMIN_SCREEN_ID -> "security.roles.view";
             case UiShellScreens.AUDIT_SCREEN_ID -> "security.audit.view";

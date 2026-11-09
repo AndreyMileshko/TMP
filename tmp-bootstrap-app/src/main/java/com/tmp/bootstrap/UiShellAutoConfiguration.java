@@ -42,6 +42,7 @@ import com.tmp.ui.shell.screen.orderitemlist.OrderItemListViewModel;
 import com.tmp.ui.shell.screen.orderlist.OrderListViewModel;
 import com.tmp.ui.shell.screen.orderspecificationeditor.OrderItemSpecificationEditorViewModel;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchViewModel;
+import com.tmp.ui.shell.screen.reference.ReferenceColorsViewModel;
 import com.tmp.ui.shell.screen.roleadmin.RoleAdministrationViewModel;
 import com.tmp.ui.shell.screen.useradmin.UserAdministrationViewModel;
 import com.tmp.ui.shell.screen.warehouse.WarehouseSettingsViewModel;
@@ -49,6 +50,9 @@ import com.tmp.ui.shell.screen.warehouse.WarehouseWorkbenchViewModel;
 import com.tmp.ui.shell.screen.warehouse.WarehouseWorkspaceViewModel;
 import com.tmp.production.api.ProductionApplicationApi;
 import com.tmp.production.api.ProductionQueryApi;
+import com.tmp.reference.api.ColorCatalogCommandApi;
+import com.tmp.reference.api.ColorCatalogQueryApi;
+import com.tmp.reference.api.ColorMatchingSettingApi;
 import com.tmp.warehouse.api.WarehouseApi;
 import jakarta.annotation.PostConstruct;
 import java.time.Clock;
@@ -286,6 +290,19 @@ public class UiShellAutoConfiguration {
     }
 
     @Bean
+    ReferenceColorsViewModel referenceColorsViewModel(
+            ColorCatalogQueryApi colorCatalogQueryApi,
+            ColorCatalogCommandApi colorCatalogCommandApi,
+            ColorMatchingSettingApi colorMatchingSettingApi,
+            AuthorizationService authorizationService) {
+        return new ReferenceColorsViewModel(
+                colorCatalogQueryApi,
+                colorCatalogCommandApi,
+                colorMatchingSettingApi,
+                authorizationService);
+    }
+
+    @Bean
     OrderScreenNavigationBridge orderScreenNavigationBridge(
             OrderListViewModel orderListViewModel,
             OrderEditorViewModel orderEditorViewModel,
@@ -322,7 +339,8 @@ public class UiShellAutoConfiguration {
             WarehouseWorkbenchViewModel warehouseWorkbenchViewModel,
             WarehouseWorkspaceViewModel warehouseWorkspaceViewModel,
             WarehouseSettingsViewModel warehouseSettingsViewModel,
-            ProductionWorkbenchViewModel productionWorkbenchViewModel) {
+            ProductionWorkbenchViewModel productionWorkbenchViewModel,
+            ReferenceColorsViewModel referenceColorsViewModel) {
         return new UiShellScreenRegistrar(
                 navigationService,
                 loginViewModel,
@@ -340,7 +358,8 @@ public class UiShellAutoConfiguration {
                 warehouseWorkbenchViewModel,
                 warehouseWorkspaceViewModel,
                 warehouseSettingsViewModel,
-                productionWorkbenchViewModel);
+                productionWorkbenchViewModel,
+                referenceColorsViewModel);
     }
 
     @Bean
@@ -566,6 +585,7 @@ public class UiShellAutoConfiguration {
         private final WarehouseWorkspaceViewModel warehouseWorkspaceViewModel;
         private final WarehouseSettingsViewModel warehouseSettingsViewModel;
         private final ProductionWorkbenchViewModel productionWorkbenchViewModel;
+        private final ReferenceColorsViewModel referenceColorsViewModel;
 
         UiShellScreenRegistrar(
                 NavigationService navigationService,
@@ -584,7 +604,8 @@ public class UiShellAutoConfiguration {
                 WarehouseWorkbenchViewModel warehouseWorkbenchViewModel,
                 WarehouseWorkspaceViewModel warehouseWorkspaceViewModel,
                 WarehouseSettingsViewModel warehouseSettingsViewModel,
-                ProductionWorkbenchViewModel productionWorkbenchViewModel) {
+                ProductionWorkbenchViewModel productionWorkbenchViewModel,
+                ReferenceColorsViewModel referenceColorsViewModel) {
             this.navigationService = navigationService;
             this.loginViewModel = loginViewModel;
             this.mainWindowViewModel = mainWindowViewModel;
@@ -602,6 +623,7 @@ public class UiShellAutoConfiguration {
             this.warehouseWorkspaceViewModel = warehouseWorkspaceViewModel;
             this.warehouseSettingsViewModel = warehouseSettingsViewModel;
             this.productionWorkbenchViewModel = productionWorkbenchViewModel;
+            this.referenceColorsViewModel = referenceColorsViewModel;
         }
 
         @PostConstruct
@@ -664,6 +686,10 @@ public class UiShellAutoConfiguration {
                     UiShellScreens.PRODUCTION_WORKBENCH_SCREEN_ID,
                     UiShellScreens.PRODUCTION_WORKBENCH_FXML,
                     () -> productionWorkbenchViewModel));
+            navigationService.register(new ScreenRegistration(
+                    UiShellScreens.REFERENCE_COLORS_SCREEN_ID,
+                    UiShellScreens.REFERENCE_COLORS_FXML,
+                    () -> referenceColorsViewModel));
         }
     }
 }

@@ -40,7 +40,8 @@ class RuntimeNavigationCatalogueTest extends AbstractBootstrapPostgresSpringTest
                     SecurityAdministrationCapability.NAV_AUDIT,
                     OrderManagementCapability.NAV_ORDERS,
                     WarehouseCapability.NAV_WAREHOUSE,
-                    ProductionCapability.NAV_PRODUCTION);
+                    ProductionCapability.NAV_PRODUCTION,
+                    ReferenceDataCapability.NAV_COLORS);
 
     private static final Set<String> ADMIN_VISIBLE_NAV_IDS =
             Set.of(

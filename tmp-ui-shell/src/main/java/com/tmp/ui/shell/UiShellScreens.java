@@ -29,6 +29,8 @@ public final class UiShellScreens {
             "com/tmp/ui/shell/screen/warehouse/WarehouseSettingsScreen.fxml";
     public static final String PRODUCTION_WORKBENCH_FXML =
             "com/tmp/ui/shell/screen/production/ProductionWorkbenchScreen.fxml";
+    public static final String REFERENCE_COLORS_FXML =
+            "com/tmp/ui/shell/screen/reference/reference-colors.fxml";
 
     public static final String MAIN_SCREEN_ID = "main";
     public static final String ACCESS_DENIED_SCREEN_ID = "access-denied";
@@ -53,6 +55,13 @@ public final class UiShellScreens {
     public static final String WAREHOUSE_SETTINGS_SCREEN_ID = "warehouse.view.settings";
     /** Must match Production Capability {@code viewId} ({@code production.view.workbench}). */
     public static final String PRODUCTION_WORKBENCH_SCREEN_ID = "production.view.workbench";
+    /** Must match Reference Data Capability {@code viewId} ({@code reference.view.colors}). */
+    public static final String REFERENCE_COLORS_SCREEN_ID = "reference.view.colors";
+    public static final String REFERENCE_COLORS_NAVIGATION_ID = "reference.nav.colors";
+    public static final String REFERENCE_COLOR_VIEW_PERMISSION = "reference.color.view";
+    public static final String REFERENCE_COLOR_EDIT_PERMISSION = "reference.color.edit";
+    public static final String REFERENCE_COLOR_SETTING_EDIT_PERMISSION =
+            "reference.color-setting.edit";
     public static final String PRODUCTION_VIEW_PERMISSION = "production.order.view";
     public static final String PRODUCTION_ACCEPT_PERMISSION = "production.order.accept";
     public static final String PRODUCTION_CHECK_PERMISSION = "production.materials.check";

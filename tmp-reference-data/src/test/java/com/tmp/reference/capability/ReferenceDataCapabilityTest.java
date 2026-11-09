@@ -43,9 +43,23 @@ class ReferenceDataCapabilityTest {
         assertEquals("Reference Data", capability.descriptor().name());
         assertEquals(ReferenceDataCapability.VERSION, capability.descriptor().version());
         assertEquals(ReferenceDataPermissionCatalog.all(), capability.descriptor().permissions());
-        assertTrue(capability.descriptor().commands().isEmpty());
-        assertTrue(capability.descriptor().views().isEmpty());
-        assertTrue(capability.descriptor().navigationContributions().isEmpty());
+        assertEquals(1, capability.descriptor().commands().size());
+        assertEquals(ReferenceDataCapability.NAV_COLORS, capability.descriptor().commands().get(0).commandId());
+        assertEquals(
+                List.of("reference.color.view"),
+                capability.descriptor().commands().get(0).requiredPermissionIds());
+        assertEquals(1, capability.descriptor().views().size());
+        assertEquals(ReferenceDataCapability.VIEW_COLORS, capability.descriptor().views().get(0).viewId());
+        assertEquals(1, capability.descriptor().navigationContributions().size());
+        assertEquals(
+                ReferenceDataCapability.NAV_COLORS,
+                capability.descriptor().navigationContributions().get(0).navigationId());
+        assertEquals(
+                "Справочники",
+                capability.descriptor().navigationContributions().get(0).displayName());
+        assertEquals(
+                ReferenceDataCapability.VIEW_COLORS,
+                capability.descriptor().navigationContributions().get(0).viewId());
 
         List<PublicServiceContribution<?>> publicServices =
                 capability.descriptor().publicServices();

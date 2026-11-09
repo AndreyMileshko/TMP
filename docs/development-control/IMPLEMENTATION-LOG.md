@@ -1,3 +1,25 @@
+## COL-030A — Reference Data JavaFX UI («Цвета TMP») — 2026-11-09
+
+**Date:** 2026-11-09
+**Base HEAD:** `243fe91c805d3614d4a5282b37d01e5dff672ba0` (`master`, COL-022B)
+**Status:** VERIFYING — automated checks PASS; manual GUI BLOCKED (`tmp_col_acceptance` отсутствует); **no commit / no push**
+**Pilot DB:** untouched (`tmp_pilot` remains Flyway V57)
+
+### Delivered
+- Navigation: Capability `reference.nav.colors` / view `reference.view.colors` under «Справочники» (order 70); shell icon palette; `UiShellScreens.REFERENCE_COLORS`; MainWindow permission mapping; bootstrap wiring of `ReferenceColorsViewModel`.
+- Screen COL-030A only: FXML + Controller + ViewModel + Dialogs + Messages — вкладка «Цвета TMP», поиск по коду, фильтр Активные/Архив/Все, создать / архивировать / восстановить; switch автосопоставления с confirm + `reference.color-setting.edit`.
+- Archive: `getArchiveImpact` before confirm; restore warning that mappings are not auto-reactivated.
+- Permissions UI: `reference.color.view` visibility; `reference.color.edit` gates create/archive/restore; setting permission gates switch; server-side auth unchanged.
+- Cycle break: `@Lazy` on public API interfaces when constructing `ReferenceDataCapability` (final Default* services cannot be CGLIB-proxied).
+- No SO7 mappings tab / unfinished controls (COL-030B). No JDBC from UI. No V58/V59 / OM / Warehouse / Production / STXT / tmp_pilot changes.
+
+### New production files (5)
+- `ReferenceColorsViewModel.java`, `ReferenceColorsController.java`, `ReferenceColorsDialogs.java`, `ReferenceColorsMessages.java`, `reference-colors.fxml`
+
+### Out of scope (preserved)
+COL-030B «Сопоставления СО7»; COL-040*; import-color resolution UI; physical delete; editable code after create; combination catalog.
+
+---
 ## COL-022B — Import resolution API — 2026-11-09
 
 **Date:** 2026-11-09

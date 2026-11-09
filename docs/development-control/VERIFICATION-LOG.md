@@ -1,6 +1,36 @@
 ## Latest result
 
 **Date:** 2026-11-09
+**Scope:** COL-030A — Reference Data JavaFX UI («Цвета TMP» + matching switch)
+**Overall:** VERIFYING — automated PASS; manual GUI BLOCKED
+**Base HEAD:** `243fe91c805d3614d4a5282b37d01e5dff672ba0` (`master`)
+**Working tree:** COL-030A UI + wiring + governance; **no commit / no push**
+**Pilot DB:** `tmp_pilot` **V57** untouched (no migrate applied)
+**Package:** `dist/jpackage/TMP/TMP.exe` rebuilt 2026-11-09 15:59:29 (~17s pre-integration-test -Ppackage)
+**GUI env:** `tmp_col_acceptance` **absent** on `tmp-stage5-pg` (databases: `postgres`, `tmp_pilot` only). Launch skipped per Plan §4.3 (create empty DB only with explicit PO consent). `tmp_pilot` not used.
+
+| Check | Result |
+|-------|--------|
+| Preflight: baseline HEAD COL-022B; PO authorized PLANNED→READY→start; Start Gate PASSED | PASS |
+| Question Gate | PASS — no blocker |
+| Scope: COL-030A only (no SO7 tab / COL-030B) | PASS |
+| File limits: 5 new production + ≤10 modified; UTF-8 without BOM | PASS |
+| `mvn -pl :tmp-ui-shell test -Dtest=ReferenceColorsViewModelTest,ShellNavigationIconsTest` | PASS — 10 tests (~7s) |
+| `mvn -pl :tmp-reference-data test -Dtest=ReferenceDataCapabilityTest,ReferenceDataPermissionCatalogTest` | PASS — 7 tests (~5s) |
+| `mvn -pl :tmp-bootstrap-app verify -DskipITs` | PASS — 25 tests (~55s) after `@Lazy` API-interface fix |
+| `mvn -pl :tmp-architecture-tests test` (no `-am`) | PASS — 165 tests (~13s) |
+| `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` | PASS (~17s); TMP.exe present |
+| `git diff --check` | PASS |
+| Manual GUI on `tmp_col_acceptance` | BLOCKED — DB missing; awaiting PO consent to create |
+| tmp_pilot unchanged | PASS (Flyway V57) |
+
+**Maven timing (approx.):** UI focused ~7s; reference focused ~5s; bootstrap verify ~55s; architecture ~13s; package ~17s.
+
+---
+
+## Previous result
+
+**Date:** 2026-11-09
 **Scope:** COL-022B — Import resolution API
 **Overall:** PASS
 **Base HEAD:** `af0297d0ddc3ece79d52d48cefaa972db8f5664b` (`master`)
