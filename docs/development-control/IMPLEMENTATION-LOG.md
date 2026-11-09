@@ -1,3 +1,22 @@
+## COL-022B — Import resolution API — 2026-11-09
+
+**Date:** 2026-11-09
+**Base HEAD:** `af0297d0ddc3ece79d52d48cefaa972db8f5664b` (`master`, COL-022A committed)
+**Status:** DONE — `ColorImportResolutionApi` + `DefaultColorImportResolutionService` + bootstrap permission parity test; **no commit / no push**
+**Pilot DB:** untouched (`tmp_pilot` remains Flyway V57)
+
+### Delivered
+- Public API: `ColorImportResolutionApi` — `isAutomaticMatchingEnabled()`, `resolveSourceTexts(texts)`, `listActiveColors()`, `composePair(inside, outside)`, `canSaveGlobalMappings()`.
+- DTOs: `SourceColorResolution` (`MATCHED` / `MAPPING_INACTIVE` / `NO_MAPPING` + optional pair), `ResolvedColorPair` (ids, codes, displayColor via `ColorPairComposition`).
+- Application: `DefaultColorImportResolutionService` — §15.2 via `ReferenceImportAccessPolicy`; batch resolve with one mappings scan + one colors scan; no DB mutations; blank/null source texts rejected; active mapping + two active colors required for MATCHED.
+- Capability: sixth public service `ColorImportResolutionApi`; AutoConfiguration wiring.
+- Bootstrap composition: `ReferenceImportPermissionSetConsistencyTest` — `ReferenceImportAccessPolicy.ORDER_IMPORT_PERMISSION_IDS` equals OM confirm permissions.
+- Tests: `DefaultColorImportResolutionServiceTest` (11), `DefaultColorImportResolutionServiceIT` (12), capability/permission registration updates.
+
+### Out of scope (preserved)
+COL-030* UI; COL-040* OM contract / import orchestration; V58/V59; OM / Warehouse / Production / STXT; `tmp_pilot`.
+
+---
 ## COL-022A — Global matching setting — 2026-11-09
 
 **Date:** 2026-11-09

@@ -7,11 +7,14 @@ import com.tmp.capability.api.PublicServiceContribution;
 import com.tmp.reference.api.ColorCatalogCommandApi;
 import com.tmp.reference.api.ColorCatalogQueryApi;
 import com.tmp.reference.api.ColorDto;
+import com.tmp.reference.api.ColorImportResolutionApi;
 import com.tmp.reference.api.ColorMatchingSettingApi;
 import com.tmp.reference.api.ImportMappingSaveReport;
+import com.tmp.reference.api.ResolvedColorPair;
 import com.tmp.reference.api.So7ColorMappingCommandApi;
 import com.tmp.reference.api.So7ColorMappingDto;
 import com.tmp.reference.api.So7ColorMappingQueryApi;
+import com.tmp.reference.api.SourceColorResolution;
 import com.tmp.reference.security.ReferenceDataPermissionCatalog;
 import java.util.List;
 import java.util.UUID;
@@ -26,9 +29,15 @@ class ReferenceDataCapabilityTest {
         So7ColorMappingQueryApi mappingQuery = stubMappingQueryApi();
         So7ColorMappingCommandApi mappingCommand = stubMappingCommandApi();
         ColorMatchingSettingApi settingApi = stubSettingApi();
+        ColorImportResolutionApi resolutionApi = stubResolutionApi();
         ReferenceDataCapability capability =
                 new ReferenceDataCapability(
-                        colorQuery, colorCommand, mappingQuery, mappingCommand, settingApi);
+                        colorQuery,
+                        colorCommand,
+                        mappingQuery,
+                        mappingCommand,
+                        settingApi,
+                        resolutionApi);
 
         assertEquals(ReferenceDataCapability.ID, capability.descriptor().id());
         assertEquals("Reference Data", capability.descriptor().name());
@@ -40,7 +49,7 @@ class ReferenceDataCapabilityTest {
 
         List<PublicServiceContribution<?>> publicServices =
                 capability.descriptor().publicServices();
-        assertEquals(5, publicServices.size());
+        assertEquals(6, publicServices.size());
         assertEquals(ColorCatalogQueryApi.class, publicServices.get(0).serviceType());
         assertEquals(colorQuery, publicServices.get(0).serviceInstance());
         assertEquals(ColorCatalogCommandApi.class, publicServices.get(1).serviceType());
@@ -51,6 +60,8 @@ class ReferenceDataCapabilityTest {
         assertEquals(mappingCommand, publicServices.get(3).serviceInstance());
         assertEquals(ColorMatchingSettingApi.class, publicServices.get(4).serviceType());
         assertEquals(settingApi, publicServices.get(4).serviceInstance());
+        assertEquals(ColorImportResolutionApi.class, publicServices.get(5).serviceType());
+        assertEquals(resolutionApi, publicServices.get(5).serviceInstance());
     }
 
     private static ColorCatalogQueryApi stubColorQueryApi() {
@@ -137,6 +148,35 @@ class ReferenceDataCapabilityTest {
             public ColorMatchingSettingDto setAutomaticMatchingEnabled(
                     boolean enabled, long expectedVersion) {
                 throw new UnsupportedOperationException();
+            }
+        };
+    }
+
+    private static ColorImportResolutionApi stubResolutionApi() {
+        return new ColorImportResolutionApi() {
+            @Override
+            public boolean isAutomaticMatchingEnabled() {
+                return false;
+            }
+
+            @Override
+            public List<SourceColorResolution> resolveSourceTexts(List<String> sourceTexts) {
+                return List.of();
+            }
+
+            @Override
+            public List<ColorDto> listActiveColors() {
+                return List.of();
+            }
+
+            @Override
+            public ResolvedColorPair composePair(UUID insideColorId, UUID outsideColorId) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public boolean canSaveGlobalMappings() {
+                return false;
             }
         };
     }

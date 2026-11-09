@@ -829,7 +829,7 @@ COL-005 (DONE)
 | COL-020B | Color catalog API | reference-data | нет | — | PLANNED |
 | COL-021B | Mapping API | reference-data | нет | — | PLANNED |
 | COL-022A | Global matching setting | reference-data | нет | — | PLANNED |
-| COL-022B | Import resolution API | reference-data | нет | — | PLANNED |
+| COL-022B | Import resolution API | reference-data | нет | — | DONE |
 | COL-030A | UI: screen, «Цвета TMP», switch | ui-shell | да | — | PLANNED |
 | COL-030B | UI: «Сопоставления СО7» | ui-shell | да | — | PLANNED |
 | COL-040A | OM color constraint contract | order-management | нет | — | PLANNED |

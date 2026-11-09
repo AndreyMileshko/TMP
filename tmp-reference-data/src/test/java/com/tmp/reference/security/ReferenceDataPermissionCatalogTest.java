@@ -8,7 +8,10 @@ import com.tmp.capability.api.PermissionDescriptor;
 import com.tmp.reference.api.ColorCatalogCommandApi;
 import com.tmp.reference.api.ColorCatalogQueryApi;
 import com.tmp.reference.api.ColorDto;
+import com.tmp.reference.api.ColorImportResolutionApi;
 import com.tmp.reference.api.ColorMatchingSettingApi;
+import com.tmp.reference.api.ResolvedColorPair;
+import com.tmp.reference.api.SourceColorResolution;
 import com.tmp.reference.api.ImportMappingSaveReport;
 import com.tmp.reference.api.So7ColorMappingCommandApi;
 import com.tmp.reference.api.So7ColorMappingDto;
@@ -152,13 +155,41 @@ class ReferenceDataPermissionCatalogTest {
                 };
         ReferenceDataCapability capability =
                 new ReferenceDataCapability(
-                        queryApi, commandApi, mappingQueryApi, mappingCommandApi, settingApi);
+                        queryApi, commandApi, mappingQueryApi, mappingCommandApi, settingApi,
+                        new ColorImportResolutionApi() {
+                            @Override
+                            public boolean isAutomaticMatchingEnabled() {
+                                return false;
+                            }
+
+                            @Override
+                            public List<SourceColorResolution> resolveSourceTexts(
+                                    List<String> sourceTexts) {
+                                return List.of();
+                            }
+
+                            @Override
+                            public List<ColorDto> listActiveColors() {
+                                return List.of();
+                            }
+
+                            @Override
+                            public ResolvedColorPair composePair(
+                                    UUID insideColorId, UUID outsideColorId) {
+                                throw new UnsupportedOperationException();
+                            }
+
+                            @Override
+                            public boolean canSaveGlobalMappings() {
+                                return false;
+                            }
+                        });
         assertEquals(ReferenceDataCapability.ID, capability.descriptor().id());
         assertEquals(4, capability.descriptor().permissions().size());
         assertTrue(capability.descriptor().navigationContributions().isEmpty());
         assertTrue(capability.descriptor().views().isEmpty());
         assertTrue(capability.descriptor().commands().isEmpty());
-        assertEquals(5, capability.descriptor().publicServices().size());
+        assertEquals(6, capability.descriptor().publicServices().size());
         assertEquals(
                 ReferenceDataPermissions.all().stream()
                         .map(PermissionId::value)

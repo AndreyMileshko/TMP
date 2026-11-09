@@ -13,7 +13,7 @@
 ## Status
 
 **START GATE PASSED (COL-005, 2026-11-08)**
-**Implementation: IN PROGRESS** — COL-010/011/023/020A/021A/020B/021B/022A = DONE (2026-11-09); next COL-022B PLANNED (not authorized to start).
+**Implementation: IN PROGRESS** — COL-010/011/023/020A/021A/020B/021B/022A/022B = DONE (2026-11-09); next COL-030A PLANNED (not authorized to start).
 **Active blockers:** NONE
 
 ## Start Gate

@@ -1,6 +1,7 @@
 package com.tmp.reference;
 
 import com.tmp.reference.application.DefaultColorCatalogService;
+import com.tmp.reference.application.DefaultColorImportResolutionService;
 import com.tmp.reference.application.DefaultColorMatchingSettingService;
 import com.tmp.reference.application.DefaultSo7ColorMappingService;
 import com.tmp.reference.capability.ReferenceDataCapability;
@@ -27,6 +28,7 @@ import org.springframework.transaction.PlatformTransactionManager;
  *
  * <p>COL-020B: color catalog query/command. COL-021B: SO7 mapping query/command including {@code
  * saveMappingsFromImport}. COL-022A: automatic matching setting and import access policy.
+ * COL-022B: import resolution API.
  */
 @AutoConfiguration
 @AutoConfigureAfter(JdbcTemplateAutoConfiguration.class)
@@ -127,19 +129,44 @@ public class ReferenceDataAutoConfiguration {
 
     @Bean
     @ConditionalOnBean({
+        ReferenceImportAccessPolicy.class,
+        AuthorizationService.class,
+        ColorMatchingSettingRepository.class,
+        So7ColorMappingRepository.class,
+        ColorRepository.class
+    })
+    DefaultColorImportResolutionService defaultColorImportResolutionService(
+            ReferenceImportAccessPolicy referenceImportAccessPolicy,
+            AuthorizationService authorizationService,
+            ColorMatchingSettingRepository colorMatchingSettingRepository,
+            So7ColorMappingRepository so7ColorMappingRepository,
+            ColorRepository colorRepository) {
+        return new DefaultColorImportResolutionService(
+                referenceImportAccessPolicy,
+                authorizationService,
+                colorMatchingSettingRepository,
+                so7ColorMappingRepository,
+                colorRepository);
+    }
+
+    @Bean
+    @ConditionalOnBean({
         DefaultColorCatalogService.class,
         DefaultSo7ColorMappingService.class,
-        DefaultColorMatchingSettingService.class
+        DefaultColorMatchingSettingService.class,
+        DefaultColorImportResolutionService.class
     })
     ReferenceDataCapability referenceDataCapability(
             DefaultColorCatalogService colorCatalogService,
             DefaultSo7ColorMappingService so7ColorMappingService,
-            DefaultColorMatchingSettingService colorMatchingSettingService) {
+            DefaultColorMatchingSettingService colorMatchingSettingService,
+            DefaultColorImportResolutionService colorImportResolutionService) {
         return new ReferenceDataCapability(
                 colorCatalogService,
                 colorCatalogService,
                 so7ColorMappingService,
                 so7ColorMappingService,
-                colorMatchingSettingService);
+                colorMatchingSettingService,
+                colorImportResolutionService);
     }
 }

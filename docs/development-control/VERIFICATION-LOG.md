@@ -1,6 +1,34 @@
 ## Latest result
 
 **Date:** 2026-11-09
+**Scope:** COL-022B — Import resolution API
+**Overall:** PASS
+**Base HEAD:** `af0297d0ddc3ece79d52d48cefaa972db8f5664b` (`master`)
+**Working tree:** COL-022B code + governance docs; **no commit / no push**
+**Pilot DB:** `tmp_pilot` **V57** untouched (no migrate applied)
+
+| Check | Result |
+|-------|--------|
+| Preflight: COL-022A DONE at HEAD; product owner authorized COL-022B PLANNED→READY→execute; Start Gate already PASSED; deps COL-021B/022A DONE | PASS |
+| Question Gate (behavior, ownership, boundaries, contracts, AC, verifiability) | PASS — no blocker |
+| 4 new production files + registration + bootstrap parity test; no OM/UI/V58/V59 | PASS |
+| Targeted unit: DefaultColorImportResolutionServiceTest 11/11 + Capability/Permission | PASS (~13s) |
+| Targeted IT: DefaultColorImportResolutionServiceIT 12/12 (OFF/ON, known/unknown, Без цвета, normalization, inactive mapping/color, batch, compose, auth, no mutations) | PASS (~94s filtered verify path) |
+| `mvn -pl :tmp-reference-data -am verify` | BUILD SUCCESS (~492s) |
+| `mvn -pl :tmp-bootstrap-app -am verify -DskipITs` (+ ReferenceImportPermissionSetConsistencyTest 1/1) | BUILD SUCCESS (~163s) |
+| `mvn -pl :tmp-architecture-tests test` (no `-am`; deps already built) | BUILD SUCCESS — 165 tests; ReferenceDataArchitecture* 8/8 (~13s) |
+| `git diff --check` | PASS |
+| UTF-8 without BOM on new text files (UTF-16 Write artifacts converted via UTF8Encoding(false)) | PASS |
+| V58/V59 / OM / Warehouse / Production / UI / tmp_pilot unchanged | PASS |
+
+**Maven timing (approx.):** unit targeted ~13s; IT targeted ~94s; `-am verify` reference-data ~492s; bootstrap `-am verify -DskipITs` ~163s; architecture suite ~13s.
+
+---
+
+## Previous result
+
+
+**Date:** 2026-11-09
 **Scope:** COL-022A — Global matching setting
 **Overall:** PASS
 **Base HEAD:** `4174ed7d554832c913db54a44e2a3b0e3f7d691c` (`master`)

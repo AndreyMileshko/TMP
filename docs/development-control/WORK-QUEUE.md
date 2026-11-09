@@ -12878,10 +12878,15 @@ git diff --check
 
 ## COL-022B — Import resolution API
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** COL
 **Depends on:** COL-021B, COL-022A
 **Module:** `tmp-reference-data` (+ тест композиции в `tmp-bootstrap-app`)
+**Date:** 2026-11-09
+**Base HEAD:** `af0297d0ddc3ece79d52d48cefaa972db8f5664b` (`master`)
+**Commit:** NONE
+**Push:** NONE
+**DB:** untouched (`tmp_pilot` remains V57; no migrations)
 
 ### Goal
 
@@ -12891,16 +12896,24 @@ git diff --check
 
 TMP-SPEC-015 §6.2, §6.3, §8.4, §9, §15.2, §17; Plan §5 COL-022B.
 
+### Acceptance criteria
+
+- [x] `resolveSourceTexts`: для каждого непустого текста — ключ и состояние `MATCHED(pair)` (только активное соответствие с двумя активными цветами) / `MAPPING_INACTIVE` / `NO_MAPPING`; `null` / пустые тексты не передаются и не обрабатываются.
+- [x] `composePair` отклоняет архивные цвета; итоговый цвет по §6.3.
+- [x] Все операции — правило §15.2; `canSaveGlobalMappings()` = наличие `reference.color-mapping.edit`.
+- [x] `RAL7016/30т` → `RAL7016|30`; ` ral  7016 мат ` находит `RAL 7016 мат`; `Без цвета` → `NO_MAPPING` на seed-данных.
+- [x] Тест композиции набора прав зелёный.
+
 ### Verification commands
 
 ```powershell
 mvn -pl :tmp-reference-data -am verify
 mvn -pl :tmp-bootstrap-app -am verify -DskipITs
-mvn -pl :tmp-architecture-tests -am test
+mvn -pl :tmp-architecture-tests test
 git diff --check
 ```
 
-**GUI:** нет. **DB:** нет миграций.
+**Result:** PASS (2026-11-09) — reference-data verify; bootstrap parity test; architecture 165; no commit. **GUI:** нет. **DB:** нет миграций.
 
 ## COL-030A — Reference Data JavaFX UI: screen, «Цвета TMP», switch
 

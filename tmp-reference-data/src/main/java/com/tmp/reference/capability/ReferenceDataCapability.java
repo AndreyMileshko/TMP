@@ -7,6 +7,7 @@ import com.tmp.capability.api.CapabilityVersion;
 import com.tmp.capability.api.PublicServiceContribution;
 import com.tmp.reference.api.ColorCatalogCommandApi;
 import com.tmp.reference.api.ColorCatalogQueryApi;
+import com.tmp.reference.api.ColorImportResolutionApi;
 import com.tmp.reference.api.ColorMatchingSettingApi;
 import com.tmp.reference.api.So7ColorMappingCommandApi;
 import com.tmp.reference.api.So7ColorMappingQueryApi;
@@ -20,7 +21,8 @@ import java.util.Objects;
  *
  * <p>COL-023 registers the four {@code reference.*} permissions. COL-020B contributes color catalog
  * public services. COL-021B contributes SO7 mapping public services. COL-022A contributes the
- * automatic matching setting API. Navigation remains later COL tasks.
+ * automatic matching setting API. COL-022B contributes the import resolution API. Navigation
+ * remains later COL tasks.
  */
 public final class ReferenceDataCapability implements Capability {
 
@@ -34,12 +36,14 @@ public final class ReferenceDataCapability implements Capability {
             ColorCatalogCommandApi colorCatalogCommandApi,
             So7ColorMappingQueryApi so7ColorMappingQueryApi,
             So7ColorMappingCommandApi so7ColorMappingCommandApi,
-            ColorMatchingSettingApi colorMatchingSettingApi) {
+            ColorMatchingSettingApi colorMatchingSettingApi,
+            ColorImportResolutionApi colorImportResolutionApi) {
         Objects.requireNonNull(colorCatalogQueryApi, "colorCatalogQueryApi");
         Objects.requireNonNull(colorCatalogCommandApi, "colorCatalogCommandApi");
         Objects.requireNonNull(so7ColorMappingQueryApi, "so7ColorMappingQueryApi");
         Objects.requireNonNull(so7ColorMappingCommandApi, "so7ColorMappingCommandApi");
         Objects.requireNonNull(colorMatchingSettingApi, "colorMatchingSettingApi");
+        Objects.requireNonNull(colorImportResolutionApi, "colorImportResolutionApi");
         this.descriptor =
                 CapabilityDescriptor.builder()
                         .id(ID)
@@ -64,7 +68,10 @@ public final class ReferenceDataCapability implements Capability {
                                                 so7ColorMappingCommandApi),
                                         PublicServiceContribution.of(
                                                 ColorMatchingSettingApi.class,
-                                                colorMatchingSettingApi)))
+                                                colorMatchingSettingApi),
+                                        PublicServiceContribution.of(
+                                                ColorImportResolutionApi.class,
+                                                colorImportResolutionApi)))
                         .build();
     }
 
