@@ -5,9 +5,9 @@
 **Current Stage:** Stage 7 - DONE / 100% (Start Gate PASSED; Closure Audit PASS; post-closure corrective pass 2026-08-31 PASS)
 **Post-closure Warehouse Demand / Production MA:** **B3-MA-13-02-FIX1 PARTIAL** (2026-10-20 — V54 applied to stage+pilot; pilot backfill of 3 orders DONE; pilot app started; manual Order List/Details GUI PENDING); **B3-MA-13-01 PARTIAL** (2026-10-16 pilot DB/backup/launch; awaiting manual GUI smoke); prior **B3-MA-12-CLEANUP DONE**; **B3-MA-05 DONE**; Warehouse Tasks visual standards / UX polish / B3-MA-09 DONE. No commit.
 **UI Modernization:** Stage 3.4 Orders IMPLEMENTED + Stage 3.4.1–3.4.6 + Orders/Roles corrective (2026-09-04) + Customer DESC nulls-last / Roles read-only tree / Assignment USERS_VIEW gating (2026-09-07) — FINAL MANUAL UI ACCEPTANCE PENDING; **Stage 3.5 Warehouse IN PROGRESS** (3.5.0–3.5.14 COMPLETE; **3.5.15 IN PROGRESS** — Final Regression & Checkpoint PASS 2026-09-28; awaiting manual confirmation; Write-off deferred)
-**Current Task:** COL track — **COL-020B DONE**; next **COL-021B PLANNED** (do not start — later COL tasks not authorized). Warehouse print A4 landscape P1 MediaBox manual PDF acceptance still PENDING; prior History/reject/Demand / B3-MA / 3.5.15 acceptance still PENDING
-**Last completed task:** COL-020B Color catalog application API (2026-11-09) PASS verify + architecture; no commit
-**Reference Data / Colors (COL track):** **COL-010 DONE** (2026-11-08); **COL-011 DONE** (2026-11-09); **COL-023 DONE** (2026-11-09); **COL-020A DONE** (2026-11-09); **COL-021A DONE** (2026-11-09) Review Gate CLOSED; **COL-020B DONE** (2026-11-09) — `ColorCatalogQueryApi` / `ColorCatalogCommandApi` / `ColorDto` / `DefaultColorCatalogService`; atomic archive+deactivate mappings; restore without reactivation; later COL tasks not authorized; tmp_pilot untouched (V57); no commit
+**Current Task:** COL track — **COL-021B DONE**; next **COL-022A PLANNED** (do not start — later COL tasks not authorized). Warehouse print A4 landscape P1 MediaBox manual PDF acceptance still PENDING; prior History/reject/Demand / B3-MA / 3.5.15 acceptance still PENDING
+**Last completed task:** COL-021B SO7 mapping application API (2026-11-09) PASS verify + architecture; no commit
+**Reference Data / Colors (COL track):** **COL-010 DONE** (2026-11-08); **COL-011 DONE** (2026-11-09); **COL-023 DONE** (2026-11-09); **COL-020A DONE** (2026-11-09); **COL-021A DONE** (2026-11-09) Review Gate CLOSED; **COL-020B DONE** (2026-11-09); **COL-021B DONE** (2026-11-09) — `So7ColorMappingQueryApi` / `So7ColorMappingCommandApi` / `So7ColorMappingDto` / `ImportMappingSaveReport` / `DefaultSo7ColorMappingService`; physical mapping DELETE frees key; `saveMappingsFromImport` §11 results; later COL tasks not authorized; tmp_pilot untouched (V57); no commit
 **Pilot DB:** `tmp_pilot` Flyway **V57** (unchanged this pass); `tmp_gui_stage5` **V54** untouched
 **Stage 3.5 Checkpoint (2026-09-28):** PASS — `docs/development-control/STAGE-3.5-CHECKPOINT.md`; DB delta 0; Flyway 47; Full reactor NOT RUN
 **RBAC UX completion (2026-09-28):** PASS — User double-click card; roles + effective permissions (roles ∪ GRANT/REVOKE via `listEffectivePermissionsForUser` / EffectivePermissionCalculator); Roles assignment search no longer faded; Apply button dirty gating; no migration / no RBAC model change
@@ -152,7 +152,7 @@ Manual Warehouse acceptance = READY FROM Склад → Задачи (then Ис�
 | 3.5 | Warehouse Operational / UI (UI Modernization track) | IN PROGRESS | 3.5.0–3.5.14 COMPLETE; 3.5.15 IN PROGRESS (History redesign + jitter COMPLETE 2026-09-24; write-off deferred; manual UX from Склад → История) |
 | 8 | Cutting Optimization | NOT STARTED | 0% |
 | 9 | Analytics | NOT STARTED | 0% |
-| COL | Reference Data / Colors | START GATE PASSED; COL-010/011/023/020A/021A/020B DONE; next COL-021B PLANNED (not authorized) | 32% (6 / 19 implementation tasks) |
+| COL | Reference Data / Colors | START GATE PASSED; COL-010/011/023/020A/021A/020B/021B DONE; next COL-022A PLANNED (not authorized) | 37% (7 / 19 implementation tasks) |
 
 ---
 

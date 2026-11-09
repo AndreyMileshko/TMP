@@ -7,6 +7,10 @@ import com.tmp.capability.api.PublicServiceContribution;
 import com.tmp.reference.api.ColorCatalogCommandApi;
 import com.tmp.reference.api.ColorCatalogQueryApi;
 import com.tmp.reference.api.ColorDto;
+import com.tmp.reference.api.ImportMappingSaveReport;
+import com.tmp.reference.api.So7ColorMappingCommandApi;
+import com.tmp.reference.api.So7ColorMappingDto;
+import com.tmp.reference.api.So7ColorMappingQueryApi;
 import com.tmp.reference.security.ReferenceDataPermissionCatalog;
 import java.util.List;
 import java.util.UUID;
@@ -15,10 +19,13 @@ import org.junit.jupiter.api.Test;
 class ReferenceDataCapabilityTest {
 
     @Test
-    void descriptorExposesReferenceCapabilityWithPermissionsAndColorCatalogPublicServices() {
-        ColorCatalogQueryApi queryApi = stubQueryApi();
-        ColorCatalogCommandApi commandApi = stubCommandApi();
-        ReferenceDataCapability capability = new ReferenceDataCapability(queryApi, commandApi);
+    void descriptorExposesReferenceCapabilityWithPermissionsAndPublicServices() {
+        ColorCatalogQueryApi colorQuery = stubColorQueryApi();
+        ColorCatalogCommandApi colorCommand = stubColorCommandApi();
+        So7ColorMappingQueryApi mappingQuery = stubMappingQueryApi();
+        So7ColorMappingCommandApi mappingCommand = stubMappingCommandApi();
+        ReferenceDataCapability capability =
+                new ReferenceDataCapability(colorQuery, colorCommand, mappingQuery, mappingCommand);
 
         assertEquals(ReferenceDataCapability.ID, capability.descriptor().id());
         assertEquals("Reference Data", capability.descriptor().name());
@@ -31,14 +38,18 @@ class ReferenceDataCapabilityTest {
 
         List<PublicServiceContribution<?>> publicServices =
                 capability.descriptor().publicServices();
-        assertEquals(2, publicServices.size());
+        assertEquals(4, publicServices.size());
         assertEquals(ColorCatalogQueryApi.class, publicServices.get(0).serviceType());
-        assertEquals(queryApi, publicServices.get(0).serviceInstance());
+        assertEquals(colorQuery, publicServices.get(0).serviceInstance());
         assertEquals(ColorCatalogCommandApi.class, publicServices.get(1).serviceType());
-        assertEquals(commandApi, publicServices.get(1).serviceInstance());
+        assertEquals(colorCommand, publicServices.get(1).serviceInstance());
+        assertEquals(So7ColorMappingQueryApi.class, publicServices.get(2).serviceType());
+        assertEquals(mappingQuery, publicServices.get(2).serviceInstance());
+        assertEquals(So7ColorMappingCommandApi.class, publicServices.get(3).serviceType());
+        assertEquals(mappingCommand, publicServices.get(3).serviceInstance());
     }
 
-    private static ColorCatalogQueryApi stubQueryApi() {
+    private static ColorCatalogQueryApi stubColorQueryApi() {
         return new ColorCatalogQueryApi() {
             @Override
             public List<ColorDto> listColors(ColorDto.ActiveFilter filter, String search) {
@@ -52,7 +63,7 @@ class ReferenceDataCapabilityTest {
         };
     }
 
-    private static ColorCatalogCommandApi stubCommandApi() {
+    private static ColorCatalogCommandApi stubColorCommandApi() {
         return new ColorCatalogCommandApi() {
             @Override
             public ColorDto createColor(String code) {
@@ -66,6 +77,46 @@ class ReferenceDataCapabilityTest {
 
             @Override
             public ColorDto restoreColor(UUID colorId, long expectedVersion) {
+                throw new UnsupportedOperationException();
+            }
+        };
+    }
+
+    private static So7ColorMappingQueryApi stubMappingQueryApi() {
+        return (filter, search) -> List.of();
+    }
+
+    private static So7ColorMappingCommandApi stubMappingCommandApi() {
+        return new So7ColorMappingCommandApi() {
+            @Override
+            public So7ColorMappingDto createMapping(
+                    String sourceText, UUID insideColorId, UUID outsideColorId) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public So7ColorMappingDto updateMappingPair(
+                    UUID mappingId,
+                    UUID insideColorId,
+                    UUID outsideColorId,
+                    long expectedVersion) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public So7ColorMappingDto setMappingActive(
+                    UUID mappingId, boolean active, long expectedVersion) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void deleteMapping(UUID mappingId, long expectedVersion) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public ImportMappingSaveReport saveMappingsFromImport(
+                    List<ImportMappingSaveReport.Candidate> candidates) {
                 throw new UnsupportedOperationException();
             }
         };

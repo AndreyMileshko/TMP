@@ -1,6 +1,7 @@
 package com.tmp.reference;
 
 import com.tmp.reference.application.DefaultColorCatalogService;
+import com.tmp.reference.application.DefaultSo7ColorMappingService;
 import com.tmp.reference.capability.ReferenceDataCapability;
 import com.tmp.reference.domain.ColorRepository;
 import com.tmp.reference.domain.So7ColorMappingRepository;
@@ -18,10 +19,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
 /**
- * Registers the Reference Data Capability, persistence adapters and color catalog public APIs.
+ * Registers the Reference Data Capability, persistence adapters and public application APIs.
  *
- * <p>COL-020B: {@code ColorCatalogQueryApi} / {@code ColorCatalogCommandApi} via {@link
- * DefaultColorCatalogService}.
+ * <p>COL-020B: color catalog query/command. COL-021B: SO7 mapping query/command including {@code
+ * saveMappingsFromImport}.
  */
 @AutoConfiguration
 @AutoConfigureAfter(JdbcTemplateAutoConfiguration.class)
@@ -64,8 +65,38 @@ public class ReferenceDataAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnBean(DefaultColorCatalogService.class)
-    ReferenceDataCapability referenceDataCapability(DefaultColorCatalogService colorCatalogService) {
-        return new ReferenceDataCapability(colorCatalogService, colorCatalogService);
+    @ConditionalOnBean({
+        AuthorizationService.class,
+        AuthenticationService.class,
+        ColorRepository.class,
+        So7ColorMappingRepository.class,
+        PlatformTransactionManager.class
+    })
+    DefaultSo7ColorMappingService defaultSo7ColorMappingService(
+            AuthorizationService authorizationService,
+            AuthenticationService authenticationService,
+            ColorRepository colorRepository,
+            So7ColorMappingRepository so7ColorMappingRepository,
+            PlatformTransactionManager transactionManager,
+            Clock clock) {
+        return new DefaultSo7ColorMappingService(
+                authorizationService,
+                authenticationService,
+                colorRepository,
+                so7ColorMappingRepository,
+                transactionManager,
+                clock);
+    }
+
+    @Bean
+    @ConditionalOnBean({DefaultColorCatalogService.class, DefaultSo7ColorMappingService.class})
+    ReferenceDataCapability referenceDataCapability(
+            DefaultColorCatalogService colorCatalogService,
+            DefaultSo7ColorMappingService so7ColorMappingService) {
+        return new ReferenceDataCapability(
+                colorCatalogService,
+                colorCatalogService,
+                so7ColorMappingService,
+                so7ColorMappingService);
     }
 }

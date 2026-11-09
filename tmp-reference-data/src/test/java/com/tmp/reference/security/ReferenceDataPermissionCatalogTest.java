@@ -8,6 +8,10 @@ import com.tmp.capability.api.PermissionDescriptor;
 import com.tmp.reference.api.ColorCatalogCommandApi;
 import com.tmp.reference.api.ColorCatalogQueryApi;
 import com.tmp.reference.api.ColorDto;
+import com.tmp.reference.api.ImportMappingSaveReport;
+import com.tmp.reference.api.So7ColorMappingCommandApi;
+import com.tmp.reference.api.So7ColorMappingDto;
+import com.tmp.reference.api.So7ColorMappingQueryApi;
 import com.tmp.reference.capability.ReferenceDataCapability;
 import com.tmp.security.api.PermissionId;
 import java.util.HashSet;
@@ -97,13 +101,50 @@ class ReferenceDataPermissionCatalogTest {
                         throw new UnsupportedOperationException();
                     }
                 };
-        ReferenceDataCapability capability = new ReferenceDataCapability(queryApi, commandApi);
+        So7ColorMappingQueryApi mappingQueryApi = (filter, search) -> List.of();
+        So7ColorMappingCommandApi mappingCommandApi =
+                new So7ColorMappingCommandApi() {
+                    @Override
+                    public So7ColorMappingDto createMapping(
+                            String sourceText, UUID insideColorId, UUID outsideColorId) {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public So7ColorMappingDto updateMappingPair(
+                            UUID mappingId,
+                            UUID insideColorId,
+                            UUID outsideColorId,
+                            long expectedVersion) {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public So7ColorMappingDto setMappingActive(
+                            UUID mappingId, boolean active, long expectedVersion) {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public void deleteMapping(UUID mappingId, long expectedVersion) {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public ImportMappingSaveReport saveMappingsFromImport(
+                            List<ImportMappingSaveReport.Candidate> candidates) {
+                        throw new UnsupportedOperationException();
+                    }
+                };
+        ReferenceDataCapability capability =
+                new ReferenceDataCapability(
+                        queryApi, commandApi, mappingQueryApi, mappingCommandApi);
         assertEquals(ReferenceDataCapability.ID, capability.descriptor().id());
         assertEquals(4, capability.descriptor().permissions().size());
         assertTrue(capability.descriptor().navigationContributions().isEmpty());
         assertTrue(capability.descriptor().views().isEmpty());
         assertTrue(capability.descriptor().commands().isEmpty());
-        assertEquals(2, capability.descriptor().publicServices().size());
+        assertEquals(4, capability.descriptor().publicServices().size());
         assertEquals(
                 ReferenceDataPermissions.all().stream()
                         .map(PermissionId::value)

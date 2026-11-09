@@ -1,3 +1,22 @@
+## COL-021B — SO7 mappings application API — 2026-11-09
+
+**Date:** 2026-11-09
+**Base HEAD:** `edec66393901c38170827538a63bc977f297a183` (`master`)
+**Status:** DONE — public `So7ColorMappingQueryApi` / `So7ColorMappingCommandApi` + `DefaultSo7ColorMappingService`; **no commit / no push**
+**Pilot DB:** untouched (`tmp_pilot` remains Flyway V57)
+
+### Delivered
+- Public API (`com.tmp.reference.api`): `So7ColorMappingDto` (+ nested `ActiveFilter`), `So7ColorMappingQueryApi` (`listMappings`), `So7ColorMappingCommandApi` (`createMapping`, `updateMappingPair`, `setMappingActive`, `deleteMapping`, `saveMappingsFromImport`), `ImportMappingSaveReport` (Candidate / Entry / Result §11).
+- Application: `DefaultSo7ColorMappingService` — server-side `reference.color.view` / `reference.color-mapping.edit` before repository access; actor from `AuthenticationService.currentSession()`; active-color validation on create/update/activate; duplicate key message «Сопоставление для этого текста уже существует»; optimistic version checks; DTO-only boundary with computed pair codes / display color.
+- `saveMappingsFromImport`: one Reference Data TX; per-key results SAVED / NOT_SAVED_MAPPING_EXISTS / NOT_SAVED_CONFLICT_IN_IMPORT / NOT_SAVED_COLOR_INACTIVE / NOT_SAVED_INVALID_SOURCE; never overwrites; UNIQUE race → EXISTS; technical failure rolls back all.
+- Physical `deleteMapping` frees normalized source key; catalog color archive/restore path unchanged (no auto-reactivation of mappings).
+- Capability: `ReferenceDataCapability` contributes four public services; wiring in `ReferenceDataAutoConfiguration`.
+- Tests: `DefaultSo7ColorMappingServiceTest` (9), `DefaultSo7ColorMappingServiceIT` (11), capability/permission registration updates.
+
+### Out of scope (preserved)
+COL-022* matching setting / import resolution; UI; STXT; automatic matching; V58/V59; OM / Warehouse / Production; `tmp_pilot`.
+
+---
 ## COL-020B — Color catalog application API — 2026-11-09
 
 **Date:** 2026-11-09

@@ -12803,10 +12803,16 @@ git diff --check
 
 ## COL-021B — SO7 mappings: application API
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** COL
-**Depends on:** COL-020B
+**Depends on:** COL-020B (DONE)
 **Module:** `tmp-reference-data`
+**Authorized:** 2026-11-09 — product owner start prompt; baseline `edec66393901c38170827538a63bc977f297a183`
+**Date:** 2026-11-09
+**Base HEAD:** `edec66393901c38170827538a63bc977f297a183` (`master`)
+**Commit:** NONE
+**Push:** NONE
+**DB:** untouched (`tmp_pilot` remains V57; no migrations)
 
 ### Goal
 
@@ -12816,11 +12822,19 @@ git diff --check
 
 TMP-SPEC-015 §6.4, §11, §15.1, §17; Plan §5 COL-021B.
 
+### Acceptance criteria
+
+- [x] Чтение — `reference.color.view`; изменения и `saveMappingsFromImport` — `reference.color-mapping.edit`.
+- [x] Создание / изменение пары / включение — только с двумя активными цветами; второй записи для ключа нет (текст «Сопоставление для этого текста уже существует»).
+- [x] `saveMappingsFromImport`: `SAVED` / `NOT_SAVED_MAPPING_EXISTS` / `NOT_SAVED_CONFLICT_IN_IMPORT` / `NOT_SAVED_COLOR_INACTIVE` / `NOT_SAVED_INVALID_SOURCE`; без перезаписи; бизнес-отказы не прерывают остальные; техническая ошибка откатывает всё; UNIQUE-гонка → `NOT_SAVED_MAPPING_EXISTS`.
+- [x] Физическое удаление соответствия освобождает ключ; архив/restore цвета не реактивирует соответствия автоматически.
+- [x] IT: результаты импорта, конкурентное создание, откат при техническом сбое; seed 245 без неожиданных изменений.
+
 ### Verification commands
 
 ```powershell
 mvn -pl :tmp-reference-data -am verify
-mvn -pl :tmp-architecture-tests -am test
+mvn -pl :tmp-architecture-tests test
 git diff --check
 ```
 

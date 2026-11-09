@@ -1,6 +1,31 @@
 ## Latest result
 
 **Date:** 2026-11-09
+**Scope:** COL-021B — SO7 mappings application API
+**Overall:** PASS
+**Base HEAD:** `edec66393901c38170827538a63bc977f297a183` (`master`)
+**Working tree:** COL-021B code + governance docs; **no commit / no push**
+**Pilot DB:** `tmp_pilot` **V57** untouched (no migrate applied)
+
+| Check | Result |
+|-------|--------|
+| Preflight: COL-020B DONE; COL-021B authorized READY→IN_PROGRESS; HEAD matched baseline | PASS |
+| Public APIs + DefaultSo7ColorMappingService; DTO-only; Capability 4 public services | PASS |
+| Targeted unit: DefaultSo7ColorMappingServiceTest 9/9 + Capability/Permission catalog | PASS |
+| Targeted IT: DefaultSo7ColorMappingServiceIT 11/11 (seed/create/dup/pair-share/update/auth/lifecycle/delete-reuse/archive-restore/import-results/race/tech-rollback) | PASS |
+| `mvn -pl :tmp-reference-data -am verify` | BUILD SUCCESS — module surefire 64 + failsafe 28 |
+| `mvn -pl :tmp-architecture-tests test` (no `-am`; deps already built) | BUILD SUCCESS — 165 tests; ReferenceDataArchitecture* 8/8 |
+| `git diff --check` | PASS |
+| UTF-8 without BOM on new text files (created via UTF8Encoding(false); no UTF-16 Write path) | PASS |
+| V58/V59 / OM / Warehouse / Production / UI unchanged; physical mapping DELETE allowed; color DELETE still prohibited | PASS |
+| No pilot / production DB writes | PASS |
+
+**Maven timing (approx.):** unit targeted ~8s; IT targeted ~33s; `-am verify` ~475s; architecture suite ~13s.
+
+---
+
+## Previous result
+**Date:** 2026-11-09
 **Scope:** COL-020B — Color catalog application API
 **Overall:** PASS
 **Base HEAD:** `798ce1b8461eeaccf0baf0286389728becd56f58` (`master`)
