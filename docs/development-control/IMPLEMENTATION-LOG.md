@@ -1,3 +1,36 @@
+## COL-020B — Color catalog application API — 2026-11-09
+
+**Date:** 2026-11-09
+**Base HEAD:** `798ce1b8461eeaccf0baf0286389728becd56f58` (`master`)
+**Status:** DONE — public `ColorCatalogQueryApi` / `ColorCatalogCommandApi` + `DefaultColorCatalogService`; **no commit / no push**
+**Pilot DB:** untouched (`tmp_pilot` remains Flyway V57)
+
+### Delivered
+- Public API (`com.tmp.reference.api`): `ColorDto` (+ nested `ActiveFilter`), `ColorCatalogQueryApi` (`listColors`, `getArchiveImpact`), `ColorCatalogCommandApi` (`createColor`, `archiveColor`, `restoreColor`).
+- Application: `DefaultColorCatalogService` — server-side `reference.color.view` / `reference.color.edit` via `AuthorizationService` before any repository access; actor from `AuthenticationService.currentSession()`; optimistic version check; DTO-only boundary.
+- Atomic archive: one `TransactionTemplate` TX archives color then `So7ColorMappingRepository.deactivateByColorId`; returns deactivated count; forced-failure IT proves full rollback. Restore does not reactivate mappings. No physical color deletion / no code mutation.
+- Capability: `ReferenceDataCapability` contributes both public services; wiring in `ReferenceDataAutoConfiguration`.
+- Tests: `DefaultColorCatalogServiceTest` (10), `DefaultColorCatalogServiceIT` (7), capability/permission registration updates.
+
+### Out of scope (preserved)
+COL-021B SO7 mapping APIs; COL-022*; UI; STXT import; automatic matching; V58/V59; OM / Warehouse / Production; `tmp_pilot`.
+
+---
+
+## COL-021A Review Gate CLOSED — 2026-11-09
+
+**Date:** 2026-11-09
+**Base HEAD:** `798ce1b8461eeaccf0baf0286389728becd56f58` (`master`)
+**Status:** Review Gate CLOSED by product owner; COL-021A remains DONE without code correction
+**Decision:**
+- Physical deletion of TMP catalog colors is prohibited.
+- Physical deletion of SO7 mappings is explicitly permitted by TMP-SPEC-015 §6.4, §14.2 and §17.
+- Keep the existing COL-021A implementation; no correction to the previous commit is required.
+- COL-020B authorized READY → start; later COL tasks not authorized.
+**Pilot DB:** untouched (`tmp_pilot` remains Flyway V57)
+
+---
+
 ## COL-021A — SO7 mappings domain and persistence — 2026-11-09
 
 **Date:** 2026-11-09

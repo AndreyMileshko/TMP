@@ -12737,6 +12737,7 @@ git diff --check
 **Commit:** NONE
 **Push:** NONE
 **DB:** untouched (`tmp_pilot` remains V57; no migrations)
+**Review Gate:** CLOSED (2026-11-09) — product owner reviewed findings; physical deletion of TMP catalog colors remains prohibited; physical deletion of SO7 mappings is explicitly permitted by TMP-SPEC-015 §6.4, §14.2 and §17; keep existing COL-021A implementation; no correction commit required. Continuation to COL-020B authorized.
 
 ### Goal
 
@@ -12764,10 +12765,16 @@ git diff --check
 **GUI:** нет. **DB:** нет миграций.
 ## COL-020B — Color catalog: application API
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** COL
 **Depends on:** COL-020A, COL-021A, COL-023
 **Module:** `tmp-reference-data`
+**Date:** 2026-11-09
+**Base HEAD:** `798ce1b8461eeaccf0baf0286389728becd56f58` (`master`)
+**Commit:** NONE
+**Push:** NONE
+**DB:** untouched (`tmp_pilot` remains V57; no migrations)
+**Authorized:** product owner (2026-11-09) after COL-021A Review Gate CLOSED; Start Gate / dependencies COL-020A+021A+023 DONE satisfied. Later COL tasks not authorized.
 
 ### Goal
 
@@ -12777,6 +12784,13 @@ git diff --check
 
 TMP-SPEC-015 §5.3, §15.1, §17; Plan §5 COL-020B.
 
+### Acceptance criteria
+
+- [x] `listColors`, `getArchiveImpact` — `reference.color.view`; `createColor`, `archiveColor`, `restoreColor` — `reference.color.edit`; без права — `AccessDeniedException` до любого чтения/записи.
+- [x] `archiveColor` в одной транзакции архивирует цвет и отключает все активные соответствия с ним внутри или снаружи; возвращает их число; при ошибке — откат обоих (IT с принудительным сбоем).
+- [x] `restoreColor` не включает соответствия.
+- [x] Наружу только DTO.
+
 ### Verification commands
 
 ```powershell
@@ -12785,7 +12799,7 @@ mvn -pl :tmp-architecture-tests -am test
 git diff --check
 ```
 
-**GUI:** нет. **DB:** нет миграций.
+**Result:** PASS (2026-11-09). Stabilized `mvn -pl :tmp-reference-data verify` + `mvn -pl :tmp-architecture-tests test` (165) + `git diff --check`. **GUI:** нет. **DB:** нет миграций.
 
 ## COL-021B — SO7 mappings: application API
 

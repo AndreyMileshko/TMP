@@ -4,14 +4,19 @@ import com.tmp.capability.api.Capability;
 import com.tmp.capability.api.CapabilityDescriptor;
 import com.tmp.capability.api.CapabilityId;
 import com.tmp.capability.api.CapabilityVersion;
+import com.tmp.capability.api.PublicServiceContribution;
+import com.tmp.reference.api.ColorCatalogCommandApi;
+import com.tmp.reference.api.ColorCatalogQueryApi;
 import com.tmp.reference.security.ReferenceDataPermissionCatalog;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Reference Data Capability descriptor (ADR-039 / TMP-SPEC-015).
  *
- * <p>COL-023 registers the four {@code reference.*} permissions. Navigation and public services are
- * added in later COL tasks.
+ * <p>COL-023 registers the four {@code reference.*} permissions. COL-020B contributes public color
+ * catalog query/command services. Navigation remains later COL tasks.
  */
 public final class ReferenceDataCapability implements Capability {
 
@@ -20,7 +25,10 @@ public final class ReferenceDataCapability implements Capability {
 
     private final CapabilityDescriptor descriptor;
 
-    public ReferenceDataCapability() {
+    public ReferenceDataCapability(
+            ColorCatalogQueryApi colorCatalogQueryApi, ColorCatalogCommandApi colorCatalogCommandApi) {
+        Objects.requireNonNull(colorCatalogQueryApi, "colorCatalogQueryApi");
+        Objects.requireNonNull(colorCatalogCommandApi, "colorCatalogCommandApi");
         this.descriptor =
                 CapabilityDescriptor.builder()
                         .id(ID)
@@ -30,6 +38,13 @@ public final class ReferenceDataCapability implements Capability {
                                 "Reference data owned by TMP: TMP color catalog, SO7 color mappings"
                                         + " and automatic color-matching settings")
                         .permissions(ReferenceDataPermissionCatalog.all())
+                        .publicServices(
+                                List.of(
+                                        PublicServiceContribution.of(
+                                                ColorCatalogQueryApi.class, colorCatalogQueryApi),
+                                        PublicServiceContribution.of(
+                                                ColorCatalogCommandApi.class,
+                                                colorCatalogCommandApi)))
                         .build();
     }
 

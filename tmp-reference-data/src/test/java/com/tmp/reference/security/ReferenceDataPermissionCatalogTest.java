@@ -5,10 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tmp.capability.api.PermissionDescriptor;
+import com.tmp.reference.api.ColorCatalogCommandApi;
+import com.tmp.reference.api.ColorCatalogQueryApi;
+import com.tmp.reference.api.ColorDto;
 import com.tmp.reference.capability.ReferenceDataCapability;
 import com.tmp.security.api.PermissionId;
 import java.util.HashSet;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
@@ -64,13 +68,42 @@ class ReferenceDataPermissionCatalogTest {
 
     @Test
     void capabilityDescriptorExposesPermissionCatalogWithoutNavigation() {
-        ReferenceDataCapability capability = new ReferenceDataCapability();
+        ColorCatalogQueryApi queryApi =
+                new ColorCatalogQueryApi() {
+                    @Override
+                    public List<ColorDto> listColors(ColorDto.ActiveFilter filter, String search) {
+                        return List.of();
+                    }
+
+                    @Override
+                    public long getArchiveImpact(UUID colorId) {
+                        return 0L;
+                    }
+                };
+        ColorCatalogCommandApi commandApi =
+                new ColorCatalogCommandApi() {
+                    @Override
+                    public ColorDto createColor(String code) {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public int archiveColor(UUID colorId, long expectedVersion) {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public ColorDto restoreColor(UUID colorId, long expectedVersion) {
+                        throw new UnsupportedOperationException();
+                    }
+                };
+        ReferenceDataCapability capability = new ReferenceDataCapability(queryApi, commandApi);
         assertEquals(ReferenceDataCapability.ID, capability.descriptor().id());
         assertEquals(4, capability.descriptor().permissions().size());
         assertTrue(capability.descriptor().navigationContributions().isEmpty());
         assertTrue(capability.descriptor().views().isEmpty());
         assertTrue(capability.descriptor().commands().isEmpty());
-        assertTrue(capability.descriptor().publicServices().isEmpty());
+        assertEquals(2, capability.descriptor().publicServices().size());
         assertEquals(
                 ReferenceDataPermissions.all().stream()
                         .map(PermissionId::value)

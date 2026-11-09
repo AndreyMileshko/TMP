@@ -1,6 +1,53 @@
 ## Latest result
 
 **Date:** 2026-11-09
+**Scope:** COL-020B — Color catalog application API
+**Overall:** PASS
+**Base HEAD:** `798ce1b8461eeaccf0baf0286389728becd56f58` (`master`)
+**Working tree:** COL-020B code + governance docs; **no commit / no push**
+**Pilot DB:** `tmp_pilot` **V57** untouched (no migrate applied)
+
+| Check | Result |
+|-------|--------|
+| Preflight: COL-021A Review Gate CLOSED; COL-020B authorized READY; deps 020A/021A/023 DONE; HEAD matched baseline | PASS |
+| Public APIs + DefaultColorCatalogService; DTO-only; Capability public services | PASS |
+| Targeted unit: DefaultColorCatalogServiceTest 10/10 + Capability/Permission catalog | PASS |
+| Targeted IT: DefaultColorCatalogServiceIT 7/7 (create/dup/auth/archive±maps/atomic rollback/restore/optimistic/seed) | PASS |
+| `mvn -pl :tmp-reference-data -am verify` (first) | FAIL — SpotBugs NP on `restoreColor` execute null |
+| SpotBugs fix + `mvn -pl :tmp-reference-data verify` | BUILD SUCCESS — Checkstyle 0 / SpotBugs 0; module surefire 55 + failsafe 17 |
+| `mvn -pl :tmp-architecture-tests test` (no `-am`; deps already built) | BUILD SUCCESS — 165 tests; ReferenceDataArchitecture* 8/8 |
+| `git diff --check` | PASS |
+| UTF-8 without BOM on new/changed text files (UTF-16 Write artifacts converted) | PASS |
+| V58/V59 / OM / Warehouse / Production / UI unchanged; no physical color delete | PASS |
+| No pilot / production DB writes | PASS |
+
+**Maven timing (approx.):** unit targeted ~10s; IT targeted ~20s; first `-am verify` ~450s (fail SpotBugs); stabilized module verify ~102s; architecture suite ~13s.
+
+---
+
+## Previous result
+
+**Date:** 2026-11-09
+**Scope:** COL-021A Review Gate — product owner decision
+**Overall:** CLOSED / PASS
+**Base HEAD:** `798ce1b8461eeaccf0baf0286389728becd56f58` (`master`)
+**Working tree:** governance only for this gate; **no commit / no push**
+**Pilot DB:** `tmp_pilot` **V57** untouched
+
+| Check | Result |
+|-------|--------|
+| COL-021A implementation verification previously PASS | PASS (retained) |
+| Physical deletion of TMP catalog colors | PROHIBITED (unchanged; out of COL-021A API) |
+| Physical deletion of SO7 mappings | PERMITTED — TMP-SPEC-015 §6.4, §14.2, §17 |
+| Keep existing COL-021A implementation / no correction commit | AUTHORIZED |
+| COL-020B Start Gate / dependencies (020A, 021A, 023) | SATISFIED → COL-020B READY → IN_PROGRESS |
+| Later COL tasks | NOT authorized |
+
+---
+
+## Previous result
+
+**Date:** 2026-11-09
 **Scope:** COL-021A — SO7 mappings domain and persistence
 **Overall:** PASS
 **Base HEAD:** `759b1d8891777a484ec347406764a9720fa222f7` (`master`)
