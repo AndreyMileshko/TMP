@@ -1,3 +1,22 @@
+## COL-021A — SO7 mappings domain and persistence — 2026-11-09
+
+**Date:** 2026-11-09
+**Base HEAD:** `759b1d8891777a484ec347406764a9720fa222f7` (`master`)
+**Status:** DONE — `So7ColorMapping` aggregate + JDBC repository over `reference.so7_color_mappings`; **no commit / no push**
+**Pilot DB:** untouched (`tmp_pilot` remains Flyway V57)
+
+### Delivered
+- Domain: `So7ColorMapping` (create / updatePair / activate / deactivate / rehydrate; §6.1 source rules; nested `InvalidSourceException`, `DuplicateSourceKeyException`, `OptimisticLockConflictException`); reuses `So7SourceKey` and `ColorId`.
+- Domain helper: `ColorPairComposition.compose` (§6.3 — same code collapses; else `inside/outside`).
+- Port: `So7ColorMappingRepository` — `insert`, `update` (no source mutation), `findById` / `findBySourceKey`, `search(activeFilter, searchText)`, `deactivateByColorId`, `countActiveByColorId`, `delete` (physical; frees source key).
+- Persistence: `JdbcSo7ColorMappingRepository` — UNIQUE `source_key` → `DuplicateSourceKeyException`; FK → `IllegalArgumentException`; version mismatch → `OptimisticLockConflictException`; search joins catalog codes.
+- Wiring: `ReferenceDataAutoConfiguration` registers `So7ColorMappingRepository` when `JdbcTemplate` present.
+- Tests: `ColorPairCompositionTest`, `So7ColorMappingTest`, `JdbcSo7ColorMappingRepositoryIT` (seed 245, insert/dup key, FK, search, optimistic lock, bulk deactivate, physical delete) on Testcontainers + V58/V59.
+
+### Out of scope (preserved)
+COL-020B/021B application APIs; UI; import; automatic matching; migrations; OM / Warehouse / Production; `tmp_pilot`.
+
+---
 ## COL-020A — Color catalog domain and persistence — 2026-11-09
 
 **Date:** 2026-11-09

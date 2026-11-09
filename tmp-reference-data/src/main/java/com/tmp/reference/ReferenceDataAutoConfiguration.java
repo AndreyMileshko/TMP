@@ -2,7 +2,9 @@ package com.tmp.reference;
 
 import com.tmp.reference.capability.ReferenceDataCapability;
 import com.tmp.reference.domain.ColorRepository;
+import com.tmp.reference.domain.So7ColorMappingRepository;
 import com.tmp.reference.persistence.JdbcColorRepository;
+import com.tmp.reference.persistence.JdbcSo7ColorMappingRepository;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -13,8 +15,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 /**
  * Registers the Reference Data Capability and persistence adapters.
  *
- * <p>COL-020A: {@link ColorRepository} over {@code reference.colors}. Public catalog APIs remain
- * later COL tasks.
+ * <p>COL-020A / COL-021A: color catalog and SO7 mapping repositories. Public APIs remain later COL
+ * tasks.
  */
 @AutoConfiguration
 @AutoConfigureAfter(JdbcTemplateAutoConfiguration.class)
@@ -29,5 +31,11 @@ public class ReferenceDataAutoConfiguration {
     @ConditionalOnBean(JdbcTemplate.class)
     ColorRepository colorRepository(JdbcTemplate jdbcTemplate) {
         return new JdbcColorRepository(jdbcTemplate);
+    }
+
+    @Bean
+    @ConditionalOnBean(JdbcTemplate.class)
+    So7ColorMappingRepository so7ColorMappingRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcSo7ColorMappingRepository(jdbcTemplate);
     }
 }

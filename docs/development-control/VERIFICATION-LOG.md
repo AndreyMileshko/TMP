@@ -1,6 +1,30 @@
-# TMP Verification Log
-
 ## Latest result
+
+**Date:** 2026-11-09
+**Scope:** COL-021A — SO7 mappings domain and persistence
+**Overall:** PASS
+**Base HEAD:** `759b1d8891777a484ec347406764a9720fa222f7` (`master`)
+**Working tree:** COL-021A code + governance docs; **no commit / no push**
+**Pilot DB:** `tmp_pilot` **V57** untouched (no migrate applied)
+
+| Check | Result |
+|-------|--------|
+| Preflight: COL-021A was READY; COL-020A DONE; HEAD matched expected baseline; no DB migrations | PASS |
+| Domain §6.1/§6.2/§6.3 + repository port (search, bulk deactivate, count, physical delete) | PASS |
+| Targeted unit: `ColorPairCompositionTest` 3/3 + `So7ColorMappingTest` 6/6 | PASS |
+| Targeted IT: `JdbcSo7ColorMappingRepositoryIT` 5/5 (seed 245, UNIQUE, FK, optimistic lock, bulk deactivate) | PASS |
+| `mvn -pl :tmp-reference-data -am verify` | BUILD SUCCESS — module tests + Checkstyle/SpotBugs clean |
+| `mvn -pl :tmp-architecture-tests -am test` | BUILD SUCCESS — ReferenceDataArchitectureTest 4/4; Negative 4/4; architecture suite 165 tests |
+| `git diff --check` | PASS |
+| UTF-8 without BOM on all new/changed text files | PASS |
+| V58/V59 unchanged; OM / Warehouse / Production / UI unchanged | PASS |
+| No pilot / production DB writes | PASS |
+
+**Note:** Governance command `mvn -pl :tmp-architecture-tests -am test` also executed tests of all `-am` reactor modules (~19 min). Prefer future targeted `-Dtest=ReferenceDataArchitecture*` when governance allows.
+
+---
+
+## Previous result
 
 **Date:** 2026-11-09
 **Scope:** COL-020A — Color catalog domain and persistence

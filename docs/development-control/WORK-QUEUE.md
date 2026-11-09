@@ -12728,10 +12728,15 @@ git diff --check
 
 ## COL-021A — SO7 mappings: domain and persistence
 
-**Status:** READY
+**Status:** DONE
 **Stage:** COL
 **Depends on:** COL-020A
 **Module:** `tmp-reference-data`
+**Date:** 2026-11-09
+**Base HEAD:** `759b1d8891777a484ec347406764a9720fa222f7` (`master`)
+**Commit:** NONE
+**Push:** NONE
+**DB:** untouched (`tmp_pilot` remains V57; no migrations)
 
 ### Goal
 
@@ -12740,6 +12745,13 @@ git diff --check
 ### Required documents
 
 TMP-SPEC-015 §6, §16.2; Plan §5 COL-021A.
+
+### Acceptance criteria
+
+- [x] `source_text` ≤ 64, не пустой, неизменяемый; ключ по §6.2; одна запись на ключ независимо от активности.
+- [x] Итоговый цвет: одинаковые стороны → один код; разные → `inside/outside` (`Белый/RAL7016|30`).
+- [x] Репозиторий: поиск по ключу, список с фильтром / поиском, массовое отключение по `color_id`, подсчёт активных, физическое удаление записи соответствия.
+- [x] IT: UNIQUE ключа, FK, optimistic locking, массовое отключение; seed 245 неизменён.
 
 ### Verification commands
 
@@ -12750,7 +12762,6 @@ git diff --check
 ```
 
 **GUI:** нет. **DB:** нет миграций.
-
 ## COL-020B — Color catalog: application API
 
 **Status:** PLANNED
