@@ -12924,7 +12924,7 @@ git diff --check
 **Authorized:** product owner (PLANNED → READY → start; Start Gate already PASSED)
 **Base HEAD:** `243fe91c805d3614d4a5282b37d01e5dff672ba0` (`master`, COL-022B)
 **Automated verify:** PASS (2026-11-09) — UI/ViewModel/capability/bootstrap/architecture; `TMP.exe` packaged
-**Manual GUI:** BLOCKED — `tmp_col_acceptance` отсутствует на `tmp-stage5-pg` (есть только `tmp_pilot`); создание БД требует явного согласия PO; `tmp_pilot` не использовался. Статус не DONE до GUI-приёмки.
+**Manual GUI:** READY FOR PO — `tmp_pilot` @ `tmp-stage5-pg:55432`; backup `tmp_pilot_20261109_161711.dump`; Flyway 57→59; 860 colors / 245 mappings; matching OFF; TMP.exe PID 36096/27644 left OPEN. Orders/inventory not cleared. Status not DONE until PO confirms.
 
 ### Goal
 
@@ -12944,7 +12944,7 @@ mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests
 git diff --check
 ```
 
-**GUI:** да — свежий `TMP.exe` на `tmp_col_acceptance`, приложение оставить открытым, статус VERIFYING до подтверждения пользователя. **DB:** нет миграций.
+**GUI:** да — свежий `TMP.exe` на `tmp_pilot` (PO 2026-11-09), приложение оставить открытым, статус VERIFYING до подтверждения пользователя. **DB:** V58/V59 applied to tmp_pilot after backup (controlled).
 
 ## COL-030B — Reference Data JavaFX UI: «Сопоставления СО7»
 

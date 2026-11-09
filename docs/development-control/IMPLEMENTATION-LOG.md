@@ -1,3 +1,29 @@
+## COL-030A — GUI acceptance on tmp_pilot (PO decision) — 2026-11-09
+
+**Date:** 2026-11-09
+**Base HEAD:** `243fe91c805d3614d4a5282b37d01e5dff672ba0` (`master`)
+**Status:** VERIFYING — automated already PASS; GUI app OPEN on `tmp_pilot`; **awaiting PO confirmation**; **no commit / no push**
+**Pilot DB:** `tmp_pilot` Flyway **V57 → V59** (V58 schema + V59 seed) after mandatory backup
+
+### Environment decision (product owner)
+- GUI acceptance uses existing `tmp_pilot` (`tmp-stage5-pg:55432`); separate `tmp_col_acceptance` not required.
+- Approved applying pending Reference Data migrations V58/V59.
+- Orders/inventory cleanup authorized only when necessary — **not performed** for COL-030A catalog UI review.
+- Users, roles, permissions, catalogs and system settings protected.
+
+### Safety / migrate
+- Backup: `C:\Users\1\AppData\Local\TMP-Pilot\backups\tmp_pilot_20261109_161711.dump` (319211 bytes); TOC OK; manual restore-check into `tmp_pilot_restore_check` OK (flyway_count=57, security/warehouse/production present); temp DB dropped; `tmp_pilot` unchanged until migrate.
+- Pending chain inspected: only V58 then V59 (CREATE SCHEMA/tables + 860/245 seed + matching OFF); no DROP/TRUNCATE.
+- Applied via `scripts/pilot/run-tmp-pilot.ps1 -ApplyMigrations`.
+- Post-check: colors=860, mappings=245, matching=false; users=3, roles=3, orders=8, order_items=19, stock_positions=78 (unchanged).
+
+### Docs
+- Implementation Plan §4.1/§4.3/§10 risk + COL-030*/COL-050 GUI DB notes; Stage Manifest; WORK-QUEUE; STATUS; VERIFICATION-LOG updated for `tmp_pilot` GUI protocol.
+
+### App
+- Packaged `TMP.exe` (COL-030A code) launched; PIDs 36096 / 27644 left OPEN for PO inspection of «Справочники → Цвета → Цвета TMP».
+
+---
 ## COL-030A — Reference Data JavaFX UI («Цвета TMP») — 2026-11-09
 
 **Date:** 2026-11-09

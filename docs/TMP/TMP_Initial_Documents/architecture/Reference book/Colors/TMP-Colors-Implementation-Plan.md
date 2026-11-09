@@ -27,7 +27,7 @@
 5. Начальные данные — только из согласованного Excel (860 / 245); условные ID Excel не используются.
 6. Никаких изменений существующих immutable спецификаций, документов, остатков.
 7. Cursor **не** делает `git commit` / `git push`; фиксацию решает пользователь.
-8. `tmp_pilot` не используется для непроверенных миграций и экспериментов; destructive-операции — только в COL-060A с резервной копией и отдельным разрешением.
+8. GUI-приёмка выполняется на существующей `tmp_pilot` (контейнер `tmp-stage5-pg`). Перед миграциями и деструктивной очисткой тестовых данных обязателен timestamped backup. Непроверенные эксперименты и произвольный reset запрещены; очистка тестовых заказов/остатков — только при необходимости и с анализом зависимостей (PO 2026-11-09).
 9. Задача с ручной GUI-приёмкой не переводится в `DONE` агентом: после сборки и запуска остаётся `VERIFYING` до подтверждения пользователя.
 10. Миграции V58 / V59 зарезервированы COL-005; если к началу COL-010 номер занят — blocker, не перенумерация существующих миграций.
 
@@ -58,7 +58,7 @@
 - Новые типы документов Document Engine / Domain Events для справочника; платформенный Settings framework; generic framework справочников.
 - Новые Maven-зависимости кроме межмодульных зависимостей, перечисленных в задаче.
 - TODO / FIXME / HACK, заглушки, закомментированный код, отключение проверок (Checkstyle / SpotBugs / ArchUnit).
-- Операции с `tmp_pilot` (кроме COL-060A по разрешению); удаление данных.
+- Произвольный reset `tmp_pilot`, DROP DATABASE / DROP SCHEMA, неконтролируемая очистка; удаление пользователей/ролей/прав/каталогов/системных настроек. Очистка тестовых заказов/остатков — только при необходимости, после backup, с анализом зависимостей (PO 2026-11-09).
 - `git commit` / `git push`.
 
 ## 4.2 Базовые проверки каждой задачи
@@ -73,13 +73,14 @@ Testcontainers-тесты (`*IT`) — там, где указано в зада�
 
 ## 4.3 Протокол ручной GUI-приёмки
 
-Для задач с отметкой «GUI: да»:
+Для задач с отметкой «GUI: да» (решение product owner 2026-11-09):
 
 1. Убедиться, что `dist\jpackage\TMP` не используется запущенным процессом пользователя; иначе — попросить пользователя закрыть приложение (не завершать процессы самостоятельно).
-2. Собрать **обновлённый** пакет: `mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests`.
-3. Запустить актуальный `TMP.exe` через `scripts/run-tmp-package.ps1` с явным `TMP_DB_URL` на **изолированную приёмочную БД** `tmp_col_acceptance` (контейнер `tmp-stage5-pg`, порт 55432). Создание этой пустой БД — только с явного согласия пользователя при первом GUI-шаге; `tmp_pilot` и `tmp_gui_stage5` не используются. Flyway пакетного профиля применяет миграции, включая V58 / V59, при старте.
-4. **Оставить приложение открытым**, передать пользователю чек-лист сценариев задачи.
-5. Задача остаётся `VERIFYING`; `DONE` — только после подтверждения пользователя. Commit не выполняется.
+2. Собрать **обновлённый** пакет при необходимости: `mvn -pl :tmp-bootstrap-app pre-integration-test -Ppackage -DskipTests` (после установки затронутых модулей).
+3. GUI-приёмка выполняется на **существующей** БД `tmp_pilot` (контейнер `tmp-stage5-pg`, порт 55432) через `scripts/pilot/run-tmp-pilot.ps1`. Отдельная `tmp_col_acceptance` **не требуется** и не создаётся. Перед применением миграций или деструктивной очисткой тестовых данных — обязательный timestamped backup (`scripts/pilot/backup-tmp-pilot.ps1`) с проверкой читаемости. Контролируемые миграции: `run-tmp-pilot.ps1 -ApplyMigrations`. Обычный запуск — без `-ApplyMigrations`. `tmp_gui_stage5` не используется.
+4. Тестовые заказы и складские остатки допускается очищать **только при необходимости** для согласованного теста, после backup и с анализом зависимостей; пользователи, роли, права, справочники и системные настройки защищены.
+5. **Оставить приложение открытым**, передать пользователю чек-лист сценариев задачи.
+6. Задача остаётся `VERIFYING`; `DONE` — только после подтверждения пользователя. Commit не выполняется.
 
 ## 4.4 Обновление документов после каждой задачи
 
@@ -425,7 +426,7 @@ git diff --check
 | **Required documents** | Spec §14.1, §14.3, §14.4, §15; TMP UI Standard §12.3, §13, §16, §19, §22, §23, §27 |
 | **Required code context** | `WarehouseSettingsController.java` / `WarehouseSettingsViewModel` (образец), `UiShellScreens.java`, `UiShellAutoConfiguration.java`, `ShellNavigationIcons.java` |
 | **GUI** | **да** (§4.3) |
-| **Database impact** | Нет миграций; GUI-приёмка на изолированной `tmp_col_acceptance` |
+| **Database impact** | Нет миграций задачи; GUI-приёмка на `tmp_pilot` (PO 2026-11-09); V58/V59 применяются контролируемо при первом GUI-старте после backup |
 
 **Allowed scope:** новые `tmp-ui-shell/.../screen/reference/ReferenceColorsController.java`, `ReferenceColorsViewModel.java`, FXML `reference-colors.fxml`; `NavigationContribution` в `ReferenceDataCapability`; изменения `UiShellScreens`, `UiShellAutoConfiguration`, `ShellNavigationIcons`, `tmp-ui-shell/pom.xml` (зависимость на `tmp-reference-data`); тесты ViewModel / FX.
 
@@ -449,7 +450,7 @@ mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests
 git diff --check
 ```
 
-GUI: COL-AC-01, 25, 26, 27, 28 (часть каталога) на `tmp_col_acceptance`; приложение оставить открытым.
+GUI: COL-AC-01, 25, 26, 27, 28 (часть каталога) на `tmp_pilot`; приложение оставить открытым.
 
 ---
 
@@ -462,7 +463,7 @@ GUI: COL-AC-01, 25, 26, 27, 28 (часть каталога) на `tmp_col_accep
 | **Module** | `tmp-ui-shell` |
 | **Required documents** | Spec §6.4, §14.2; TMP UI Standard (как COL-030A) |
 | **GUI** | **да** (§4.3) |
-| **Database impact** | Нет миграций; `tmp_col_acceptance` |
+| **Database impact** | Нет миграций; GUI на `tmp_pilot` (PO 2026-11-09) |
 
 **Allowed scope:** новые `tmp-ui-shell/.../screen/reference/So7MappingsTabController.java`, `So7MappingsTabViewModel.java`, `So7MappingDialogSupport.java`, FXML вкладки; изменения `reference-colors.fxml`, `ReferenceColorsController/ViewModel`, `UiShellAutoConfiguration`; тесты.
 
@@ -590,7 +591,7 @@ git diff --check
 | **Required documents** | Spec §7, §8.7, §9, §11, §14.5; UI Standard §39.9 |
 | **Required code context** | `OrderImportViewModel.java`, `OrderImportController.java`, FXML импорта, `UiShellAutoConfiguration.java`, `OrderImportViewModelTest.java` |
 | **GUI** | **да** (§4.3) |
-| **Database impact** | Нет миграций; GUI-приёмка создаёт тестовые заказы только в `tmp_col_acceptance` |
+| **Database impact** | Нет миграций; GUI-приёмка на `tmp_pilot`; тестовые заказы — только в pilot, без затрагивания защищённых данных |
 
 **Allowed scope:** изменения `OrderImportViewModel.java`, `OrderImportController.java`, FXML импорта, `UiShellAutoConfiguration.java`; новый `tmp-ui-shell/.../screen/orderimport/colors/ImportMappingSaveMessages.java` (тексты итогов §11); тесты (существующие тесты импорта не изменяются, добавляются новые).
 
@@ -615,7 +616,7 @@ mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests
 git diff --check
 ```
 
-GUI: COL-AC-03 … 23, 32 на `tmp_col_acceptance` с образцом `docs/Input/Итоговый формат выгрузки.stxt` и подготовленными тестовыми `.stxt` (вне `src/main`); приложение оставить открытым.
+GUI: COL-AC-03 … 23, 32 на `tmp_pilot` с образцом `docs/Input/Итоговый формат выгрузки.stxt` и подготовленными тестовыми `.stxt` (вне `src/main`); приложение оставить открытым.
 
 ---
 
@@ -683,7 +684,7 @@ git diff --check
 
 | | |
 |---|---|
-| **Objective** | Подготовить среду финальной приёмки: чистая изолированная БД **или** контролируемый сброс тестовых данных `tmp_pilot` |
+| **Objective** | Подготовить среду финальной приёмки на `tmp_pilot` (PO 2026-11-09: GUI acceptance уже на pilot; отдельная acceptance DB не требуется): при необходимости — контролируемый сброс тестовых заказов/остатков после backup |
 | **Depends on** | COL-041B, COL-050A, COL-050B |
 | **Module** | — (операции с окружением; скрипт сброса — вне production-кода) |
 | **Required documents** | Spec §19; `docs/pilot/PILOT-ENVIRONMENT.md` |
@@ -778,7 +779,7 @@ COL-005 (DONE)
 - Эталон начальных данных — согласованный Excel.
 - Образец выгрузки: `docs/Input/Итоговый формат выгрузки.stxt` (208 / 287 строк `Без цвета`; `20102026.stxt` в репозитории отсутствует). Дополнительные тестовые `.stxt` — в `src/test/resources` соответствующих модулей.
 - Обязательные случаи: повторяющийся `Цвет` в разных строках, две стороны, `RAL7016/30т` как единый текст, `Без цвета`, пустой цвет, недопустимый свой цвет, конфликт ключа.
-- Миграции разрабатываются и проверяются в Testcontainers; GUI — в `tmp_col_acceptance` (§4.3); `tmp_pilot` — только в COL-060A по разрешению.
+- Миграции разрабатываются и проверяются в Testcontainers; GUI-приёмка — на `tmp_pilot` (§4.3, PO 2026-11-09) с обязательным backup перед миграциями/очисткой.
 - Секреты БД не записываются в отчёты и Git.
 
 ---
@@ -811,7 +812,7 @@ COL-005 (DONE)
 | Расхождение набора прав импорта OM и Reference Data | COL-022B | Тест композиции в bootstrap |
 | Неверная оценка размера задачи | все | При превышении лимитов — декомпозиция до кода (governance §4) |
 | Работа со «старой» сборкой при GUI-приёмке | COL-030A/B, 041B, 060B | Обязательная пересборка перед запуском (§4.3) |
-| Случайная работа с `tmp_pilot` | все | Только `tmp_col_acceptance` до COL-060A |
+| Неконтролируемая работа с `tmp_pilot` | все | Только pilot launch/backup scripts; backup before migrate/cleanup; no DROP DATABASE |
 
 ---
 

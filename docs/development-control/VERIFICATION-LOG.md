@@ -1,6 +1,36 @@
 ## Latest result
 
 **Date:** 2026-11-09
+**Scope:** COL-030A — GUI acceptance environment on `tmp_pilot` (PO-authorized)
+**Overall:** VERIFYING — migrate+launch PASS; manual GUI awaiting PO
+**Base HEAD:** `243fe91c805d3614d4a5282b37d01e5dff672ba0` (`master`)
+**Working tree:** COL-030A + governance for pilot GUI; **no commit / no push**
+**Pilot DB:** `tmp_pilot` **V59** (was V57); backup before migrate
+**Package/launch:** existing COL-030A `TMP.exe`; `run-tmp-pilot.ps1 -ApplyMigrations`; app OPEN
+**Orders/inventory cleared:** NO (not required)
+
+| Check | Result |
+|-------|--------|
+| Target confirmed `tmp-stage5-pg` / `tmp_pilot` / port 55432 | PASS |
+| Flyway before | V57 |
+| Pending migrations only V58→V59; no destructive SQL | PASS |
+| Backup `tmp_pilot_20261109_161711.dump` + TOC + restore-check | PASS |
+| Flyway after | V59 (58+59 success) |
+| `reference.colors` / `so7_color_mappings` | 860 / 245 |
+| Automatic matching | OFF (version 0) |
+| Users/roles/orders/stock preserved (3/3/8/78) | PASS |
+| TMP.exe contains ReferenceColors + V58/V59 | PASS |
+| App launched JDBC `jdbc:postgresql://localhost:55432/tmp_pilot` | PASS |
+| PID | 36096 (launcher) / 27644 (app) Responding=True |
+| Manual GUI PO confirmation | PENDING |
+| COL-030B started | NO |
+
+---
+
+## Previous result
+## Latest result
+
+**Date:** 2026-11-09
 **Scope:** COL-030A — Reference Data JavaFX UI («Цвета TMP» + matching switch)
 **Overall:** VERIFYING — automated PASS; manual GUI BLOCKED
 **Base HEAD:** `243fe91c805d3614d4a5282b37d01e5dff672ba0` (`master`)
