@@ -13,7 +13,7 @@
 ## Status
 
 **START GATE PASSED (COL-005, 2026-11-08)**
-**Implementation: IN PROGRESS** — COL-010/011/023/020A/021A/020B/021B/022A/022B = DONE (2026-11-09); COL-030A VERIFYING (2026-11-09; automated PASS; GUI ready on tmp_pilot after V58/V59; awaiting PO acceptance); next COL-030B PLANNED (do not start until COL-030A DONE).
+**Implementation: IN PROGRESS** — COL-010/011/023/020A/021A/020B/021B/022A/022B/030A = DONE (COL-030A closed 2026-11-10; PO GUI PASS on tmp_pilot V59; matching OFF); next COL-030B PLANNED (deps satisfied; do not start until READY). UI-NAV-001 registered PLANNED outside COL track.
 **Active blockers:** NONE
 
 ## Start Gate

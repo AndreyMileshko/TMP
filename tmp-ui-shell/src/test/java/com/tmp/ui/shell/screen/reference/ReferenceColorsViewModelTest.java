@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -124,6 +125,75 @@ class ReferenceColorsViewModelTest {
         assertTrue(viewModel.applyAutomaticMatchingEnabled(true));
         assertEquals(1, setting.setCalls);
         assertTrue(viewModel.automaticMatchingEnabledProperty().get());
+    }
+
+    @Test
+    void matchingApplyFailureRestoresConfirmedStateFromServer() {
+        auth.allow(
+                UiShellScreens.REFERENCE_COLOR_VIEW_PERMISSION,
+                UiShellScreens.REFERENCE_COLOR_SETTING_EDIT_PERMISSION);
+        setting.enabled = false;
+        setting.version = 2L;
+        viewModel.onScreenOpened();
+        assertFalse(viewModel.automaticMatchingEnabledProperty().get());
+
+        setting.failNextSet = new RuntimeException("Version conflict");
+        assertFalse(viewModel.applyAutomaticMatchingEnabled(true));
+        assertEquals(1, setting.setCalls);
+        assertFalse(viewModel.automaticMatchingEnabledProperty().get());
+        assertTrue(viewModel.errorMessageProperty().get().length() > 0);
+        assertEquals(2, setting.getCalls);
+    }
+
+    @Test
+    void matchingApplySuccessPersistsBothDirections() {
+        auth.allow(
+                UiShellScreens.REFERENCE_COLOR_VIEW_PERMISSION,
+                UiShellScreens.REFERENCE_COLOR_SETTING_EDIT_PERMISSION);
+        viewModel.onScreenOpened();
+        assertFalse(viewModel.automaticMatchingEnabledProperty().get());
+
+        assertTrue(viewModel.applyAutomaticMatchingEnabled(true));
+        assertTrue(viewModel.automaticMatchingEnabledProperty().get());
+        assertTrue(setting.enabled);
+
+        assertTrue(viewModel.applyAutomaticMatchingEnabled(false));
+        assertFalse(viewModel.automaticMatchingEnabledProperty().get());
+        assertFalse(setting.enabled);
+        assertEquals(2, setting.setCalls);
+    }
+
+    @Test
+    void searchReloadDiscardsStaleAsyncResults() {
+        auth.allow(UiShellScreens.REFERENCE_COLOR_VIEW_PERMISSION);
+        query.seed(active("RAL7016"), active("RAL9005"));
+
+        java.util.concurrent.BlockingQueue<Runnable> tasks =
+                new java.util.concurrent.LinkedBlockingQueue<>();
+        Executor queued = tasks::add;
+        viewModel =
+                new ReferenceColorsViewModel(
+                        query, command, setting, auth, queued, Runnable::run, 0L);
+        viewModel.onScreenOpened();
+        assertEquals(2, tasks.size(), "initial open loads colors and matching setting");
+        tasks.remove().run(); // colors
+        tasks.remove().run(); // matching setting
+        assertEquals(2, viewModel.colors().size());
+
+        viewModel.searchTextProperty().set("7016");
+        assertEquals(1, tasks.size());
+        Runnable firstSearch = tasks.remove();
+        viewModel.searchTextProperty().set("9005");
+        assertEquals(1, tasks.size());
+        Runnable secondSearch = tasks.remove();
+
+        firstSearch.run();
+        assertEquals(2, viewModel.colors().size(), "stale search must not replace newer generation");
+
+        secondSearch.run();
+        assertEquals(1, viewModel.colors().size());
+        assertEquals("RAL9005", viewModel.colors().get(0).code());
+        assertEquals(3, query.listCalls);
     }
 
     @Test
@@ -297,6 +367,7 @@ class ReferenceColorsViewModelTest {
         private long version;
         private int getCalls;
         private int setCalls;
+        private RuntimeException failNextSet;
 
         @Override
         public ColorMatchingSettingDto getAutomaticMatchingSetting() {
@@ -308,6 +379,11 @@ class ReferenceColorsViewModelTest {
         public ColorMatchingSettingDto setAutomaticMatchingEnabled(
                 boolean enabled, long expectedVersion) {
             setCalls++;
+            if (failNextSet != null) {
+                RuntimeException ex = failNextSet;
+                failNextSet = null;
+                throw ex;
+            }
             if (expectedVersion != version) {
                 throw new RuntimeException("Version conflict");
             }

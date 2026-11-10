@@ -11,6 +11,7 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Priority?>
 <?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
 <VBox xmlns:fx="http://javafx.com/fxml"
@@ -41,18 +42,21 @@
         </HBox>
     </VBox>
 
-    <Label fx:id="loadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
-           visible="false" managed="false"/>
     <Label fx:id="errorLabel" styleClass="tmp-message-error" visible="false" managed="false"
            wrapText="true"/>
     <Label fx:id="statusLabel" styleClass="tmp-empty-state-hint" wrapText="true"/>
 
     <VBox spacing="8" styleClass="tmp-content" VBox.vgrow="ALWAYS">
-        <TableView fx:id="colorsTable" VBox.vgrow="ALWAYS">
-            <columns>
-                <TableColumn fx:id="colorCodeColumn" text="Код цвета" prefWidth="320" minWidth="160"/>
-                <TableColumn fx:id="colorStatusColumn" text="Статус" prefWidth="140" minWidth="100"/>
-            </columns>
-        </TableView>
+        <!-- StackPane: loading overlay must not change TableView geometry (UI-COL-001). -->
+        <StackPane VBox.vgrow="ALWAYS">
+            <TableView fx:id="colorsTable" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="colorCodeColumn" text="Код цвета" prefWidth="320" minWidth="160"/>
+                    <TableColumn fx:id="colorStatusColumn" text="Статус" prefWidth="140" minWidth="100"/>
+                </columns>
+            </TableView>
+            <Label fx:id="loadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
+                   mouseTransparent="true" visible="false" managed="false"/>
+        </StackPane>
     </VBox>
 </VBox>

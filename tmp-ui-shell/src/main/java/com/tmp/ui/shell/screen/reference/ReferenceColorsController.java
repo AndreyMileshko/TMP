@@ -4,6 +4,8 @@ import com.tmp.reference.api.ColorDto;
 import com.tmp.ui.shell.navigation.ViewModelAware;
 import com.tmp.ui.shell.screen.reference.ReferenceColorsViewModel.StatusFilter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Objects;
+import java.util.function.BooleanSupplier;
 import javafx.beans.binding.Bindings;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -32,6 +34,7 @@ public final class ReferenceColorsController implements ViewModelAware<Reference
 
     private ReferenceColorsViewModel viewModel;
     private boolean suppressMatchingToggle;
+    private BooleanSupplier matchingConfirmation;
 
     @FXML private VBox root;
     @FXML private ToggleButton colorsTmpTabButton;
@@ -59,8 +62,9 @@ public final class ReferenceColorsController implements ViewModelAware<Reference
         colorsTmpTabButton.setSelected(true);
         colorsTmpTabButton.setOnAction(e -> colorsTmpTabButton.setSelected(true));
 
+        // Loading overlay must never participate in layout (UI-COL-001 / warehouse jitter pattern).
+        loadingLabel.setManaged(false);
         loadingLabel.visibleProperty().bind(viewModel.loadingProperty());
-        loadingLabel.managedProperty().bind(viewModel.loadingProperty());
         errorLabel.textProperty().bind(viewModel.errorMessageProperty());
         errorLabel.visibleProperty().bind(viewModel.errorMessageProperty().isNotEmpty());
         errorLabel.managedProperty().bind(errorLabel.visibleProperty());
@@ -147,29 +151,21 @@ public final class ReferenceColorsController implements ViewModelAware<Reference
                                 .canEditSettingProperty()
                                 .not()
                                 .or(viewModel.commandInFlightProperty()));
-        suppressMatchingToggle = true;
-        automaticMatchingCheck.setSelected(viewModel.automaticMatchingEnabledProperty().get());
-        suppressMatchingToggle = false;
+        restoreMatchingCheckboxFromConfirmed();
         viewModel
                 .automaticMatchingEnabledProperty()
-                .addListener(
-                        (obs, o, n) -> {
-                            boolean next = Boolean.TRUE.equals(n);
-                            if (automaticMatchingCheck.isSelected() == next) {
-                                return;
-                            }
-                            suppressMatchingToggle = true;
-                            automaticMatchingCheck.setSelected(next);
-                            suppressMatchingToggle = false;
-                        });
+                .addListener((obs, o, n) -> restoreMatchingCheckboxFromConfirmed());
         automaticMatchingCheck
                 .selectedProperty()
                 .addListener(
                         (obs, was, isNow) -> {
-                            if (suppressMatchingToggle || was == null || was.equals(isNow)) {
+                            if (suppressMatchingToggle || was == null || Objects.equals(was, isNow)) {
                                 return;
                             }
-                            onMatchingToggle(Boolean.TRUE.equals(isNow));
+                            boolean intended = Boolean.TRUE.equals(isNow);
+                            // Persisted setting is source of truth: revert visual immediately.
+                            restoreMatchingCheckboxFromConfirmed();
+                            onMatchingToggle(intended);
                         });
         viewModel.commandInFlightProperty().addListener((obs, o, n) -> updateActionAvailability());
         viewModel.canEditProperty().addListener((obs, o, n) -> updateActionAvailability());
@@ -224,22 +220,54 @@ public final class ReferenceColorsController implements ViewModelAware<Reference
 
     private void onMatchingToggle(boolean enable) {
         if (!viewModel.canEditSettingProperty().get()) {
-            revertMatching(enable);
+            restoreMatchingCheckboxFromConfirmed();
             return;
         }
-        if (!ReferenceColorsDialogs.showMatchingSettingConfirmation(window(), enable)) {
-            revertMatching(enable);
+        if (!confirmMatchingChange(enable)) {
+            restoreMatchingCheckboxFromConfirmed();
             return;
         }
         if (!viewModel.applyAutomaticMatchingEnabled(enable)) {
-            revertMatching(enable);
+            restoreMatchingCheckboxFromConfirmed();
         }
     }
 
-    private void revertMatching(boolean attempted) {
+    private boolean confirmMatchingChange(boolean enable) {
+        if (matchingConfirmation != null) {
+            return matchingConfirmation.getAsBoolean();
+        }
+        return ReferenceColorsDialogs.showMatchingSettingConfirmation(window(), enable);
+    }
+
+    /**
+     * Restores the checkbox from the last confirmed / persisted ViewModel value. Always sets the
+     * control explicitly so Cancel works when the property value is unchanged (UI-COL-002).
+     */
+    void restoreMatchingCheckboxFromConfirmed() {
+        boolean confirmed = viewModel.automaticMatchingEnabledProperty().get();
+        if (automaticMatchingCheck.isSelected() == confirmed) {
+            return;
+        }
         suppressMatchingToggle = true;
-        viewModel.automaticMatchingEnabledProperty().set(!attempted);
+        automaticMatchingCheck.setSelected(confirmed);
         suppressMatchingToggle = false;
+    }
+
+    /** Test seam: replaces the confirmation dialog. */
+    void setMatchingConfirmation(BooleanSupplier matchingConfirmation) {
+        this.matchingConfirmation = matchingConfirmation;
+    }
+
+    CheckBox automaticMatchingCheckForTests() {
+        return automaticMatchingCheck;
+    }
+
+    Label loadingLabelForTests() {
+        return loadingLabel;
+    }
+
+    TableView<ColorDto> colorsTableForTests() {
+        return colorsTable;
     }
 
     private Window window() {

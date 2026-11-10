@@ -1,3 +1,47 @@
+## COL-030A — Final acceptance and closure — 2026-11-10
+
+**Date:** 2026-11-10
+**Base HEAD:** `3ba7ff1cdeb65f50ebc511cc194bd70df208ae7f`
+**Status:** **DONE** — product-owner manual GUI acceptance PASS on `tmp_pilot`; Review Gate CLOSED; **no commit / no push**
+**Pilot DB:** `tmp_pilot` Flyway **V59** (unchanged at closure); automatic matching **OFF** (GUI-confirmed)
+
+### Acceptance
+- Functional GUI checks for COL-030A PASS.
+- UI-COL-001 (table jump on search) FIXED and manually verified.
+- UI-COL-002 (checkbox after Cancel) FIXED and manually verified both directions.
+- UI-NAV-001 (disabled history arrow) DEFERRED — registered as separate **PLANNED** UI Shell task; not a COL-030A blocker.
+- Automatic color matching left OFF.
+
+### Governance
+- WORK-QUEUE / STATUS / Stage Manifest / VERIFICATION-LOG updated.
+- COL-030B remains **PLANNED** (dependencies COL-021B + COL-030A both DONE; not started; awaiting READY authorization).
+- Documentation/governance only for this closure step; no source/DB/Maven/package changes.
+
+---
+
+## COL-030A — GUI acceptance fixes (UI-COL-001/002) — 2026-11-10
+
+**Date:** 2026-11-10
+**Base HEAD:** `3ba7ff1cdeb65f50ebc511cc194bd70df208ae7f`
+**Status:** DONE (fixes retained; PO acceptance recorded in closure entry 2026-11-10); **no commit / no push**
+**Pilot DB:** `tmp_pilot` Flyway **V59** (unchanged; no migrate); matching **OFF**
+
+### Defects fixed (in COL-030A scope)
+- **UI-COL-001:** loading label participated in layout (`managed` bound to loading) and shifted the table; fixed via StackPane overlay + `managed=false`; search debounce 280 ms; generation guard against stale async results.
+- **UI-COL-002:** checkbox visual flipped before confirm; Cancel set ViewModel to the same confirmed value so listeners did not restore the control; fixed by immediate restore from persisted ViewModel value + explicit checkbox sync; cancel/confirm/failure covered both directions.
+
+### Out of scope (reported, not fixed)
+- **UI-NAV-001:** disabled forward history arrow looks like a blank gray square. Belongs to common UI shell (`MainWindow.css` / `.button:disabled` theme interaction). COL-030A Allowed scope does not include shared navigation; track as separate UI-shell polish task. Navigation history logic itself is OK.
+
+### Files
+- `ReferenceColorsController.java`, `ReferenceColorsViewModel.java`, `reference-colors.fxml`
+- Tests: `ReferenceColorsViewModelTest.java`, `ReferenceColorsControllerFxTest.java` (new)
+
+### Verify
+- Focused UI tests PASS (13); package PASS; `git diff --check` clean; TMP.exe PID left OPEN; matching OFF.
+
+---
+
 ## COL-030A — GUI acceptance on tmp_pilot (PO decision) — 2026-11-09
 
 **Date:** 2026-11-09
@@ -24,6 +68,7 @@
 - Packaged `TMP.exe` (COL-030A code) launched; PIDs 36096 / 27644 left OPEN for PO inspection of «Справочники → Цвета → Цвета TMP».
 
 ---
+
 ## COL-030A — Reference Data JavaFX UI («Цвета TMP») — 2026-11-09
 
 **Date:** 2026-11-09
@@ -46,6 +91,7 @@
 COL-030B «Сопоставления СО7»; COL-040*; import-color resolution UI; physical delete; editable code after create; combination catalog.
 
 ---
+
 ## COL-022B — Import resolution API — 2026-11-09
 
 **Date:** 2026-11-09
@@ -65,6 +111,7 @@ COL-030B «Сопоставления СО7»; COL-040*; import-color resolution
 COL-030* UI; COL-040* OM contract / import orchestration; V58/V59; OM / Warehouse / Production / STXT; `tmp_pilot`.
 
 ---
+
 ## COL-022A — Global matching setting — 2026-11-09
 
 **Date:** 2026-11-09
@@ -104,6 +151,7 @@ COL-022B `ColorImportResolutionApi` / resolveSourceTexts; UI; order-import coord
 COL-022* matching setting / import resolution; UI; STXT; automatic matching; V58/V59; OM / Warehouse / Production; `tmp_pilot`.
 
 ---
+
 ## COL-020B — Color catalog application API — 2026-11-09
 
 **Date:** 2026-11-09
@@ -156,6 +204,7 @@ COL-021B SO7 mapping APIs; COL-022*; UI; STXT import; automatic matching; V58/V5
 COL-020B/021B application APIs; UI; import; automatic matching; migrations; OM / Warehouse / Production; `tmp_pilot`.
 
 ---
+
 ## COL-020A — Color catalog domain and persistence — 2026-11-09
 
 **Date:** 2026-11-09
@@ -192,7 +241,9 @@ COL-020B application APIs; COL-021A mappings; UI; SO7; Security beyond existing;
 ### Out of scope (preserved)
 COL-020A+ domain/API/UI/import; new roles; Security model changes; OM / Warehouse / Production; STXT; V58/V59; `tmp_pilot`.
 
----## COL-011 — Initial data — 2026-11-09
+---
+
+## COL-011 — Initial data — 2026-11-09
 
 **Date:** 2026-11-09
 **Base HEAD:** `67e940112242ac25b5ee07f0b1614b65d7c710e6` (`master`)
@@ -214,6 +265,7 @@ COL-020A+ domain/API/UI/import; new roles; Security model changes; OM / Warehous
 COL-023+ security/CRUD/UI/import; OM / Warehouse / Production; STXT parser; V58; Excel file; `tmp_pilot`.
 
 ---
+
 ## COL-011 — Initial data — 2026-11-09
 
 **Date:** 2026-11-09
@@ -236,6 +288,7 @@ COL-023+ security/CRUD/UI/import; OM / Warehouse / Production; STXT parser; V58;
 COL-023+ security/CRUD/UI/import; OM / Warehouse / Production; STXT parser; V58; Excel file; `tmp_pilot`.
 
 ---
+
 ## COL-010 — Module and schema — 2026-11-08
 
 **Date:** 2026-11-08
@@ -377,6 +430,7 @@ Uncommitted Warehouse Spec 1.19 / ADR-038 amendment docs; `tmp_gui_stage5` V54 u
 Warehouse rule changes; V56 on pilot/stage; reject-after-receipt preference; Production/Demand cancellation integration; commit/push
 
 ---
+
 ## Repeated Material Requests Phase 1 — Domain / Persistence / Application API — 2026-11-02
 
 **Date:** 2026-11-02
@@ -406,7 +460,9 @@ Checkbox UX, submit confirmation dialog, Workbench «Повторно» presenta
 - Flex secondary absorbs the reduction; narrow windows keep horizontal scroll
 - Coverage values/tooltips/business logic unchanged
 
----## Stage 3 — Material Request Coverage Column Label Correction — 2026-11-02
+---
+
+## Stage 3 — Material Request Coverage Column Label Correction — 2026-11-02
 
 **Date:** 2026-11-02
 **Base HEAD:** `1f5f7a626564d12ead851ea53ae7c95d3f855eef`
@@ -417,7 +473,9 @@ Checkbox UX, submit confirmation dialog, Workbench «Повторно» presenta
 - Russian explanatory tooltip: X = cumulative submitted MR product coverage (not unique physically supplied products)
 - Authoritative coverage API/calculation unchanged; no repeated-request classification
 
----## Stage 3 — Production Workbench Material Request Coverage Column — 2026-11-02
+---
+
+## Stage 3 — Production Workbench Material Request Coverage Column — 2026-11-02
 
 **Date:** 2026-11-02
 **Base HEAD:** `1f5f7a626564d12ead851ea53ae7c95d3f855eef`
@@ -436,7 +494,9 @@ Checkbox UX, submit confirmation dialog, Workbench «Повторно» presenta
 ### Out of scope
 Repeated-request checkbox/workflow; eligibility redesign; DB writes; commit/push
 
----## Stage 3 — Production Workbench Responsive Column Width Fix — 2026-11-02
+---
+
+## Stage 3 — Production Workbench Responsive Column Width Fix — 2026-11-02
 
 **Date:** 2026-11-02
 **Base HEAD:** `067d51a90fc56a21fdca4a2915ef41f26d8b55c1`
@@ -454,6 +514,7 @@ Repeated-request checkbox/workflow; eligibility redesign; DB writes; commit/push
 Materials-request column; business rules; DB; commit/push
 
 ---
+
 ## Stage 3 — Production Workbench Table UX Polish — 2026-11-02
 
 **Date:** 2026-11-02
@@ -587,7 +648,9 @@ Parser already associated `readyDate` per order block → one `OrderImportBatch`
 
 See VERIFICATION-LOG entry (2026-10-16 B3-MA-13-01).
 
----## B3-MA-12-CLEANUP — Retire unused legacy Production transfer workflow — 2026-10-15
+---
+
+## B3-MA-12-CLEANUP — Retire unused legacy Production transfer workflow — 2026-10-15
 
 **Date:** 2026-10-15
 **Stage:** Post-closure Production / Warehouse MA
@@ -611,6 +674,7 @@ MR Submit → Warehouse Demand → Transfer Documents → Warehouse Tasks → re
 See VERIFICATION-LOG entry (2026-10-15 B3-MA-12-CLEANUP).
 
 ---
+
 ## Warehouse Tasks final UX fix — route arrow + detail column widths — 2026-10-15
 
 **Date:** 2026-10-15
@@ -628,6 +692,7 @@ See VERIFICATION-LOG entry (2026-10-15 B3-MA-12-CLEANUP).
 See VERIFICATION-LOG entry (2026-10-15 Warehouse Tasks final UX fix).
 
 ---
+
 ## Warehouse Tasks UX polish + global table borders — 2026-10-14
 
 **Date:** 2026-10-14
@@ -690,6 +755,7 @@ See VERIFICATION-LOG entry (2026-10-14 B3-MA-05 / visuals / B3-MA-09).
 See VERIFICATION-LOG B3-MA-09-FIX1 entry (2026-10-14).
 
 ---
+
 ## Stage 7 Production — B3-MA-09 Production UX improvements — 2026-10-14
 
 **Date:** 2026-10-14

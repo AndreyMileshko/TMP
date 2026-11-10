@@ -12917,14 +12917,14 @@ git diff --check
 
 ## COL-030A — Reference Data JavaFX UI: screen, «Цвета TMP», switch
 
-**Status:** VERIFYING
+**Status:** DONE
 **Stage:** COL
 **Depends on:** COL-020B, COL-022A, COL-023
 **Module:** `tmp-ui-shell` (+ регистрация в `tmp-bootstrap-app`)
 **Authorized:** product owner (PLANNED → READY → start; Start Gate already PASSED)
-**Base HEAD:** `243fe91c805d3614d4a5282b37d01e5dff672ba0` (`master`, COL-022B)
-**Automated verify:** PASS (2026-11-09) — UI/ViewModel/capability/bootstrap/architecture; `TMP.exe` packaged
-**Manual GUI:** READY FOR PO — `tmp_pilot` @ `tmp-stage5-pg:55432`; backup `tmp_pilot_20261109_161711.dump`; Flyway 57→59; 860 colors / 245 mappings; matching OFF; TMP.exe PID 36096/27644 left OPEN. Orders/inventory not cleared. Status not DONE until PO confirms.
+**Base HEAD:** `3ba7ff1cdeb65f50ebc511cc194bd70df208ae7f` (acceptance-fixes baseline)
+**Automated verify:** PASS (2026-11-09/10) — UI/ViewModel/capability/bootstrap/architecture + UI-COL-001/002 focused tests + package
+**Manual GUI:** PASS (2026-11-10) — product-owner acceptance on `tmp_pilot` (Flyway V59; matching OFF). UI-COL-001/002 manually verified. UI-NAV-001 deferred (not a COL-030A blocker). **Commit:** NONE
 
 ### Goal
 
@@ -12944,13 +12944,55 @@ mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests
 git diff --check
 ```
 
-**GUI:** да — свежий `TMP.exe` на `tmp_pilot` (PO 2026-11-09), приложение оставить открытым, статус VERIFYING до подтверждения пользователя. **DB:** V58/V59 applied to tmp_pilot after backup (controlled).
+**GUI:** PASS (PO 2026-11-10). **DB:** V58/V59 applied earlier to tmp_pilot after backup (controlled); no further migrate for closure.
+
+## UI-NAV-001 — Disabled shell history arrow appearance
+
+**Status:** PLANNED
+**Stage:** UI Shell (corrective; not COL track)
+**Depends on:** none (discovered during COL-030A GUI acceptance; not a COL-030A blocker)
+**Module:** `tmp-ui-shell` (common Main Window shell only)
+**Authorized:** not yet (register only; do not start)
+
+### Goal
+
+Сделать disabled-состояние стрелок Назад/Вперёд в topbar узнаваемым (иконка читаема), без изменения логики navigation history.
+
+### Problem
+
+Disabled forward arrow выглядит как пустой серый квадрат. History behavior сам по себе прошёл ручную проверку.
+
+### Required documents
+
+TMP UI Standard §10.3 Disabled / §32 Accessibility (disabled still readable); `MainWindow.fxml` / `MainWindow.css`; global `.button:disabled` in `tmp-theme.css`.
+
+### Allowed code scope
+
+- `tmp-ui-shell/src/main/resources/com/tmp/ui/shell/screen/main/MainWindow.css` (minimal disabled styling override)
+- optional focused FX/CSS assertion test under `tmp-ui-shell/src/test/.../main/`
+- **Forbidden:** rewrite of navigation history logic; COL-030*; business modules; migrations
+
+### Acceptance criteria
+
+- [ ] Both history arrows remain recognizable when disabled
+- [ ] Disabled styling follows UI Standard (neutral, readable, non-interactive)
+- [ ] Enabled/disabled interaction unchanged; Back/Forward behavior unchanged
+- [ ] Focused visual/styling test if applicable; `git diff --check`
+
+### Verification commands
+
+```powershell
+mvn -pl :tmp-ui-shell -Dtest=MainWindowControllerFxTest test
+git diff --check
+```
+
+**GUI:** да (shell topbar). **DB:** нет.
 
 ## COL-030B — Reference Data JavaFX UI: «Сопоставления СО7»
 
 **Status:** PLANNED
 **Stage:** COL
-**Depends on:** COL-021B, COL-030A
+**Depends on:** COL-021B, COL-030A — **both DONE** (dependency gate satisfied 2026-11-10); remains PLANNED until product-owner READY authorization; **do not start automatically**
 **Module:** `tmp-ui-shell`
 
 ### Goal

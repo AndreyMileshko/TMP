@@ -15,6 +15,9 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
@@ -35,6 +38,8 @@ import javafx.collections.ObservableList;
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"},
         justification = "JavaFX ViewModel intentionally exposes observable properties")
 public final class ReferenceColorsViewModel {
+
+    static final long DEFAULT_SEARCH_DEBOUNCE_MS = 280L;
 
     public enum StatusFilter {
         ACTIVE("Активные", ColorDto.ActiveFilter.ACTIVE),
@@ -69,6 +74,8 @@ public final class ReferenceColorsViewModel {
     private final AuthorizationService authorizationService;
     private final Executor backgroundExecutor;
     private final Consumer<Runnable> uiExecutor;
+    private final long searchDebounceMillis;
+    private final ScheduledExecutorService searchDebounceExecutor;
 
     private final ObservableList<ColorDto> colors = FXCollections.observableArrayList();
     private final ObjectProperty<ColorDto> selectedColor = new SimpleObjectProperty<>();
@@ -87,6 +94,7 @@ public final class ReferenceColorsViewModel {
 
     private long matchingSettingVersion;
     private long loadGeneration;
+    private ScheduledFuture<?> pendingSearchReload;
 
     public ReferenceColorsViewModel(
             ColorCatalogQueryApi queryApi,
@@ -104,7 +112,8 @@ public final class ReferenceColorsViewModel {
                             thread.setDaemon(true);
                             return thread;
                         }),
-                Platform::runLater);
+                Platform::runLater,
+                DEFAULT_SEARCH_DEBOUNCE_MS);
     }
 
     ReferenceColorsViewModel(
@@ -114,6 +123,24 @@ public final class ReferenceColorsViewModel {
             AuthorizationService authorizationService,
             Executor backgroundExecutor,
             Consumer<Runnable> uiExecutor) {
+        this(
+                queryApi,
+                commandApi,
+                settingApi,
+                authorizationService,
+                backgroundExecutor,
+                uiExecutor,
+                0L);
+    }
+
+    ReferenceColorsViewModel(
+            ColorCatalogQueryApi queryApi,
+            ColorCatalogCommandApi commandApi,
+            ColorMatchingSettingApi settingApi,
+            AuthorizationService authorizationService,
+            Executor backgroundExecutor,
+            Consumer<Runnable> uiExecutor,
+            long searchDebounceMillis) {
         this.queryApi = Objects.requireNonNull(queryApi, "queryApi");
         this.commandApi = Objects.requireNonNull(commandApi, "commandApi");
         this.settingApi = Objects.requireNonNull(settingApi, "settingApi");
@@ -121,8 +148,20 @@ public final class ReferenceColorsViewModel {
                 Objects.requireNonNull(authorizationService, "authorizationService");
         this.backgroundExecutor = Objects.requireNonNull(backgroundExecutor, "backgroundExecutor");
         this.uiExecutor = Objects.requireNonNull(uiExecutor, "uiExecutor");
-        statusFilter.addListener((obs, o, n) -> reloadColors());
-        searchText.addListener((obs, o, n) -> reloadColors());
+        this.searchDebounceMillis = Math.max(0L, searchDebounceMillis);
+        this.searchDebounceExecutor =
+                Executors.newSingleThreadScheduledExecutor(
+                        runnable -> {
+                            Thread thread = new Thread(runnable, "reference-colors-search");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        statusFilter.addListener(
+                (obs, o, n) -> {
+                    cancelPendingSearchReload();
+                    reloadColors();
+                });
+        searchText.addListener((obs, o, n) -> scheduleSearchReload());
         refreshPermissions();
     }
 
@@ -137,6 +176,7 @@ public final class ReferenceColorsViewModel {
         errorMessage.set("");
         statusMessage.set("");
         inlineFormError.set("");
+        cancelPendingSearchReload();
         reloadColors();
         reloadMatchingSetting();
     }
@@ -304,6 +344,26 @@ public final class ReferenceColorsViewModel {
             return false;
         } finally {
             commandInFlight.set(false);
+        }
+    }
+
+    private void scheduleSearchReload() {
+        cancelPendingSearchReload();
+        if (searchDebounceMillis <= 0L) {
+            reloadColors();
+            return;
+        }
+        pendingSearchReload =
+                searchDebounceExecutor.schedule(
+                        () -> uiExecutor.accept(this::reloadColors),
+                        searchDebounceMillis,
+                        TimeUnit.MILLISECONDS);
+    }
+
+    private void cancelPendingSearchReload() {
+        if (pendingSearchReload != null) {
+            pendingSearchReload.cancel(false);
+            pendingSearchReload = null;
         }
     }
 

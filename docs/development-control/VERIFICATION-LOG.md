@@ -1,3 +1,44 @@
+## COL-030A — Final GUI acceptance PASS / closure — 2026-11-10
+
+**Scope:** COL-030A closure after product-owner manual GUI testing on `tmp_pilot`
+**Base:** `3ba7ff1cdeb65f50ebc511cc194bd70df208ae7f`
+**Working tree:** prior COL-030A implementation + acceptance fixes + governance closure; **no commit / no push**
+**Overall:** **DONE**
+
+| Gate | Result |
+|---|---|
+| Automated verify (prior) | PASS |
+| Manual GUI (PO 2026-11-10) | **PASS** |
+| UI-COL-001 | PASS (fixed + manually verified) |
+| UI-COL-002 | PASS (fixed + manually verified both directions) |
+| UI-NAV-001 | DEFERRED / PLANNED UI Shell — not a COL-030A blocker |
+| Automatic matching OFF | PASS (GUI-confirmed) |
+| Review Gate / docs sync | PASS (governance updated this step) |
+| Maven / package / DB at closure | NOT RUN / NOT CHANGED (docs-only closure) |
+
+---
+
+## COL-030A — GUI acceptance fixes verify — 2026-11-10
+
+**Scope:** COL-030A only — UI-COL-001 (search table geometry) + UI-COL-002 (matching checkbox confirm/cancel)
+**Base:** `3ba7ff1cdeb65f50ebc511cc194bd70df208ae7f`
+**Working tree:** acceptance fixes + governance notes; **no commit / no push**
+**Status:** PASS (fixes); closure GUI acceptance recorded in newest entry
+
+| Check | Result |
+|---|---|
+| `mvn -pl :tmp-ui-shell -Dtest=ReferenceColorsViewModelTest,ReferenceColorsControllerFxTest test` | PASS — 13 tests (~13.5 s wall / Surefire ~2.2 s FX + 0.07 s VM) |
+| `mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests` | PASS (~37 s) |
+| `git diff --check` | PASS |
+| Encoding UTF-8 without BOM (changed text files) | PASS |
+| Architecture full suite | NOT RUN (not required for this corrective UI pass) |
+| Full reactor | NOT RUN |
+| GUI package launch `run-tmp-pilot.ps1` (no migrate) | PASS — PID 34304 / 31004 OPEN on `tmp_pilot` V59 |
+| `reference.color_matching_settings.automatic_matching_enabled` | OFF (false), version 6 |
+| UI-NAV-001 disabled forward arrow | NOT FIXED — out of COL-030A Allowed scope (common shell); separate task |
+
+---
+
 ## Latest result
 
 **Date:** 2026-11-09
@@ -356,6 +397,7 @@
 Dialog-path PDF export tests assert `/MediaBox [0 0 841.89 595.28]` (Paper.A4 height×width). Not a substitute for packaged-app manual acceptance.
 
 ---
+
 ## Previous result
 
 **Date:** 2026-11-05
@@ -387,6 +429,7 @@ Dialog-path PDF export tests assert `/MediaBox [0 0 841.89 595.28]` (Paper.A4 he
 | Pilot row counts (read-only) | demands=13, ops=182, stock_positions=78 |
 
 ---
+
 ## Previous result
 
 **Date:** 2026-11-02
@@ -415,6 +458,7 @@ Dialog-path PDF export tests assert `/MediaBox [0 0 841.89 595.28]` (Paper.A4 he
 | `tmp_gui_stage5` remains V54 | PASS |
 
 ---
+
 ## Previous result
 
 **Date:** 2026-11-02
@@ -447,6 +491,7 @@ Dialog-path PDF export tests assert `/MediaBox [0 0 841.89 595.28]` (Paper.A4 he
 | Final DB inventory | `tmp_pilot`, `tmp_gui_stage5` only |
 
 ---
+
 ## Previous result
 
 **Date:** 2026-11-02
@@ -477,6 +522,7 @@ Dialog-path PDF export tests assert `/MediaBox [0 0 841.89 595.28]` (Paper.A4 he
 See agent final report. Disposable resources remain live for acceptance.
 
 ---
+
 ## Previous result
 
 **Date:** 2026-11-02
@@ -665,7 +711,9 @@ See agent final report. Disposable resources remain live for acceptance.
 | `mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests` | PASS |
 | Pilot/stage DB writes | NOT PERFORMED |
 
----## Previous result
+---
+
+## Previous result
 
 **Date:** 2026-11-02
 **Scope:** Stage 3 Production Workbench Table UX Polish
@@ -685,6 +733,7 @@ See agent final report. Disposable resources remain live for acceptance.
 | Flyway | NOT RUN / no new migration |
 
 ---
+
 ## Previous result
 
 **Date:** 2026-10-30
@@ -707,6 +756,7 @@ See agent final report. Disposable resources remain live for acceptance.
 | Pilot/stage DB writes | NOT PERFORMED |
 
 ---
+
 ## Previous result
 
 **Date:** 2026-10-29
@@ -729,6 +779,7 @@ See agent final report. Disposable resources remain live for acceptance.
 | Manual pilot GUI acceptance | PENDING |
 
 ---
+
 ## Older result
 
 **Date:** 2026-10-20
@@ -763,6 +814,7 @@ See agent final report. Disposable resources remain live for acceptance.
 - Pilot: `%LOCALAPPDATA%\TMP-Pilot\backups\tmp_pilot_20261020_100758.dump`
 
 ---
+
 ## Previous result
 
 **Date:** 2026-10-16
@@ -796,6 +848,7 @@ See agent final report. Disposable resources remain live for acceptance.
 | Full reactor | NOT RUN |
 
 ---
+
 ## Latest result
 
 **Date:** 2026-10-15
@@ -5544,6 +5597,7 @@ Also covered by existing `OrderImportMetadataFlywayTest` (schema/unique checksum
 - None.
 
 ---
+
 ## Previous latest (2026-07-30 Stage 5 Documentation Fix)
 
 **Date:** 2026-07-30  
@@ -5564,6 +5618,7 @@ Also covered by existing `OrderImportMetadataFlywayTest` (schema/unique checksum
 - None for documentation consistency task.
 
 ---
+
 ## Previous latest (2026-07-30 Stage 5 Order Intake MVP planning)
 
 **Date:** 2026-07-30  
@@ -5590,6 +5645,7 @@ Also covered by existing `OrderImportMetadataFlywayTest` (schema/unique checksum
 - (Superseded) commercial DRAFT decision later resolved as ADR-030 / RESOLVED blocker.
 
 ---
+
 ## Previous latest (2026-07-30 Stage 5.11D-FIX-2)
 
 **Date:** 2026-07-30  
@@ -5621,6 +5677,7 @@ Also covered by existing `OrderImportMetadataFlywayTest` (schema/unique checksum
 - None.
 
 ---
+
 ## Previous latest (2026-07-28 Stage 5.11D-FIX-1)
 
 **Date:** 2026-07-28  
@@ -5653,6 +5710,7 @@ Also covered by existing `OrderImportMetadataFlywayTest` (schema/unique checksum
 - None.
 
 ---
+
 ## Previous latest (2026-07-28 Stage 5.11D / STAGE5-050 preparation)
 
 **Date:** 2026-07-28  
@@ -5679,6 +5737,7 @@ Also covered by existing `OrderImportMetadataFlywayTest` (schema/unique checksum
 - None (preparation only).
 
 ---
+
 ## Previous latest (2026-07-28 Stage 5.11C / STAGE5-049)
 
 | Verification | Command / evidence | Result |
@@ -5712,6 +5771,7 @@ Also covered by existing `OrderImportMetadataFlywayTest` (schema/unique checksum
 - None.
 
 ---
+
 ## Previous latest (2026-07-28 Stage 5.11B / STAGE5-048)
 
 **Date:** 2026-07-28  
@@ -5752,6 +5812,7 @@ Also covered by existing `OrderImportMetadataFlywayTest` (schema/unique checksum
 - First reactor run failed on `PlatformCoreIntegrationIT` (capability count 4→5). Fixed in bootstrap IT; full reactor re-run PASSED.
 
 ---
+
 ## Previous latest (2026-07-28 Stage 5.11A / Stage 5.10)
 
 **Date:** 2026-07-28  
@@ -5790,6 +5851,7 @@ Also covered by existing `OrderImportMetadataFlywayTest` (schema/unique checksum
 - None.
 
 ---
+
 ## Previous latest (2026-07-27 STAGE5-045)
 
 **Date:** 2026-07-27  
@@ -5808,6 +5870,7 @@ Also covered by existing `OrderImportMetadataFlywayTest` (schema/unique checksum
 - None.
 
 ---
+
 ## Previous latest (2026-07-27 STAGE5-040)
 
 **Date:** 2026-07-27  
@@ -5832,6 +5895,7 @@ Also covered by existing `OrderImportMetadataFlywayTest` (schema/unique checksum
 - None.
 
 ---
+
 ## Previous latest (2026-07-24 STAGE5-000-FIX2)
 
 **Date:** 2026-07-24  
