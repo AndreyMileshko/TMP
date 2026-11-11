@@ -12990,10 +12990,14 @@ git diff --check
 
 ## COL-030B — Reference Data JavaFX UI: «Сопоставления СО7»
 
-**Status:** PLANNED
+**Status:** VERIFYING
 **Stage:** COL
-**Depends on:** COL-021B, COL-030A — **both DONE** (dependency gate satisfied 2026-11-10); remains PLANNED until product-owner READY authorization; **do not start automatically**
+**Depends on:** COL-021B, COL-030A — **both DONE** (dependency gate satisfied 2026-11-10)
 **Module:** `tmp-ui-shell`
+**Authorized:** product owner (PLANNED → READY → start; 2026-11-10)
+**Base HEAD:** `ffb642c6edda3cca070a3054787ba2973467b9b6`
+**Automated verify:** PASS (2026-11-10) — focused UI/VM/FX + ui-shell verify + bootstrap verify + architecture 165 + package
+**Manual GUI:** PENDING — packaged TMP.exe launched on `tmp_pilot` V59 (matching OFF); awaiting product-owner acceptance. **Commit:** NONE
 
 ### Goal
 
@@ -13001,7 +13005,24 @@ git diff --check
 
 ### Required documents
 
-TMP-SPEC-015 §6.4, §14.2; Plan §4.3, §5 COL-030B.
+TMP-SPEC-015 §6.4, §14.2; Plan §4.3, §5 COL-030B; TMP UI Standard (как COL-030A); ADR-039.
+
+### Allowed code scope
+
+- новые `tmp-ui-shell/.../screen/reference/So7MappingsTabController.java`, `So7MappingsTabViewModel.java`, `So7MappingDialogSupport.java`, FXML вкладки;
+- изменения `reference-colors.fxml`, `ReferenceColorsController` / `ViewModel` / `Messages`, `UiShellScreens`, `UiShellAutoConfiguration`;
+- тесты ViewModel / FX.
+
+### Forbidden
+
+- бизнес-правила в UI (ключ, итоговый цвет — из API); изменения импорта; MainWindow / UI-NAV-001; V58/V59 / seed; OM / Warehouse / Production.
+
+### Acceptance criteria
+
+- [ ] Вкладка «Сопоставления СО7» открыта по умолчанию; колонки «Цвет СО7», «Внутри TMP», «Снаружи TMP», «Итоговый цвет», «Активно»; архивные стороны с пометкой «(архив)»
+- [ ] Поиск по тексту СО7 / коду; фильтр «Активные / Отключённые / Все»
+- [ ] «Добавить», «Изменить пару», «Включить» / «Отключить», «Удалить» — только с `reference.color-mapping.edit`; выбор сторон из активных цветов с поиском; дубликат ключа — понятная ошибка
+- [ ] COL-030A / UI-COL-001 / UI-COL-002 не регрессируют
 
 ### Verification commands
 

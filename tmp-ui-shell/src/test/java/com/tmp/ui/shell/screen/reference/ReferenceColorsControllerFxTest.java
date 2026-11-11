@@ -9,6 +9,10 @@ import com.tmp.reference.api.ColorCatalogQueryApi;
 import com.tmp.reference.api.ColorDto;
 import com.tmp.reference.api.ColorMatchingSettingApi;
 import com.tmp.reference.api.ColorMatchingSettingApi.ColorMatchingSettingDto;
+import com.tmp.reference.api.ImportMappingSaveReport;
+import com.tmp.reference.api.So7ColorMappingCommandApi;
+import com.tmp.reference.api.So7ColorMappingDto;
+import com.tmp.reference.api.So7ColorMappingQueryApi;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
@@ -27,16 +31,29 @@ import javafx.scene.Scene;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableView;
+import javafx.scene.control.ToggleButton;
 import javafx.stage.Stage;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** COL-030A GUI acceptance fixes: loading geometry + matching checkbox confirmation. */
+/** COL-030A/B GUI acceptance: loading geometry + matching checkbox + default SO7 tab. */
 class ReferenceColorsControllerFxTest {
 
     @BeforeAll
     static void initJavaFx() {
         JavaFxTestSupport.ensureToolkit();
+    }
+
+    @Test
+    void defaultTabIsSo7Mappings() throws Exception {
+        JavaFxTestSupport.runOnFxThread(
+                () -> {
+                    Fixture fixture = loadFixture(false);
+                    ToggleButton so7 = fixture.controller().so7MappingsTabButtonForTests();
+                    ToggleButton colors = fixture.controller().colorsTmpTabButtonForTests();
+                    assertTrue(so7.isSelected());
+                    assertFalse(colors.isSelected());
+                });
     }
 
     @Test
@@ -56,6 +73,9 @@ class ReferenceColorsControllerFxTest {
                     root.applyCss();
                     root.layout();
 
+                    fixture.controller().colorsTmpTabButtonForTests().fire();
+                    root.layout();
+
                     TableView<?> table = fixture.controller().colorsTableForTests();
                     Label loading = fixture.controller().loadingLabelForTests();
                     heightBefore.set(table.getHeight());
@@ -72,6 +92,41 @@ class ReferenceColorsControllerFxTest {
 
         assertFalse(managedDuring.get(), "loadingLabel must stay unmanaged");
         assertTrue(visibleDuring.get());
+        assertEquals(heightBefore.get(), heightDuring.get(), 0.5);
+    }
+
+    @Test
+    void so7LoadingOverlayNeverManagedAndDoesNotShiftTable() throws Exception {
+        AtomicReference<Double> heightBefore = new AtomicReference<>();
+        AtomicReference<Double> heightDuring = new AtomicReference<>();
+        AtomicReference<Boolean> managedDuring = new AtomicReference<>();
+
+        JavaFxTestSupport.runOnFxThread(
+                () -> {
+                    Fixture fixture = loadFixture(false);
+                    Parent root = fixture.root();
+                    Stage stage = new Stage();
+                    stage.setScene(new Scene(root, 960, 640));
+                    stage.show();
+                    root.applyCss();
+                    root.layout();
+
+                    So7MappingsTabController so7 =
+                            fixture.controller().so7MappingsTabControllerForTests();
+                    TableView<?> table = so7.mappingsTableForTests();
+                    Label loading = so7.loadingLabelForTests();
+                    heightBefore.set(table.getHeight());
+                    assertTrue(heightBefore.get() > 100.0);
+
+                    fixture.viewModel().mappingsTab().loadingProperty().set(true);
+                    root.layout();
+
+                    managedDuring.set(loading.isManaged());
+                    heightDuring.set(table.getHeight());
+                    stage.close();
+                });
+
+        assertFalse(managedDuring.get());
         assertEquals(heightBefore.get(), heightDuring.get(), 0.5);
     }
 
@@ -166,11 +221,21 @@ class ReferenceColorsControllerFxTest {
         auth.allow(
                 UiShellScreens.REFERENCE_COLOR_VIEW_PERMISSION,
                 UiShellScreens.REFERENCE_COLOR_SETTING_EDIT_PERMISSION);
+        So7MappingsTabViewModel mappingsTab =
+                new So7MappingsTabViewModel(
+                        new EmptyMappingQuery(),
+                        new NoOpMappingCommand(),
+                        new EmptyQuery(),
+                        auth,
+                        Runnable::run,
+                        Runnable::run,
+                        0L);
         ReferenceColorsViewModel viewModel =
                 new ReferenceColorsViewModel(
                         new EmptyQuery(),
                         new NoOpCommand(),
                         setting,
+                        mappingsTab,
                         auth,
                         Runnable::run,
                         Runnable::run,
@@ -181,7 +246,13 @@ class ReferenceColorsControllerFxTest {
                         Thread.currentThread()
                                 .getContextClassLoader()
                                 .getResource(UiShellScreens.REFERENCE_COLORS_FXML));
-        loader.setControllerFactory(type -> new ReferenceColorsController());
+        loader.setControllerFactory(
+                type -> {
+                    if (type == So7MappingsTabController.class) {
+                        return new So7MappingsTabController();
+                    }
+                    return new ReferenceColorsController();
+                });
         try {
             Parent root = loader.load();
             ReferenceColorsController controller = loader.getController();
@@ -249,6 +320,43 @@ class ReferenceColorsControllerFxTest {
 
         @Override
         public ColorDto restoreColor(UUID colorId, long expectedVersion) {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    private static final class EmptyMappingQuery implements So7ColorMappingQueryApi {
+        @Override
+        public List<So7ColorMappingDto> listMappings(
+                So7ColorMappingDto.ActiveFilter filter, String search) {
+            return List.of();
+        }
+    }
+
+    private static final class NoOpMappingCommand implements So7ColorMappingCommandApi {
+        @Override
+        public So7ColorMappingDto createMapping(
+                String sourceText, UUID insideColorId, UUID outsideColorId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public So7ColorMappingDto updateMappingPair(
+                UUID mappingId, UUID insideColorId, UUID outsideColorId, long expectedVersion) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public So7ColorMappingDto setMappingActive(
+                UUID mappingId, boolean active, long expectedVersion) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void deleteMapping(UUID mappingId, long expectedVersion) {}
+
+        @Override
+        public ImportMappingSaveReport saveMappingsFromImport(
+                List<ImportMappingSaveReport.Candidate> candidates) {
             throw new UnsupportedOperationException();
         }
     }

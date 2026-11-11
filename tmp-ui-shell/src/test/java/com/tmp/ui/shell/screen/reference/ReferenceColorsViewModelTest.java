@@ -10,6 +10,10 @@ import com.tmp.reference.api.ColorCatalogQueryApi;
 import com.tmp.reference.api.ColorDto;
 import com.tmp.reference.api.ColorMatchingSettingApi;
 import com.tmp.reference.api.ColorMatchingSettingApi.ColorMatchingSettingDto;
+import com.tmp.reference.api.So7ColorMappingCommandApi;
+import com.tmp.reference.api.So7ColorMappingDto;
+import com.tmp.reference.api.So7ColorMappingQueryApi;
+import com.tmp.reference.api.ImportMappingSaveReport;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
@@ -25,13 +29,16 @@ import java.util.concurrent.Executor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** COL-030A Reference Colors ViewModel tests. */
+/** COL-030A/B Reference Colors ViewModel tests. */
 class ReferenceColorsViewModelTest {
 
     private FakeQuery query;
     private FakeCommand command;
     private FakeSetting setting;
     private FakeAuth auth;
+    private FakeMappingQuery mappingQuery;
+    private FakeMappingCommand mappingCommand;
+    private So7MappingsTabViewModel mappingsTab;
     private ReferenceColorsViewModel viewModel;
 
     @BeforeEach
@@ -40,16 +47,23 @@ class ReferenceColorsViewModelTest {
         command = new FakeCommand(query);
         setting = new FakeSetting();
         auth = new FakeAuth();
+        mappingQuery = new FakeMappingQuery();
+        mappingCommand = new FakeMappingCommand();
+        mappingsTab =
+                new So7MappingsTabViewModel(
+                        mappingQuery, mappingCommand, query, auth, Runnable::run, Runnable::run);
         viewModel =
                 new ReferenceColorsViewModel(
-                        query, command, setting, auth, Runnable::run, Runnable::run);
+                        query, command, setting, mappingsTab, auth, Runnable::run, Runnable::run);
     }
 
     @Test
-    void loadsActiveColorsWhenViewPermitted() {
+    void loadsActiveColorsWhenColorsTabActivated() {
         auth.allow(UiShellScreens.REFERENCE_COLOR_VIEW_PERMISSION);
         query.seed(active("RAL7016"), archived("Old"));
         viewModel.onScreenOpened();
+        assertEquals(0, query.listCalls, "default SO7 tab must not load colors");
+        viewModel.onColorsTabActivated();
         assertEquals(1, viewModel.colors().size());
         assertEquals("RAL7016", viewModel.colors().get(0).code());
         assertFalse(viewModel.automaticMatchingEnabledProperty().get());
@@ -68,7 +82,7 @@ class ReferenceColorsViewModelTest {
     @Test
     void createRequiresEditPermissionAndMapsDuplicate() {
         auth.allow(UiShellScreens.REFERENCE_COLOR_VIEW_PERMISSION);
-        viewModel.onScreenOpened();
+        viewModel.onColorsTabActivated();
         assertEquals(
                 "Недостаточно прав для изменения каталога цветов.",
                 viewModel.createColor("RAL7016"));
@@ -93,7 +107,7 @@ class ReferenceColorsViewModelTest {
         ColorDto color = active("Белый");
         query.seed(color);
         query.archiveImpactById.put(color.id(), 3L);
-        viewModel.onScreenOpened();
+        viewModel.onColorsTabActivated();
         viewModel.selectedColorProperty().set(color);
 
         assertEquals(3L, viewModel.previewArchiveImpact(color));
@@ -171,13 +185,15 @@ class ReferenceColorsViewModelTest {
         java.util.concurrent.BlockingQueue<Runnable> tasks =
                 new java.util.concurrent.LinkedBlockingQueue<>();
         Executor queued = tasks::add;
+        mappingsTab =
+                new So7MappingsTabViewModel(
+                        mappingQuery, mappingCommand, query, auth, queued, Runnable::run);
         viewModel =
                 new ReferenceColorsViewModel(
-                        query, command, setting, auth, queued, Runnable::run, 0L);
-        viewModel.onScreenOpened();
-        assertEquals(2, tasks.size(), "initial open loads colors and matching setting");
-        tasks.remove().run(); // colors
-        tasks.remove().run(); // matching setting
+                        query, command, setting, mappingsTab, auth, queued, Runnable::run, 0L);
+        viewModel.onColorsTabActivated();
+        assertEquals(1, tasks.size(), "colors tab loads colors");
+        tasks.remove().run();
         assertEquals(2, viewModel.colors().size());
 
         viewModel.searchTextProperty().set("7016");
@@ -198,15 +214,6 @@ class ReferenceColorsViewModelTest {
 
     @Test
     void mapsInvalidCodeToRussian() {
-        auth.allow(
-                UiShellScreens.REFERENCE_COLOR_VIEW_PERMISSION,
-                UiShellScreens.REFERENCE_COLOR_EDIT_PERMISSION);
-        viewModel.refreshPermissions();
-        command.failCreateWith =
-                new RuntimeException("Color code length must be <= 31 characters") {
-                    // Named like domain InvalidCodeException for mapper.
-                };
-        // Force class-name based path via anonymous is RuntimeException — use Duplicate-style message.
         assertTrue(
                 ReferenceColorsMessages.mapError(
                                 new FakeInvalidCode(
@@ -328,10 +335,7 @@ class ReferenceColorsViewModelTest {
             String trimmed = code == null ? "" : code.trim();
             boolean duplicate =
                     query.store.stream()
-                            .anyMatch(
-                                    c ->
-                                            c.code()
-                                                    .equalsIgnoreCase(trimmed));
+                            .anyMatch(c -> c.code().equalsIgnoreCase(trimmed));
             if (duplicate) {
                 throw new FakeDuplicate(
                         "Color code already exists (case-insensitive): " + trimmed);
@@ -390,6 +394,43 @@ class ReferenceColorsViewModelTest {
             this.enabled = enabled;
             version++;
             return new ColorMatchingSettingDto(this.enabled, version);
+        }
+    }
+
+    private static final class FakeMappingQuery implements So7ColorMappingQueryApi {
+        @Override
+        public List<So7ColorMappingDto> listMappings(
+                So7ColorMappingDto.ActiveFilter filter, String search) {
+            return List.of();
+        }
+    }
+
+    private static final class FakeMappingCommand implements So7ColorMappingCommandApi {
+        @Override
+        public So7ColorMappingDto createMapping(
+                String sourceText, UUID insideColorId, UUID outsideColorId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public So7ColorMappingDto updateMappingPair(
+                UUID mappingId, UUID insideColorId, UUID outsideColorId, long expectedVersion) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public So7ColorMappingDto setMappingActive(
+                UUID mappingId, boolean active, long expectedVersion) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void deleteMapping(UUID mappingId, long expectedVersion) {}
+
+        @Override
+        public ImportMappingSaveReport saveMappingsFromImport(
+                List<ImportMappingSaveReport.Candidate> candidates) {
+            throw new UnsupportedOperationException();
         }
     }
 }

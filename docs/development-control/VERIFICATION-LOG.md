@@ -1,3 +1,29 @@
+## COL-030B — SO7 mappings UI verify — 2026-11-10
+
+**Scope:** COL-030B only — «Сопоставления СО7» tab + dialogs inside Reference Colors
+**Base:** `ffb642c6edda3cca070a3054787ba2973467b9b6`
+**Working tree:** COL-030B implementation + governance; **no commit / no push**
+**Status:** VERIFYING (automated PASS; manual GUI PENDING)
+
+| Check | Result |
+|---|---|
+| `mvn -pl :tmp-ui-shell -am test -Dtest=ReferenceColorsViewModelTest,So7MappingsTabViewModelTest,ReferenceColorsControllerFxTest` | PASS — 22 tests (~24 s wall) |
+| `mvn -pl :tmp-ui-shell verify -DskipITs` | PASS — Checkstyle 0 / SpotBugs 0 (~76 s) |
+| `mvn -pl :tmp-bootstrap-app -am verify -DskipITs` | PASS (~22 min) |
+| `mvn -pl :tmp-architecture-tests test` | PASS — 165 tests (~11 s) |
+| `mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests` | PASS (~27 s) |
+| `git diff --check` | PASS |
+| Encoding UTF-8 without BOM (new/changed text files) | PASS |
+| GUI package launch `run-tmp-pilot.ps1` (no migrate) | PASS — PID 37324 / 33152 OPEN on `tmp_pilot` |
+| JDBC | `jdbc:postgresql://localhost:55432/tmp_pilot` |
+| Flyway | V59 |
+| `reference.so7_color_mappings` count | 245 (seed preserved) |
+| `reference.colors` count | 861 (pre-existing +1 vs seed 860; not modified by COL-030B) |
+| automatic matching | OFF |
+| Manual GUI acceptance | PENDING (PO) |
+| Full reactor | NOT RUN |
+
+---
 ## COL-030A — Final GUI acceptance PASS / closure — 2026-11-10
 
 **Scope:** COL-030A closure after product-owner manual GUI testing on `tmp_pilot`

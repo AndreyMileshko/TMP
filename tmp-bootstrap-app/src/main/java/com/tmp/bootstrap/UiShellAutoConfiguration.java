@@ -43,6 +43,7 @@ import com.tmp.ui.shell.screen.orderlist.OrderListViewModel;
 import com.tmp.ui.shell.screen.orderspecificationeditor.OrderItemSpecificationEditorViewModel;
 import com.tmp.ui.shell.screen.production.ProductionWorkbenchViewModel;
 import com.tmp.ui.shell.screen.reference.ReferenceColorsViewModel;
+import com.tmp.ui.shell.screen.reference.So7MappingsTabViewModel;
 import com.tmp.ui.shell.screen.roleadmin.RoleAdministrationViewModel;
 import com.tmp.ui.shell.screen.useradmin.UserAdministrationViewModel;
 import com.tmp.ui.shell.screen.warehouse.WarehouseSettingsViewModel;
@@ -53,6 +54,8 @@ import com.tmp.production.api.ProductionQueryApi;
 import com.tmp.reference.api.ColorCatalogCommandApi;
 import com.tmp.reference.api.ColorCatalogQueryApi;
 import com.tmp.reference.api.ColorMatchingSettingApi;
+import com.tmp.reference.api.So7ColorMappingCommandApi;
+import com.tmp.reference.api.So7ColorMappingQueryApi;
 import com.tmp.warehouse.api.WarehouseApi;
 import jakarta.annotation.PostConstruct;
 import java.time.Clock;
@@ -290,15 +293,30 @@ public class UiShellAutoConfiguration {
     }
 
     @Bean
+    So7MappingsTabViewModel so7MappingsTabViewModel(
+            So7ColorMappingQueryApi so7ColorMappingQueryApi,
+            So7ColorMappingCommandApi so7ColorMappingCommandApi,
+            ColorCatalogQueryApi colorCatalogQueryApi,
+            AuthorizationService authorizationService) {
+        return new So7MappingsTabViewModel(
+                so7ColorMappingQueryApi,
+                so7ColorMappingCommandApi,
+                colorCatalogQueryApi,
+                authorizationService);
+    }
+
+    @Bean
     ReferenceColorsViewModel referenceColorsViewModel(
             ColorCatalogQueryApi colorCatalogQueryApi,
             ColorCatalogCommandApi colorCatalogCommandApi,
             ColorMatchingSettingApi colorMatchingSettingApi,
+            So7MappingsTabViewModel so7MappingsTabViewModel,
             AuthorizationService authorizationService) {
         return new ReferenceColorsViewModel(
                 colorCatalogQueryApi,
                 colorCatalogCommandApi,
                 colorMatchingSettingApi,
+                so7MappingsTabViewModel,
                 authorizationService);
     }
 

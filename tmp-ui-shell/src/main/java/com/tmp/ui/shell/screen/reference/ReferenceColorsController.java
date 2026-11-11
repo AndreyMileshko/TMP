@@ -8,6 +8,7 @@ import java.util.Objects;
 import java.util.function.BooleanSupplier;
 import javafx.beans.binding.Bindings;
 import javafx.geometry.Pos;
+import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
@@ -26,7 +27,9 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Window;
 import javafx.fxml.FXML;
 
-/** Reference Data / Colors FXML controller (COL-030A: «Цвета TMP» + matching switch). */
+/**
+ * Reference Data / Colors FXML controller (COL-030A «Цвета TMP» + COL-030B «Сопоставления СО7»).
+ */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2", "URF_UNREAD_FIELD"},
         justification = "JavaFX Controller retains ViewModel for FXML wiring")
@@ -35,10 +38,15 @@ public final class ReferenceColorsController implements ViewModelAware<Reference
     private ReferenceColorsViewModel viewModel;
     private boolean suppressMatchingToggle;
     private BooleanSupplier matchingConfirmation;
+    private boolean colorsTmpActivated;
 
     @FXML private VBox root;
+    @FXML private ToggleButton so7MappingsTabButton;
     @FXML private ToggleButton colorsTmpTabButton;
     @FXML private CheckBox automaticMatchingCheck;
+    @FXML private Parent so7MappingsPane;
+    @FXML private VBox colorsTmpPane;
+    @FXML private So7MappingsTabController so7MappingsPaneController;
     @FXML private TextField searchField;
     @FXML private ComboBox<StatusFilter> statusFilterCombo;
     @FXML private Button addColorButton;
@@ -54,21 +62,115 @@ public final class ReferenceColorsController implements ViewModelAware<Reference
     @Override
     public void setViewModel(ReferenceColorsViewModel viewModel) {
         this.viewModel = viewModel;
-        bind();
+        so7MappingsPaneController.setViewModel(viewModel.mappingsTab());
+        bindShared();
+        bindColorsTmp();
+        showSo7Tab();
         viewModel.onScreenOpened();
+        so7MappingsPaneController.onActivated();
     }
 
-    private void bind() {
-        colorsTmpTabButton.setSelected(true);
-        colorsTmpTabButton.setOnAction(e -> colorsTmpTabButton.setSelected(true));
+    private void bindShared() {
+        errorLabel
+                .textProperty()
+                .bind(
+                        Bindings.createStringBinding(
+                                this::resolveErrorText,
+                                viewModel.errorMessageProperty(),
+                                viewModel.mappingsTab().errorMessageProperty(),
+                                so7MappingsTabButton.selectedProperty()));
+        errorLabel.visibleProperty().bind(errorLabel.textProperty().isNotEmpty());
+        errorLabel.managedProperty().bind(errorLabel.visibleProperty());
+        statusLabel
+                .textProperty()
+                .bind(
+                        Bindings.createStringBinding(
+                                this::resolveStatusText,
+                                viewModel.statusMessageProperty(),
+                                viewModel.mappingsTab().statusMessageProperty(),
+                                so7MappingsTabButton.selectedProperty()));
 
+        so7MappingsTabButton.setOnAction(e -> showSo7Tab());
+        colorsTmpTabButton.setOnAction(e -> showColorsTmpTab());
+
+        automaticMatchingCheck
+                .disableProperty()
+                .bind(
+                        viewModel
+                                .canEditSettingProperty()
+                                .not()
+                                .or(viewModel.commandInFlightProperty())
+                                .or(viewModel.mappingsTab().commandInFlightProperty()));
+        restoreMatchingCheckboxFromConfirmed();
+        viewModel
+                .automaticMatchingEnabledProperty()
+                .addListener((obs, o, n) -> restoreMatchingCheckboxFromConfirmed());
+        automaticMatchingCheck
+                .selectedProperty()
+                .addListener(
+                        (obs, was, isNow) -> {
+                            if (suppressMatchingToggle || was == null || Objects.equals(was, isNow)) {
+                                return;
+                            }
+                            boolean intended = Boolean.TRUE.equals(isNow);
+                            // Persisted setting is source of truth: revert visual immediately.
+                            restoreMatchingCheckboxFromConfirmed();
+                            onMatchingToggle(intended);
+                        });
+    }
+
+    private String resolveErrorText() {
+        String colors = nullToEmpty(viewModel.errorMessageProperty().get());
+        String mappings = nullToEmpty(viewModel.mappingsTab().errorMessageProperty().get());
+        // Matching-switch errors live on the colors VM; still surface them on the SO7 tab.
+        if (so7MappingsTabButton.isSelected()) {
+            return !mappings.isEmpty() ? mappings : colors;
+        }
+        return !colors.isEmpty() ? colors : mappings;
+    }
+
+    private String resolveStatusText() {
+        String colors = nullToEmpty(viewModel.statusMessageProperty().get());
+        String mappings = nullToEmpty(viewModel.mappingsTab().statusMessageProperty().get());
+        if (so7MappingsTabButton.isSelected()) {
+            return !mappings.isEmpty() ? mappings : colors;
+        }
+        return !colors.isEmpty() ? colors : mappings;
+    }
+
+    private static String nullToEmpty(String value) {
+        return value == null ? "" : value;
+    }
+
+    private void showSo7Tab() {
+        so7MappingsTabButton.setSelected(true);
+        colorsTmpTabButton.setSelected(false);
+        so7MappingsPane.setVisible(true);
+        so7MappingsPane.setManaged(true);
+        colorsTmpPane.setVisible(false);
+        colorsTmpPane.setManaged(false);
+        so7MappingsPaneController.onActivated();
+    }
+
+    private void showColorsTmpTab() {
+        colorsTmpTabButton.setSelected(true);
+        so7MappingsTabButton.setSelected(false);
+        colorsTmpPane.setVisible(true);
+        colorsTmpPane.setManaged(true);
+        so7MappingsPane.setVisible(false);
+        so7MappingsPane.setManaged(false);
+        if (!colorsTmpActivated) {
+            colorsTmpActivated = true;
+            viewModel.onColorsTabActivated();
+        } else {
+            viewModel.reloadColors();
+        }
+    }
+
+    private void bindColorsTmp() {
         // Loading overlay must never participate in layout (UI-COL-001 / warehouse jitter pattern).
         loadingLabel.setManaged(false);
         loadingLabel.visibleProperty().bind(viewModel.loadingProperty());
-        errorLabel.textProperty().bind(viewModel.errorMessageProperty());
-        errorLabel.visibleProperty().bind(viewModel.errorMessageProperty().isNotEmpty());
-        errorLabel.managedProperty().bind(errorLabel.visibleProperty());
-        statusLabel.textProperty().bind(viewModel.statusMessageProperty());
 
         searchField.textProperty().bindBidirectional(viewModel.searchTextProperty());
         statusFilterCombo.getItems().setAll(StatusFilter.values());
@@ -144,29 +246,6 @@ public final class ReferenceColorsController implements ViewModelAware<Reference
                     return row;
                 });
 
-        automaticMatchingCheck
-                .disableProperty()
-                .bind(
-                        viewModel
-                                .canEditSettingProperty()
-                                .not()
-                                .or(viewModel.commandInFlightProperty()));
-        restoreMatchingCheckboxFromConfirmed();
-        viewModel
-                .automaticMatchingEnabledProperty()
-                .addListener((obs, o, n) -> restoreMatchingCheckboxFromConfirmed());
-        automaticMatchingCheck
-                .selectedProperty()
-                .addListener(
-                        (obs, was, isNow) -> {
-                            if (suppressMatchingToggle || was == null || Objects.equals(was, isNow)) {
-                                return;
-                            }
-                            boolean intended = Boolean.TRUE.equals(isNow);
-                            // Persisted setting is source of truth: revert visual immediately.
-                            restoreMatchingCheckboxFromConfirmed();
-                            onMatchingToggle(intended);
-                        });
         viewModel.commandInFlightProperty().addListener((obs, o, n) -> updateActionAvailability());
         viewModel.canEditProperty().addListener((obs, o, n) -> updateActionAvailability());
         updateActionAvailability();
@@ -268,6 +347,18 @@ public final class ReferenceColorsController implements ViewModelAware<Reference
 
     TableView<ColorDto> colorsTableForTests() {
         return colorsTable;
+    }
+
+    ToggleButton so7MappingsTabButtonForTests() {
+        return so7MappingsTabButton;
+    }
+
+    ToggleButton colorsTmpTabButtonForTests() {
+        return colorsTmpTabButton;
+    }
+
+    So7MappingsTabController so7MappingsTabControllerForTests() {
+        return so7MappingsPaneController;
     }
 
     private Window window() {

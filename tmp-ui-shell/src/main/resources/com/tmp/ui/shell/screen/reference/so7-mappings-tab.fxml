@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:id="root"
+      fx:controller="com.tmp.ui.shell.screen.reference.So7MappingsTabController"
+      spacing="8"
+      styleClass="tmp-content">
+    <HBox spacing="8" alignment="CENTER_LEFT" styleClass="tmp-toolbar">
+        <TextField fx:id="searchField" promptText="Поиск по тексту СО7 / коду" prefWidth="260"/>
+        <ComboBox fx:id="statusFilterCombo" prefWidth="160"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button fx:id="addMappingButton" text="Добавить" styleClass="tmp-button-primary"/>
+        <Button fx:id="editPairButton" text="Изменить пару" styleClass="tmp-button-secondary"/>
+        <Button fx:id="toggleActiveButton" text="Отключить" styleClass="tmp-button-secondary"/>
+        <Button fx:id="deleteMappingButton" text="Удалить" styleClass="tmp-button-danger"/>
+    </HBox>
+
+    <!-- StackPane: loading overlay must not change TableView geometry (UI-COL-001). -->
+    <StackPane VBox.vgrow="ALWAYS">
+        <TableView fx:id="mappingsTable" VBox.vgrow="ALWAYS">
+            <columns>
+                <TableColumn fx:id="sourceTextColumn" text="Цвет СО7" prefWidth="220" minWidth="120"/>
+                <TableColumn fx:id="insideColorColumn" text="Внутри TMP" prefWidth="160" minWidth="100"/>
+                <TableColumn fx:id="outsideColorColumn" text="Снаружи TMP" prefWidth="160" minWidth="100"/>
+                <TableColumn fx:id="displayColorColumn" text="Итоговый цвет" prefWidth="200" minWidth="120"/>
+                <TableColumn fx:id="activeStatusColumn" text="Активно" prefWidth="120" minWidth="90"/>
+            </columns>
+        </TableView>
+        <Label fx:id="loadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
+               mouseTransparent="true" visible="false" managed="false"/>
+    </StackPane>
+</VBox>

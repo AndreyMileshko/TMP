@@ -60,6 +60,8 @@ public final class UiShellScreens {
     public static final String REFERENCE_COLORS_NAVIGATION_ID = "reference.nav.colors";
     public static final String REFERENCE_COLOR_VIEW_PERMISSION = "reference.color.view";
     public static final String REFERENCE_COLOR_EDIT_PERMISSION = "reference.color.edit";
+    public static final String REFERENCE_COLOR_MAPPING_EDIT_PERMISSION =
+            "reference.color-mapping.edit";
     public static final String REFERENCE_COLOR_SETTING_EDIT_PERMISSION =
             "reference.color-setting.edit";
     public static final String PRODUCTION_VIEW_PERMISSION = "production.order.view";

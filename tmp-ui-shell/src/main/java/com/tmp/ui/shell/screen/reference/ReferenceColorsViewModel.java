@@ -30,9 +30,10 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 
 /**
- * Reference Data / Colors screen ViewModel (TMP-SPEC-015 §14.1 / §14.3 / §14.4, COL-030A).
+ * Reference Data / Colors screen ViewModel (TMP-SPEC-015 §14.1 / §14.3 / §14.4, COL-030A/B).
  *
- * <p>Uses only Reference Data public APIs. No JDBC. SO7 mappings tab is out of scope (COL-030B).
+ * <p>Uses only Reference Data public APIs. No JDBC. SO7 mappings live in {@link
+ * So7MappingsTabViewModel}.
  */
 @SuppressFBWarnings(
         value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"},
@@ -72,6 +73,7 @@ public final class ReferenceColorsViewModel {
     private final ColorCatalogCommandApi commandApi;
     private final ColorMatchingSettingApi settingApi;
     private final AuthorizationService authorizationService;
+    private final So7MappingsTabViewModel mappingsTab;
     private final Executor backgroundExecutor;
     private final Consumer<Runnable> uiExecutor;
     private final long searchDebounceMillis;
@@ -100,11 +102,13 @@ public final class ReferenceColorsViewModel {
             ColorCatalogQueryApi queryApi,
             ColorCatalogCommandApi commandApi,
             ColorMatchingSettingApi settingApi,
+            So7MappingsTabViewModel mappingsTab,
             AuthorizationService authorizationService) {
         this(
                 queryApi,
                 commandApi,
                 settingApi,
+                mappingsTab,
                 authorizationService,
                 Executors.newCachedThreadPool(
                         runnable -> {
@@ -120,6 +124,7 @@ public final class ReferenceColorsViewModel {
             ColorCatalogQueryApi queryApi,
             ColorCatalogCommandApi commandApi,
             ColorMatchingSettingApi settingApi,
+            So7MappingsTabViewModel mappingsTab,
             AuthorizationService authorizationService,
             Executor backgroundExecutor,
             Consumer<Runnable> uiExecutor) {
@@ -127,6 +132,7 @@ public final class ReferenceColorsViewModel {
                 queryApi,
                 commandApi,
                 settingApi,
+                mappingsTab,
                 authorizationService,
                 backgroundExecutor,
                 uiExecutor,
@@ -137,6 +143,7 @@ public final class ReferenceColorsViewModel {
             ColorCatalogQueryApi queryApi,
             ColorCatalogCommandApi commandApi,
             ColorMatchingSettingApi settingApi,
+            So7MappingsTabViewModel mappingsTab,
             AuthorizationService authorizationService,
             Executor backgroundExecutor,
             Consumer<Runnable> uiExecutor,
@@ -144,6 +151,7 @@ public final class ReferenceColorsViewModel {
         this.queryApi = Objects.requireNonNull(queryApi, "queryApi");
         this.commandApi = Objects.requireNonNull(commandApi, "commandApi");
         this.settingApi = Objects.requireNonNull(settingApi, "settingApi");
+        this.mappingsTab = Objects.requireNonNull(mappingsTab, "mappingsTab");
         this.authorizationService =
                 Objects.requireNonNull(authorizationService, "authorizationService");
         this.backgroundExecutor = Objects.requireNonNull(backgroundExecutor, "backgroundExecutor");
@@ -165,8 +173,13 @@ public final class ReferenceColorsViewModel {
         refreshPermissions();
     }
 
+    public So7MappingsTabViewModel mappingsTab() {
+        return mappingsTab;
+    }
+
     public void onScreenOpened() {
         refreshPermissions();
+        mappingsTab.refreshPermissions();
         if (!canView.get()) {
             errorMessage.set("Недостаточно прав для просмотра справочника цветов.");
             colors.clear();
@@ -177,8 +190,21 @@ public final class ReferenceColorsViewModel {
         statusMessage.set("");
         inlineFormError.set("");
         cancelPendingSearchReload();
-        reloadColors();
         reloadMatchingSetting();
+        // Default tab is SO7 mappings (COL-030B); colors load on first Цвета TMP activation.
+    }
+
+    public void onColorsTabActivated() {
+        refreshPermissions();
+        if (!canView.get()) {
+            errorMessage.set("Недостаточно прав для просмотра справочника цветов.");
+            colors.clear();
+            selectedColor.set(null);
+            return;
+        }
+        errorMessage.set("");
+        cancelPendingSearchReload();
+        reloadColors();
     }
 
     public void refreshPermissions() {

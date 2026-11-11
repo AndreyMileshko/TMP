@@ -22,23 +22,18 @@
         <HBox alignment="CENTER_LEFT" spacing="16">
             <VBox HBox.hgrow="ALWAYS" spacing="4">
                 <Label text="Цвета" styleClass="tmp-screen-title"/>
-                <Label text="Справочник цветов TMP и настройка автосопоставления СО7"
+                <Label text="Справочник соответствий СО7 и цветов TMP"
                        styleClass="tmp-screen-subtitle"/>
             </VBox>
         </HBox>
         <HBox spacing="12" alignment="CENTER_LEFT" styleClass="tmp-toolbar">
-            <ToggleButton fx:id="colorsTmpTabButton" text="Цвета TMP" styleClass="tmp-button-secondary"/>
+            <ToggleButton fx:id="so7MappingsTabButton" text="Сопоставления СО7"
+                          styleClass="tmp-button-secondary"/>
+            <ToggleButton fx:id="colorsTmpTabButton" text="Цвета TMP"
+                          styleClass="tmp-button-secondary"/>
             <Region HBox.hgrow="ALWAYS"/>
             <CheckBox fx:id="automaticMatchingCheck"
                       text="Автоматически сопоставлять цвета СО7"/>
-        </HBox>
-        <HBox spacing="8" alignment="CENTER_LEFT" styleClass="tmp-toolbar">
-            <TextField fx:id="searchField" promptText="Поиск по коду" prefWidth="220"/>
-            <ComboBox fx:id="statusFilterCombo" prefWidth="140"/>
-            <Region HBox.hgrow="ALWAYS"/>
-            <Button fx:id="addColorButton" text="Добавить" styleClass="tmp-button-primary"/>
-            <Button fx:id="archiveColorButton" text="Архивировать" styleClass="tmp-button-secondary"/>
-            <Button fx:id="restoreColorButton" text="Восстановить" styleClass="tmp-button-secondary"/>
         </HBox>
     </VBox>
 
@@ -46,17 +41,35 @@
            wrapText="true"/>
     <Label fx:id="statusLabel" styleClass="tmp-empty-state-hint" wrapText="true"/>
 
-    <VBox spacing="8" styleClass="tmp-content" VBox.vgrow="ALWAYS">
-        <!-- StackPane: loading overlay must not change TableView geometry (UI-COL-001). -->
-        <StackPane VBox.vgrow="ALWAYS">
-            <TableView fx:id="colorsTable" VBox.vgrow="ALWAYS">
-                <columns>
-                    <TableColumn fx:id="colorCodeColumn" text="Код цвета" prefWidth="320" minWidth="160"/>
-                    <TableColumn fx:id="colorStatusColumn" text="Статус" prefWidth="140" minWidth="100"/>
-                </columns>
-            </TableView>
-            <Label fx:id="loadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
-                   mouseTransparent="true" visible="false" managed="false"/>
-        </StackPane>
-    </VBox>
+    <StackPane VBox.vgrow="ALWAYS">
+        <fx:include fx:id="so7MappingsPane" source="so7-mappings-tab.fxml"/>
+
+        <VBox fx:id="colorsTmpPane" spacing="8" styleClass="tmp-content" visible="false"
+              managed="false">
+            <HBox spacing="8" alignment="CENTER_LEFT" styleClass="tmp-toolbar">
+                <TextField fx:id="searchField" promptText="Поиск по коду" prefWidth="220"/>
+                <ComboBox fx:id="statusFilterCombo" prefWidth="140"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button fx:id="addColorButton" text="Добавить" styleClass="tmp-button-primary"/>
+                <Button fx:id="archiveColorButton" text="Архивировать"
+                        styleClass="tmp-button-secondary"/>
+                <Button fx:id="restoreColorButton" text="Восстановить"
+                        styleClass="tmp-button-secondary"/>
+            </HBox>
+
+            <!-- StackPane: loading overlay must not change TableView geometry (UI-COL-001). -->
+            <StackPane VBox.vgrow="ALWAYS">
+                <TableView fx:id="colorsTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colorCodeColumn" text="Код цвета" prefWidth="320"
+                                     minWidth="160"/>
+                        <TableColumn fx:id="colorStatusColumn" text="Статус" prefWidth="140"
+                                     minWidth="100"/>
+                    </columns>
+                </TableView>
+                <Label fx:id="loadingLabel" text="Загрузка..." styleClass="tmp-text-muted"
+                       mouseTransparent="true" visible="false" managed="false"/>
+            </StackPane>
+        </VBox>
+    </StackPane>
 </VBox>

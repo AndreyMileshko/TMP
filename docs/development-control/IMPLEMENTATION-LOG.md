@@ -1,3 +1,27 @@
+## COL-030B — SO7 mappings JavaFX UI — 2026-11-10
+
+**Date:** 2026-11-10
+**Base HEAD:** `ffb642c6edda3cca070a3054787ba2973467b9b6`
+**Status:** **VERIFYING** — automated PASS; packaged TMP.exe launched on `tmp_pilot` V59; **awaiting product-owner GUI acceptance**; **no commit / no push**
+**Pilot DB:** `tmp_pilot` Flyway **V59**; automatic matching **OFF**; seed mappings **245** preserved
+
+### Implemented
+- Default tab «Сопоставления СО7» + tab «Цвета TMP» (COL-030A preserved).
+- Mapping table: Цвет СО7 / Внутри TMP / Снаружи TMP / Итоговый цвет / Активно; archive marker «(архив)».
+- Search + filter Активные/Отключённые/Все; add / edit pair / activate-deactivate / delete with confirmation.
+- Searchable active-color selectors (>860) in create/edit dialogs via public APIs only.
+- Permissions: view via `reference.color.view`; mutations via `reference.color-mapping.edit`.
+- UI-COL-001/002 preserved (loading overlay unmanaged; matching Cancel restores both directions).
+- UI-NAV-001 not touched.
+
+### Scope files
+- New: `So7MappingsTabViewModel`, `So7MappingsTabController`, `So7MappingDialogSupport`, `so7-mappings-tab.fxml`
+- Modified: `reference-colors.fxml`, `ReferenceColorsController`/`ViewModel`/`Messages`, `UiShellScreens`, `UiShellAutoConfiguration`, tests
+
+### Stop
+- STOP after COL-030B; do not start COL-040*; DONE only after PO GUI PASS.
+
+---
 ## COL-030A — Final acceptance and closure — 2026-11-10
 
 **Date:** 2026-11-10
