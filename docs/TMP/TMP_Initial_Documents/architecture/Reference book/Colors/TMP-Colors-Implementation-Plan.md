@@ -471,11 +471,11 @@ GUI: COL-AC-01, 25, 26, 27, 28 (часть каталога) на `tmp_pilot`; �
 
 **Acceptance criteria:**
 
-- [ ] Вкладка открыта по умолчанию; колонки «Цвет СО7», «Внутри TMP», «Снаружи TMP», «Итоговый цвет», «Активно»; архивные стороны с пометкой «(архив)».
-- [ ] Поиск по тексту СО7 / коду; фильтр «Активные / Отключённые / Все».
-- [ ] «Добавить», «Изменить пару», «Включить» / «Отключить», «Удалить» — только с `reference.color-mapping.edit`; выбор сторон из активных цветов с поиском; дубликат ключа — понятная ошибка.
+- [x] Вкладка открыта по умолчанию; колонки «Цвет СО7», «Внутри TMP», «Снаружи TMP», «Итоговый цвет», «Активно»; архивные стороны с пометкой «(архив)».
+- [x] Поиск по тексту СО7 / коду; фильтр «Активные / Отключённые / Все».
+- [x] «Добавить», «Изменить пару», «Включить» / «Отключить», «Удалить» — только с `reference.color-mapping.edit`; выбор сторон из активных цветов с поиском; дубликат ключа — понятная ошибка.
 
-**Verification:** как COL-030A. GUI: COL-AC-01 (245 строк), 24 (часть справочника), 33 (поиск).
+**Verification:** как COL-030A. GUI: COL-AC-01 (245 строк), 24 (часть справочника), 33 (поиск). **DONE** 2026-11-12 (PO GUI PASS; commit `d09f0bd9816be1bf8bb90d9b18e7bd5139f0eadd`).
 
 ---
 
@@ -823,19 +823,19 @@ COL-005 (DONE)
 | COL-000 | Read-only audit | docs | — | — | DONE |
 | COL-005 | Architecture finalization | docs | — | — | DONE |
 | COL-010 | Module and schema | reference-data | нет | V58 | DONE |
-| COL-011 | Initial data | reference-data | нет | V59 | READY |
-| COL-023 | Security | reference-data (+bootstrap, ui-shell) | нет | — | PLANNED |
-| COL-020A | Color domain + persistence | reference-data | нет | — | PLANNED |
-| COL-021A | Mapping domain + persistence | reference-data | нет | — | PLANNED |
-| COL-020B | Color catalog API | reference-data | нет | — | PLANNED |
-| COL-021B | Mapping API | reference-data | нет | — | PLANNED |
-| COL-022A | Global matching setting | reference-data | нет | — | PLANNED |
+| COL-011 | Initial data | reference-data | нет | V59 | DONE |
+| COL-023 | Security | reference-data (+bootstrap, ui-shell) | нет | — | DONE |
+| COL-020A | Color domain + persistence | reference-data | нет | — | DONE |
+| COL-021A | Mapping domain + persistence | reference-data | нет | — | DONE |
+| COL-020B | Color catalog API | reference-data | нет | — | DONE |
+| COL-021B | Mapping API | reference-data | нет | — | DONE |
+| COL-022A | Global matching setting | reference-data | нет | — | DONE |
 | COL-022B | Import resolution API | reference-data | нет | — | DONE |
-| COL-030A | UI: screen, «Цвета TMP», switch | ui-shell | да | — | PLANNED |
-| COL-030B | UI: «Сопоставления СО7» | ui-shell | да | — | PLANNED |
-| COL-040A | OM color constraint contract | order-management | нет | — | PLANNED |
-| COL-040B | Import resolution coordinator | ui-shell | нет | — | PLANNED |
-| COL-041A | Unified resolution dialog | ui-shell | нет | — | PLANNED |
+| COL-030A | UI: screen, «Цвета TMP», switch | ui-shell | да | — | DONE |
+| COL-030B | UI: «Сопоставления СО7» | ui-shell | да | — | DONE |
+| COL-040A | OM color constraint contract | order-management | нет | — | DONE |
+| COL-040B | Import resolution coordinator | ui-shell | нет | — | DONE |
+| COL-041A | Unified resolution dialog | ui-shell | нет | — | READY |
 | COL-041B | Import integration + post-confirm save | ui-shell | да | — | PLANNED |
 | COL-050A | Warehouse regression | warehouse (tests) | нет | — | PLANNED |
 | COL-050B | Production regression | production (tests) | нет | — | PLANNED |

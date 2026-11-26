@@ -1,9 +1,69 @@
+## COL-040B — Import resolution orchestration — 2026-11-26
+
+**Scope:** COL-040B only — ui-shell coordinator + session + row + tests
+**Base:** `d09f0bd9816be1bf8bb90d9b18e7bd5139f0eadd`
+**Working tree:** COL-040A + COL-040B + governance; **no commit / no push**
+**Overall:** **DONE**
+
+| Check | Result |
+|---|---|
+| `mvn -pl :tmp-order-management install -DskipITs` | PASS (COL-040A artifact for ui-shell compile) |
+| `mvn -pl :tmp-ui-shell verify -DskipITs` | PASS — module 911 tests; `ColorResolutionCoordinatorTest` 31/31; Checkstyle 0; SpotBugs 0 (~86 s) |
+| `mvn -pl :tmp-architecture-tests test` | PASS — 165 tests, 0 failures (~12 s) |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS — BUILD SUCCESS (~19 min wall; exit 0) |
+| `git diff --check` | PASS |
+| PO behavior A (MANUALLY_CHANGED / BLANK) | PASS (tests 21–23 + implementation log) |
+| Import / JavaFX dialog / DB save | NOT RUN (out of scope) |
+
+---
+## COL-040A — OM color constraint contract — 2026-11-12
+
+**Scope:** COL-040A only — `SpecificationColorConstraint` + registration
+**Base:** `d09f0bd9816be1bf8bb90d9b18e7bd5139f0eadd`
+**Working tree:** COL-040A implementation + governance updates; **no commit / no push**
+**Overall:** **DONE**
+
+| Check | Result |
+|---|---|
+| `mvn -pl :tmp-order-management -am verify` | PASS — unit 416 / IT 94; new `DefaultSpecificationColorConstraintTest` 25 + registration 1; Checkstyle 0 / SpotBugs 0 (~4m 39s wall for OM after deps) |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS — 165 tests; Stage5 OM ArchUnit 31 + negative 9 |
+| `git diff --check` | PASS |
+| Import / STXT / validator / payload / DB untouched | PASS (scope review) |
+| Placeholder list not duplicated | PASS (`CommercialPlaceholderValidator`) |
+| Review Gate | PASS |
+| COL-040B | READY (deps COL-022B + COL-040A DONE; not started) |
+| Full reactor | NOT RUN |
+
+---
+## COL-030B — Final GUI acceptance PASS / closure — 2026-11-12
+
+**Scope:** COL-030B closure after product-owner manual GUI testing + final technical audit
+**Implementation commit:** `d09f0bd9816be1bf8bb90d9b18e7bd5139f0eadd`
+**Working tree at closure step:** docs-only governance updates; **no production-code / DB change; no commit / no push**
+**Overall:** **DONE**
+
+| Gate | Result |
+|---|---|
+| Automated verify (implementation + final audit 2026-11-12) | PASS |
+| Manual GUI (PO 2026-11-12) | **PASS** (screenshots) |
+| Final technical audit | **READY TO CLOSE** |
+| COL-030A / UI-COL-001 / UI-COL-002 regression | PASS |
+| Server deny without `reference.color-mapping.edit` + archived side display coverage | PASS |
+| Flyway | V59 |
+| Colors | seed 860 + `RAL9999` (COL-030A) = 861 |
+| SO7 mappings | 245 seed; `COL030B_TEST_PAIR_01` absent |
+| Automatic matching | OFF |
+| Review Gate / docs sync | PASS (this step) |
+| COL-040A | READY (deps satisfied; not started) |
+| Full reactor | NOT RUN |
+
+---
 ## COL-030B — SO7 mappings UI verify — 2026-11-10
 
 **Scope:** COL-030B only — «Сопоставления СО7» tab + dialogs inside Reference Colors
 **Base:** `ffb642c6edda3cca070a3054787ba2973467b9b6`
-**Working tree:** COL-030B implementation + governance; **no commit / no push**
-**Status:** VERIFYING (automated PASS; manual GUI PENDING)
+**Working tree:** COL-030B implementation + governance; later committed as `d09f0bd9816be1bf8bb90d9b18e7bd5139f0eadd`
+**Status:** superseded by closure 2026-11-12 (**DONE**)
 
 | Check | Result |
 |---|---|
@@ -20,7 +80,7 @@
 | `reference.so7_color_mappings` count | 245 (seed preserved) |
 | `reference.colors` count | 861 (pre-existing +1 vs seed 860; not modified by COL-030B) |
 | automatic matching | OFF |
-| Manual GUI acceptance | PENDING (PO) |
+| Manual GUI acceptance | PENDING at time of entry; later PASS 2026-11-12 |
 | Full reactor | NOT RUN |
 
 ---

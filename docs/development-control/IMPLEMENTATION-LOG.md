@@ -1,8 +1,84 @@
+## COL-040B — Import resolution orchestration — 2026-11-26
+
+**Status:** DONE
+**Module:** `tmp-ui-shell`
+**Base HEAD:** `d09f0bd9816be1bf8bb90d9b18e7bd5139f0eadd` (uncommitted working tree; COL-040A still uncommitted)
+
+### Delivered
+
+- `ColorResolutionCoordinator` — OFF identity path; ON batch scan; single `resolveSourceTexts`; `Preparation` with window flag, session, ready batches.
+- `ColorResolutionSession` — row store, selection, mass operations, `isReady`, `rebuild()` via full `OrderImportBatch.of`, mapping-save candidates/conflicts (in-memory only).
+- `ColorResolutionRow` — per-line immutable state (`Id`, lookup/user state, constraint result, save flag).
+- `ColorResolutionCoordinatorTest` — 31 tests (scenarios 1–30 + resolve call order).
+
+### Product-owner clarifications (behavior)
+
+- **MANUALLY_CHANGED (variant A):** any user resolution differing from automatic prefill becomes `MANUALLY_CHANGED`; re-selecting the same auto value may remain `MATCHED`.
+- **BLANK display (variant A):** `NEEDS_CHOICE` without a choice shows no constraint error; BLANK only when user chose custom color and left it empty/whitespace, or when a formed final value is rejected.
+
+### Explicitly not changed
+
+- `OrderImportViewModel`, import FXML/controller, STXT parser, OM import services, Reference Data internals, DB, Spring wiring of coordinator, JavaFX dialog (COL-041A/B).
+
+### Next
+
+- COL-041A READY (depends on COL-040B DONE). Do not start until explicit execute. No commit / no push.
+
+---
+## COL-040A — Order Management color constraint contract — 2026-11-12
+
+**Status:** DONE
+**Module:** `tmp-order-management`
+**Base HEAD:** `d09f0bd9816be1bf8bb90d9b18e7bd5139f0eadd` (uncommitted working tree)
+
+### Delivered
+
+- Public read-only contract `com.tmp.order.api.imports.SpecificationColorConstraint` with nested `Result` / `RejectionReason` (`BLANK`, `TOO_LONG`, `PLACEHOLDER`) and `MAX_COLOR_LENGTH = 64`.
+- Application implementation `DefaultSpecificationColorConstraint` delegates placeholders to `CommercialPlaceholderValidator.isForbiddenPlaceholder` (single forbidden list).
+- Registered as Spring bean + `PublicServiceContribution` on `OrderManagementCapability` (Production-style wiring via `@Lazy`).
+- Unit tests: length 64/65, placeholders case-insensitive, blank/whitespace, valid samples (`RAL7016/30т`, `Белый/RAL7016|30`, `Без цвета`), capability ServiceRegistry registration.
+- Mechanical constructor updates in OM capability tests + Production contribution test stub (public API only).
+
+### Explicitly not changed
+
+- STXT parser, `OrderImportValidator`, `DefaultOrderImportService`, `SpecificationLine`, payload, migrations/DB.
+- No OM → Reference Data dependency; no Warehouse/Production production-code changes; COL-040B/041* not started.
+
+### Next
+
+- COL-040B READY (depends on COL-022B + COL-040A — both DONE). Do not start until explicit execute.
+
+---
+## COL-030B — Final acceptance and closure — 2026-11-12
+
+**Date:** 2026-11-12
+**Implementation commit:** `d09f0bd9816be1bf8bb90d9b18e7bd5139f0eadd`
+**Status:** **DONE** — product-owner manual GUI acceptance PASS; final technical audit READY TO CLOSE; Review Gate CLOSED; docs-only closure (**no new commit / no push**)
+**Pilot DB:** `tmp_pilot` Flyway **V59** (unchanged at closure)
+
+### Acceptance
+- Manual GUI (PO): PASS — primary scenarios confirmed with screenshots.
+- Final technical audit (2026-11-12): READY TO CLOSE — focused UI 22, ui-shell verify, bootstrap `-am verify -DskipITs`, architecture 165, package, `git diff --check` PASS; server permission deny + archived-side display coverage PASS.
+- COL-030A / UI-COL-001 / UI-COL-002: no regression (automated + GUI).
+- UI-NAV-001 remains PLANNED (UI Shell; not a COL-030B blocker).
+
+### Pilot state at closure
+- Colors: seed **860** + `RAL9999` (COL-030A GUI residue) = 861 total.
+- SO7 mappings: seed **245** preserved; user-created mappings = 0.
+- Temporary `COL030B_TEST_PAIR_01`: **absent**.
+- Automatic matching: **OFF**.
+
+### Governance
+- WORK-QUEUE / STATUS / Stage Manifest / VERIFICATION-LOG / Plan §10 updated.
+- COL-040A → **READY** (depends on COL-005 DONE; queue predecessor COL-030B DONE). Do not start until explicit execute.
+- Production code / DB / migrations not changed by this closure step.
+
+---
 ## COL-030B — SO7 mappings JavaFX UI — 2026-11-10
 
 **Date:** 2026-11-10
 **Base HEAD:** `ffb642c6edda3cca070a3054787ba2973467b9b6`
-**Status:** **VERIFYING** — automated PASS; packaged TMP.exe launched on `tmp_pilot` V59; **awaiting product-owner GUI acceptance**; **no commit / no push**
+**Status:** superseded by closure entry 2026-11-12 (**DONE**); implementation retained in commit `d09f0bd9816be1bf8bb90d9b18e7bd5139f0eadd`
 **Pilot DB:** `tmp_pilot` Flyway **V59**; automatic matching **OFF**; seed mappings **245** preserved
 
 ### Implemented
@@ -19,7 +95,7 @@
 - Modified: `reference-colors.fxml`, `ReferenceColorsController`/`ViewModel`/`Messages`, `UiShellScreens`, `UiShellAutoConfiguration`, tests
 
 ### Stop
-- STOP after COL-030B; do not start COL-040*; DONE only after PO GUI PASS.
+- Historical VERIFYING note; closure completed 2026-11-12.
 
 ---
 ## COL-030A — Final acceptance and closure — 2026-11-10

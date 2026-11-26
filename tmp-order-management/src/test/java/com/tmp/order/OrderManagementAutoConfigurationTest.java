@@ -7,6 +7,7 @@ import com.tmp.order.api.OrderSearchCriteria;
 import com.tmp.order.api.OrderSummaryDto;
 import com.tmp.order.api.PageRequest;
 import com.tmp.order.api.PageResult;
+import com.tmp.order.api.imports.SpecificationColorConstraint;
 import com.tmp.order.api.ui.CurrentOrderItemSpecificationUiService;
 import com.tmp.order.api.ui.OrderDocumentUiService;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
@@ -104,6 +105,8 @@ class OrderManagementAutoConfigurationTest {
         assertEquals(1, applicationContext.getBeansOfType(OrderQueryService.class).size());
         assertEquals(1, applicationContext.getBeansOfType(OrderQueryReadPort.class).size());
         assertEquals(1, applicationContext.getBeansOfType(OrderManagementCapability.class).size());
+        assertEquals(
+                1, applicationContext.getBeansOfType(SpecificationColorConstraint.class).size());
         assertEquals(1, applicationContext.getBeansOfType(OrderDocumentUiService.class).size());
         assertEquals(1, applicationContext.getBeansOfType(OrderItemDocumentUiService.class).size());
         assertEquals(

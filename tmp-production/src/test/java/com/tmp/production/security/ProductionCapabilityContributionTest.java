@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.tmp.capability.contribution.CapabilityContributionCatalogs;
+import com.tmp.order.api.imports.SpecificationColorConstraint;
 import com.tmp.order.capability.OrderManagementCapability;
 import com.tmp.security.capability.SecurityAdministrationCapability;
 import com.tmp.warehouse.security.WarehouseCapability;
@@ -33,7 +34,9 @@ class ProductionCapabilityContributionTest {
         assertDoesNotThrow(
                 () -> {
                     catalogs.registerInternalContributions(new SecurityAdministrationCapability().descriptor());
-                    catalogs.registerInternalContributions(new OrderManagementCapability().descriptor());
+                    catalogs.registerInternalContributions(
+                            new OrderManagementCapability(specificationColorConstraintStub())
+                                    .descriptor());
                     catalogs.registerInternalContributions(new WarehouseCapability().descriptor());
                     catalogs.registerInternalContributions(new ProductionCapability(productionQueryApiStub()).descriptor());
                 });
@@ -82,6 +85,10 @@ class ProductionCapabilityContributionTest {
 
     private static com.tmp.security.api.PermissionId permissionForViewProduction() {
         return ProductionPermissions.PRODUCTION_VIEW;
+    }
+
+    private static SpecificationColorConstraint specificationColorConstraintStub() {
+        return colorValue -> SpecificationColorConstraint.Result.allowed();
     }
 
     private static ProductionQueryApi productionQueryApiStub() {

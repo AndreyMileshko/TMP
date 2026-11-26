@@ -6,6 +6,7 @@ import com.tmp.order.api.MaterialReferenceDisplayQuery;
 import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.OrderWorklistQuery;
 import com.tmp.order.api.imports.OrderImportService;
+import com.tmp.order.api.imports.SpecificationColorConstraint;
 import com.tmp.order.api.imports.StxtOrderFileParser;
 import com.tmp.order.api.ui.CurrentOrderItemSpecificationUiService;
 import com.tmp.order.api.ui.OrderDocumentUiService;
@@ -13,6 +14,7 @@ import com.tmp.order.api.ui.OrderItemDocumentUiService;
 import com.tmp.order.api.ui.OrderItemEditorQueryService;
 import com.tmp.order.api.ui.OrderItemSpecificationEditorQueryService;
 import com.tmp.order.application.imports.DefaultOrderImportService;
+import com.tmp.order.application.imports.DefaultSpecificationColorConstraint;
 import com.tmp.order.application.imports.OrderImportValidator;
 import com.tmp.order.application.imports.stxt.DefaultStxtOrderFileParser;
 import com.tmp.order.application.imports.stxt.StxtFileAdapter;
@@ -69,6 +71,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
@@ -121,8 +124,15 @@ public class OrderManagementAutoConfiguration {
     }
 
     @Bean
-    OrderManagementCapability orderManagementCapability() {
-        return new OrderManagementCapability();
+    @ConditionalOnMissingBean(SpecificationColorConstraint.class)
+    SpecificationColorConstraint specificationColorConstraint() {
+        return new DefaultSpecificationColorConstraint();
+    }
+
+    @Bean
+    OrderManagementCapability orderManagementCapability(
+            @Lazy SpecificationColorConstraint specificationColorConstraint) {
+        return new OrderManagementCapability(specificationColorConstraint);
     }
 
     @Bean

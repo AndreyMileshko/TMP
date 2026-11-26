@@ -12990,14 +12990,17 @@ git diff --check
 
 ## COL-030B — Reference Data JavaFX UI: «Сопоставления СО7»
 
-**Status:** VERIFYING
+**Status:** DONE
 **Stage:** COL
 **Depends on:** COL-021B, COL-030A — **both DONE** (dependency gate satisfied 2026-11-10)
 **Module:** `tmp-ui-shell`
 **Authorized:** product owner (PLANNED → READY → start; 2026-11-10)
 **Base HEAD:** `ffb642c6edda3cca070a3054787ba2973467b9b6`
-**Automated verify:** PASS (2026-11-10) — focused UI/VM/FX + ui-shell verify + bootstrap verify + architecture 165 + package
-**Manual GUI:** PENDING — packaged TMP.exe launched on `tmp_pilot` V59 (matching OFF); awaiting product-owner acceptance. **Commit:** NONE
+**Implementation commit:** `d09f0bd9816be1bf8bb90d9b18e7bd5139f0eadd`
+**Automated verify:** PASS (2026-11-10 implementation; final technical audit re-run 2026-11-12 PASS)
+**Manual GUI:** PASS (product owner 2026-11-12) — scenarios accepted with screenshots on `tmp_pilot` V59
+**Final technical audit:** READY TO CLOSE (2026-11-12) — Review Gate CLOSED
+**Push:** NONE (docs-only closure; no new commit required by PO for this step)
 
 ### Goal
 
@@ -13019,23 +13022,25 @@ TMP-SPEC-015 §6.4, §14.2; Plan §4.3, §5 COL-030B; TMP UI Standard (как CO
 
 ### Acceptance criteria
 
-- [ ] Вкладка «Сопоставления СО7» открыта по умолчанию; колонки «Цвет СО7», «Внутри TMP», «Снаружи TMP», «Итоговый цвет», «Активно»; архивные стороны с пометкой «(архив)»
-- [ ] Поиск по тексту СО7 / коду; фильтр «Активные / Отключённые / Все»
-- [ ] «Добавить», «Изменить пару», «Включить» / «Отключить», «Удалить» — только с `reference.color-mapping.edit`; выбор сторон из активных цветов с поиском; дубликат ключа — понятная ошибка
-- [ ] COL-030A / UI-COL-001 / UI-COL-002 не регрессируют
+- [x] Вкладка «Сопоставления СО7» открыта по умолчанию; колонки «Цвет СО7», «Внутри TMP», «Снаружи TMP», «Итоговый цвет», «Активно»; архивные стороны с пометкой «(архив)»
+- [x] Поиск по тексту СО7 / коду; фильтр «Активные / Отключённые / Все»
+- [x] «Добавить», «Изменить пару», «Включить» / «Отключить», «Удалить» — только с `reference.color-mapping.edit`; выбор сторон из активных цветов с поиском; дубликат ключа — понятная ошибка
+- [x] COL-030A / UI-COL-001 / UI-COL-002 не регрессируют
 
 ### Verification commands
 
 Как COL-030A.
 
-**GUI:** да (Plan §4.3). **DB:** нет миграций.
+**GUI:** PASS (PO 2026-11-12). **DB:** нет миграций; pilot V59 unchanged by closure.
 
 ## COL-040A — Order Management color constraint contract
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** COL
-**Depends on:** COL-005
+**Depends on:** COL-005 — **DONE** (dependency gate satisfied; queue predecessor COL-030B = DONE 2026-11-12)
 **Module:** `tmp-order-management`
+**Authorized:** product owner (PLANNED → READY on COL-030B closure; 2026-11-12); execute authorized 2026-11-12
+**Completed:** 2026-11-12
 
 ### Goal
 
@@ -13044,6 +13049,14 @@ TMP-SPEC-015 §6.4, §14.2; Plan §4.3, §5 COL-030B; TMP UI Standard (как CO
 ### Required documents
 
 TMP-SPEC-015 §10, §12; OM Specification §27.6, §28.5; ADR-039 п.7; Plan §5 COL-040A.
+
+### Acceptance criteria
+
+- [x] Контракт: после `trim` не пустое, ≤ 64, не плейсхолдер (регистронезависимо); 64 OK / 65 TOO_LONG; `N/A`/`n/a`/`-`/`—` → PLACEHOLDER; `RAL7016/30т`, `Белый/RAL7016|30`, `Без цвета` допустимы.
+- [x] Лимит 64 совпадает с `VARCHAR(64)` / `SpecificationLine` usage (тест).
+- [x] Единый источник плейсхолдеров — `CommercialPlaceholderValidator` (без дублирования списка).
+- [x] Публичная регистрация `PublicServiceContribution` + Spring bean; импорт / парсер / validator / payload / БД не изменены.
+- [x] `mvn -pl :tmp-order-management -am verify` PASS; Stage 5 ArchUnit PASS; `git diff --check` PASS.
 
 ### Verification commands
 
@@ -13057,10 +13070,11 @@ git diff --check
 
 ## COL-040B — Import resolution orchestration
 
-**Status:** PLANNED
+**Status:** DONE
 **Stage:** COL
-**Depends on:** COL-022B, COL-040A
+**Depends on:** COL-022B, COL-040A — **both DONE** (dependency gate satisfied 2026-11-12)
 **Module:** `tmp-ui-shell`
+**Authorized:** product owner (PLANNED → READY on COL-040A closure; 2026-11-12) — do not start until explicit execute command
 
 ### Goal
 
@@ -13082,7 +13096,7 @@ git diff --check
 
 ## COL-041A — Unified resolution dialog
 
-**Status:** PLANNED
+**Status:** READY
 **Stage:** COL
 **Depends on:** COL-040B
 **Module:** `tmp-ui-shell`

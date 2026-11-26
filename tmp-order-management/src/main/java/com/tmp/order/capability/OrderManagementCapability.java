@@ -6,9 +6,12 @@ import com.tmp.capability.api.CapabilityId;
 import com.tmp.capability.api.CapabilityVersion;
 import com.tmp.capability.api.CommandDescriptor;
 import com.tmp.capability.api.NavigationContribution;
+import com.tmp.capability.api.PublicServiceContribution;
 import com.tmp.capability.api.ViewDescriptor;
+import com.tmp.order.api.imports.SpecificationColorConstraint;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Order Management Capability: permission catalogue (Specification §18) and UI navigation metadata
@@ -26,7 +29,8 @@ public final class OrderManagementCapability implements Capability {
 
     private final CapabilityDescriptor descriptor;
 
-    public OrderManagementCapability() {
+    public OrderManagementCapability(SpecificationColorConstraint specificationColorConstraint) {
+        Objects.requireNonNull(specificationColorConstraint, "specificationColorConstraint");
         this.descriptor =
                 CapabilityDescriptor.builder()
                         .id(ID)
@@ -44,6 +48,11 @@ public final class OrderManagementCapability implements Capability {
                         .views(List.of(ViewDescriptor.of(VIEW_ORDERS, "Orders", NAV_ORDERS)))
                         .navigationContributions(List.of(
                                 NavigationContribution.of(NAV_ORDERS, "Заказы", VIEW_ORDERS, 40)))
+                        .publicServices(
+                                List.of(
+                                        PublicServiceContribution.of(
+                                                SpecificationColorConstraint.class,
+                                                specificationColorConstraint)))
                         .build();
     }
 

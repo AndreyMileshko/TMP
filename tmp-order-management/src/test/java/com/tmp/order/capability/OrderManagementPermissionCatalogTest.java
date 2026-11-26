@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tmp.capability.api.PermissionDescriptor;
 import com.tmp.order.application.document.OrderBusinessDocumentCatalog;
 import com.tmp.order.application.document.OrderDocumentTypeDescriptor;
+import com.tmp.order.application.imports.DefaultSpecificationColorConstraint;
 import com.tmp.security.api.PermissionId;
 import java.util.HashSet;
 import java.util.List;
@@ -78,12 +79,14 @@ class OrderManagementPermissionCatalogTest {
 
     @Test
     void capabilityDescriptorExposesCatalogAndOrderListNavigation() {
-        OrderManagementCapability capability = new OrderManagementCapability();
+        OrderManagementCapability capability =
+                new OrderManagementCapability(new DefaultSpecificationColorConstraint());
         assertEquals(OrderManagementCapability.ID, capability.descriptor().id());
         assertEquals(13, capability.descriptor().permissions().size());
         assertEquals(1, capability.descriptor().navigationContributions().size());
         assertEquals(1, capability.descriptor().views().size());
         assertEquals(1, capability.descriptor().commands().size());
+        assertEquals(1, capability.descriptor().publicServices().size());
         assertEquals(
                 OrderManagementCapability.NAV_ORDERS,
                 capability.descriptor().navigationContributions().get(0).navigationId());

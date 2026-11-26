@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tmp.capability.api.CommandDescriptor;
 import com.tmp.capability.api.NavigationContribution;
 import com.tmp.capability.api.ViewDescriptor;
+import com.tmp.order.application.imports.DefaultSpecificationColorConstraint;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -15,7 +16,8 @@ class OrderManagementCapabilityNavigationTest {
 
     @Test
     void navigationContributionIsRegisteredWithOrderViewPermission() {
-        OrderManagementCapability capability = new OrderManagementCapability();
+        OrderManagementCapability capability =
+                new OrderManagementCapability(new DefaultSpecificationColorConstraint());
         List<NavigationContribution> navigation = capability.descriptor().navigationContributions();
         assertEquals(1, navigation.size());
         NavigationContribution entry = navigation.get(0);
@@ -38,7 +40,8 @@ class OrderManagementCapabilityNavigationTest {
 
     @Test
     void navigationIdsAreUnique() {
-        OrderManagementCapability capability = new OrderManagementCapability();
+        OrderManagementCapability capability =
+                new OrderManagementCapability(new DefaultSpecificationColorConstraint());
         List<String> navigationIds = capability.descriptor().navigationContributions().stream()
                 .map(NavigationContribution::navigationId)
                 .toList();
