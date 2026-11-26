@@ -119,12 +119,7 @@ public final class ColorResolutionSession {
         if (targetIds.isEmpty()) {
             return this;
         }
-        ResolvedColorPair pair;
-        try {
-            pair = resolutionApi.composePair(insideColorId, outsideColorId);
-        } catch (RuntimeException ex) {
-            return this;
-        }
+        ResolvedColorPair pair = resolutionApi.composePair(insideColorId, outsideColorId);
         SpecificationColorConstraint.Result check = colorConstraint.check(pair.displayColor());
         Set<ColorResolutionRow.Id> targetSet = new HashSet<>(targetIds);
         List<ColorResolutionRow> updated = new ArrayList<>(rows.size());

@@ -15,14 +15,12 @@ import com.tmp.order.api.imports.OrderImportSpecificationLine;
 import com.tmp.order.api.imports.SpecificationColorConstraint;
 import com.tmp.reference.api.ColorDto;
 import com.tmp.reference.api.ColorImportResolutionApi;
-import com.tmp.reference.api.ImportMappingSaveReport;
 import com.tmp.reference.api.ResolvedColorPair;
 import com.tmp.reference.api.SourceColorResolution;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,10 +30,10 @@ import org.junit.jupiter.api.Test;
 
 class ColorResolutionCoordinatorTest {
 
-    private static final UUID INSIDE_A = UUID.fromString("00000000-0000-0000-0000-000000000001");
-    private static final UUID OUTSIDE_A = UUID.fromString("00000000-0000-0000-0000-000000000002");
-    private static final UUID INSIDE_B = UUID.fromString("00000000-0000-0000-0000-000000000003");
-    private static final UUID OUTSIDE_B = UUID.fromString("00000000-0000-0000-0000-000000000004");
+    private static final UUID CAT_BELYI = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final UUID CAT_RAL7016 = UUID.fromString("00000000-0000-0000-0000-000000000002");
+    private static final UUID CAT_RAL7016_PIPE_30 = UUID.fromString("00000000-0000-0000-0000-000000000003");
+    private static final UUID CAT_SERYY = UUID.fromString("00000000-0000-0000-0000-000000000004");
 
     @Test
     void scenario01_offReturnsSameBatchList() {
@@ -60,7 +58,7 @@ class ColorResolutionCoordinatorTest {
 
     @Test
     void scenario03_onKnownColorsPrefilled() {
-        FakeColorApi api = matchedApi(Map.of("Белый", pairDisplay("Белый|RAL7016")));
+        FakeColorApi api = matchedApi(Map.of("Белый", pairBelyiRal7016()));
         ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, new FakeConstraint());
         ColorResolutionCoordinator.Preparation prep =
                 coordinator.prepare(List.of(sampleBatch("ORD-1", "Белый", null)));
@@ -68,7 +66,7 @@ class ColorResolutionCoordinatorTest {
         assertFalse(prep.needsResolutionWindow());
         assertNotNull(prep.session());
         assertNotNull(prep.readyBatches());
-        assertEquals("Белый|RAL7016", prep.readyBatches().get(0).positions().get(0).specificationLines().get(0).color());
+        assertEquals("Белый/RAL7016", prep.readyBatches().get(0).positions().get(0).specificationLines().get(0).color());
     }
 
     @Test
@@ -157,20 +155,20 @@ class ColorResolutionCoordinatorTest {
         ColorResolutionCoordinator.Preparation prep = coordinator.prepare(List.of(batch));
         ColorResolutionSession session = prep.session();
         session = session.withSelection(Set.of(new ColorResolutionRow.Id(0, 0, 0)));
-        session = session.applyCatalogPairToHighlighted(INSIDE_A, OUTSIDE_A);
+        session = session.applyCatalogPairToHighlighted(CAT_BELYI, CAT_RAL7016);
         session = session.withSelection(Set.of(new ColorResolutionRow.Id(0, 0, 1)));
-        session = session.applyCatalogPairToHighlighted(INSIDE_B, OUTSIDE_B);
-        assertEquals("A|A", session.rows().get(0).finalColor());
-        assertEquals("B|B", session.rows().get(1).finalColor());
+        session = session.applyCatalogPairToHighlighted(CAT_RAL7016, CAT_BELYI);
+        assertEquals("Белый/RAL7016", session.rows().get(0).finalColor());
+        assertEquals("RAL7016/Белый", session.rows().get(1).finalColor());
     }
 
     @Test
     void scenario11_manualOverrideMatchedBecomesManuallyChanged() {
-        FakeColorApi api = matchedApi(Map.of("Белый", pairDisplay("Белый|RAL7016")));
+        FakeColorApi api = matchedApi(Map.of("Белый", pairBelyiRal7016()));
         ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, new FakeConstraint());
         ColorResolutionSession session =
                 coordinator.prepare(List.of(sampleBatch("ORD-1", "Белый", null))).session();
-        session = session.applyCatalogPair(List.of(session.rows().get(0).id()), INSIDE_B, OUTSIDE_B);
+        session = session.applyCatalogPair(List.of(session.rows().get(0).id()), CAT_BELYI, CAT_RAL7016_PIPE_30);
         assertEquals(ColorResolutionRow.UserState.MANUALLY_CHANGED, session.rows().get(0).userState());
     }
 
@@ -181,8 +179,8 @@ class ColorResolutionCoordinatorTest {
         OrderImportBatch batch = batchWithPositions("ORD-1", List.of(positionWithColor("1", "P1", "Цвет"), positionWithColor("2", "P2", "Цвет")));
         ColorResolutionSession session = coordinator.prepare(List.of(batch)).session();
         session = session.withSelection(Set.of(new ColorResolutionRow.Id(0, 0, 0)));
-        session = session.applyCatalogPairToHighlighted(INSIDE_A, OUTSIDE_A);
-        assertEquals("A|A", session.rows().get(0).finalColor());
+        session = session.applyCatalogPairToHighlighted(CAT_BELYI, CAT_RAL7016);
+        assertEquals("Белый/RAL7016", session.rows().get(0).finalColor());
         assertNull(session.rows().get(1).finalColor());
     }
 
@@ -192,9 +190,9 @@ class ColorResolutionCoordinatorTest {
         ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, new FakeConstraint());
         OrderImportBatch batch = batchWithPositions("ORD-1", List.of(positionWithColor("1", "P1", "Цвет"), positionWithColor("2", "P2", "Цвет")));
         ColorResolutionSession session = coordinator.prepare(List.of(batch)).session();
-        session = session.applyCatalogPairToSourceKey("цвет", INSIDE_A, OUTSIDE_A);
-        assertEquals("A|A", session.rows().get(0).finalColor());
-        assertEquals("A|A", session.rows().get(1).finalColor());
+        session = session.applyCatalogPairToSourceKey("цвет", CAT_BELYI, CAT_RAL7016);
+        assertEquals("Белый/RAL7016", session.rows().get(0).finalColor());
+        assertEquals("Белый/RAL7016", session.rows().get(1).finalColor());
     }
 
     @Test
@@ -236,7 +234,7 @@ class ColorResolutionCoordinatorTest {
 
     @Test
     void scenario17_rebuildPreservesOrderAndFields() {
-        FakeColorApi api = matchedApi(Map.of("Белый", pairDisplay("Белый|RAL7016")));
+        FakeColorApi api = matchedApi(Map.of("Белый", pairBelyiRal7016()));
         ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, new FakeConstraint());
         OrderImportBatch batch =
                 OrderImportBatch.of(
@@ -268,7 +266,7 @@ class ColorResolutionCoordinatorTest {
         assertEquals("ORD-9", out.orderNumber());
         assertEquals("ACME", out.customerName());
         assertEquals("10", out.positions().get(0).externalPositionNumber());
-        assertEquals("Белый|RAL7016", out.positions().get(0).specificationLines().get(0).color());
+        assertEquals("Белый/RAL7016", out.positions().get(0).specificationLines().get(0).color());
         assertEquals(BigDecimal.TEN, out.positions().get(0).specificationLines().get(0).quantity());
     }
 
@@ -278,8 +276,8 @@ class ColorResolutionCoordinatorTest {
         ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, new FakeConstraint());
         OrderImportBatch batch = batchWithPositions("ORD-1", List.of(positionWithColor("1", "P1", "Цвет"), positionWithColor("2", "P2", "Цвет")));
         ColorResolutionSession session = coordinator.prepare(List.of(batch)).session();
-        session = session.applyCatalogPair(List.of(new ColorResolutionRow.Id(0, 0, 0)), INSIDE_A, OUTSIDE_A);
-        session = session.applyCatalogPair(List.of(new ColorResolutionRow.Id(0, 1, 0)), INSIDE_B, OUTSIDE_B);
+        session = session.applyCatalogPair(List.of(new ColorResolutionRow.Id(0, 0, 0)), CAT_BELYI, CAT_RAL7016);
+        session = session.applyCatalogPair(List.of(new ColorResolutionRow.Id(0, 1, 0)), CAT_BELYI, CAT_RAL7016_PIPE_30);
         assertEquals(1, session.mappingSaveConflicts().size());
         assertTrue(session.isReady());
     }
@@ -290,14 +288,14 @@ class ColorResolutionCoordinatorTest {
         ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, new FakeConstraint());
         OrderImportBatch batch = batchWithPositions("ORD-1", List.of(positionWithColor("1", "P1", "Цвет"), positionWithColor("2", "P2", "Цвет")));
         ColorResolutionSession session = coordinator.prepare(List.of(batch)).session();
-        session = session.applyCatalogPairToSourceKey("цвет", INSIDE_A, OUTSIDE_A);
+        session = session.applyCatalogPairToSourceKey("цвет", CAT_BELYI, CAT_RAL7016);
         assertEquals(1, session.mappingSaveCandidates().size());
     }
 
     @Test
     void scenario20_matchedAndInactiveNeverCandidates() {
         FakeColorApi api = new FakeColorApi(true);
-        api.resolutions.put("Known", matched("Known", "known", pairDisplay("K|K")));
+        api.resolutions.put("Known", matched("Known", "known", pairBelyiRal7016()));
         api.resolutions.put("Inactive", inactive("Inactive", "inactive"));
         ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, new FakeConstraint());
         OrderImportBatch batch =
@@ -307,7 +305,7 @@ class ColorResolutionCoordinatorTest {
                                 positionWithColor("1", "P1", "Known"),
                                 positionWithColor("2", "P2", "Inactive")));
         ColorResolutionSession session = coordinator.prepare(List.of(batch)).session();
-        session = session.applyCatalogPair(List.of(session.rows().get(1).id()), INSIDE_A, OUTSIDE_A);
+        session = session.applyCatalogPair(List.of(session.rows().get(1).id()), CAT_BELYI, CAT_RAL7016);
         assertTrue(session.mappingSaveCandidates().isEmpty());
     }
 
@@ -340,17 +338,17 @@ class ColorResolutionCoordinatorTest {
         ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, new FakeConstraint());
         ColorResolutionSession session =
                 coordinator.prepare(List.of(sampleBatch("ORD-1", "Цвет", null))).session();
-        session = session.applyCatalogPair(List.of(session.rows().get(0).id()), INSIDE_A, OUTSIDE_A);
+        session = session.applyCatalogPair(List.of(session.rows().get(0).id()), CAT_BELYI, CAT_RAL7016);
         assertEquals(ColorResolutionRow.UserState.MANUALLY_CHANGED, session.rows().get(0).userState());
     }
 
     @Test
     void scenario24_changingAutoPairManuallyChanged() {
-        FakeColorApi api = matchedApi(Map.of("Белый", pairDisplay("Белый|RAL7016")));
+        FakeColorApi api = matchedApi(Map.of("Белый", pairBelyiRal7016()));
         ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, new FakeConstraint());
         ColorResolutionSession session =
                 coordinator.prepare(List.of(sampleBatch("ORD-1", "Белый", null))).session();
-        session = session.applyCatalogPair(List.of(session.rows().get(0).id()), INSIDE_B, OUTSIDE_B);
+        session = session.applyCatalogPair(List.of(session.rows().get(0).id()), CAT_BELYI, CAT_RAL7016_PIPE_30);
         assertEquals(ColorResolutionRow.UserState.MANUALLY_CHANGED, session.rows().get(0).userState());
     }
 
@@ -361,7 +359,7 @@ class ColorResolutionCoordinatorTest {
         ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, new FakeConstraint());
         ColorResolutionSession session =
                 coordinator.prepare(List.of(sampleBatch("ORD-1", "Цвет", null))).session();
-        session = session.applyCatalogPair(List.of(session.rows().get(0).id()), INSIDE_A, OUTSIDE_A);
+        session = session.applyCatalogPair(List.of(session.rows().get(0).id()), CAT_BELYI, CAT_RAL7016);
         assertTrue(session.isReady());
         assertTrue(session.mappingSaveCandidates().isEmpty());
     }
@@ -373,9 +371,13 @@ class ColorResolutionCoordinatorTest {
         ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, new FakeConstraint());
         ColorResolutionSession before =
                 coordinator.prepare(List.of(sampleBatch("ORD-1", "Цвет", null))).session();
-        ColorResolutionSession after =
-                before.withSelection(Set.of(before.rows().get(0).id())).applyCatalogPairToHighlighted(INSIDE_A, OUTSIDE_A);
-        assertEquals(before.rows().get(0).finalColor(), after.rows().get(0).finalColor());
+        ColorResolutionRow.Id rowId = before.rows().get(0).id();
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> before.withSelection(Set.of(rowId))
+                        .applyCatalogPairToHighlighted(CAT_BELYI, CAT_RAL7016));
+        assertNull(before.rows().get(0).finalColor());
+        assertEquals(ColorResolutionRow.UserState.NEEDS_CHOICE, before.rows().get(0).userState());
     }
 
     @Test
@@ -396,7 +398,7 @@ class ColorResolutionCoordinatorTest {
                 SourceColorResolution.matched(
                         "Bad",
                         "bad",
-                        new ResolvedColorPair(INSIDE_A, OUTSIDE_A, "X", "Y", "!!invalid!!")));
+                        new ResolvedColorPair(CAT_BELYI, CAT_RAL7016, "X", "Y", "!!invalid!!")));
         FakeConstraint constraint = new FakeConstraint();
         constraint.reject.add("!!invalid!!");
         ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, constraint);
@@ -413,8 +415,8 @@ class ColorResolutionCoordinatorTest {
         ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, new FakeConstraint());
         OrderImportBatch batch = batchWithPositions("ORD-1", List.of(positionWithColor("1", "P1", "Цвет"), positionWithColor("2", "P2", "Цвет")));
         ColorResolutionSession session = coordinator.prepare(List.of(batch)).session();
-        session = session.applyCatalogPair(List.of(new ColorResolutionRow.Id(0, 0, 0)), INSIDE_A, OUTSIDE_A);
-        session = session.applyCatalogPair(List.of(new ColorResolutionRow.Id(0, 1, 0)), INSIDE_B, OUTSIDE_B);
+        session = session.applyCatalogPair(List.of(new ColorResolutionRow.Id(0, 0, 0)), CAT_BELYI, CAT_RAL7016);
+        session = session.applyCatalogPair(List.of(new ColorResolutionRow.Id(0, 1, 0)), CAT_BELYI, CAT_RAL7016_PIPE_30);
         assertDoesNotThrow(session::rebuild);
     }
 
@@ -424,13 +426,34 @@ class ColorResolutionCoordinatorTest {
         ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, new FakeConstraint());
         ColorResolutionSession session =
                 coordinator.prepare(List.of(sampleBatch("ORD-1", "Цвет", null))).session();
-        session = session.applyCatalogPair(List.of(session.rows().get(0).id()), INSIDE_A, OUTSIDE_A);
+        session = session.applyCatalogPair(List.of(session.rows().get(0).id()), CAT_BELYI, CAT_RAL7016);
         session =
                 session.withSelection(Set.of(session.rows().get(0).id()))
                         .setSaveMappingForAvailableHighlighted(false)
-                        .applyCatalogPairToHighlighted(INSIDE_B, OUTSIDE_B);
+                        .applyCatalogPairToHighlighted(CAT_BELYI, CAT_RAL7016_PIPE_30);
         assertFalse(session.rows().get(0).saveMappingSelected());
         assertTrue(session.rows().get(0).saveMappingAvailable());
+    }
+
+    @Test
+    void autoMatchedPairWithPipeModificationPassesThroughCoordinator() {
+        ResolvedColorPair pairWithModification =
+                catalogPair(CAT_BELYI, "Белый", CAT_RAL7016_PIPE_30, "RAL7016|30");
+        FakeColorApi api = matchedApi(Map.of("Mod", pairWithModification));
+        ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, new FakeConstraint());
+        ColorResolutionCoordinator.Preparation prep =
+                coordinator.prepare(List.of(sampleBatch("ORD-1", "Mod", null)));
+        assertEquals("Белый/RAL7016|30", prep.readyBatches().get(0).positions().get(0).specificationLines().get(0).color());
+    }
+
+    @Test
+    void composePairCollapsesEqualCatalogCodesToSingleDisplay() {
+        FakeColorApi api = unmatchedApi("Цвет", "цвет");
+        ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, new FakeConstraint());
+        ColorResolutionSession session =
+                coordinator.prepare(List.of(sampleBatch("ORD-1", "Цвет", null))).session();
+        session = session.applyCatalogPair(List.of(session.rows().get(0).id()), CAT_BELYI, CAT_BELYI);
+        assertEquals("Белый", session.rows().get(0).finalColor());
     }
 
     @Test
@@ -484,14 +507,21 @@ class ColorResolutionCoordinatorTest {
         return OrderImportSpecificationLine.of(material, "Material", color, BigDecimal.ONE, "шт", BigDecimal.ONE);
     }
 
-    private static ResolvedColorPair pairDisplay(String display) {
-        UUID in = INSIDE_A;
-        UUID out = OUTSIDE_A;
-        if (display.startsWith("B|")) {
-            in = INSIDE_B;
-            out = OUTSIDE_B;
+    private static String composeDisplay(String insideCode, String outsideCode) {
+        if (insideCode.equals(outsideCode)) {
+            return insideCode;
         }
-        return new ResolvedColorPair(in, out, display.split("\\|")[0], display.split("\\|")[1], display);
+        return insideCode + "/" + outsideCode;
+    }
+
+    private static ResolvedColorPair catalogPair(
+            UUID insideId, String insideCode, UUID outsideId, String outsideCode) {
+        return new ResolvedColorPair(
+                insideId, outsideId, insideCode, outsideCode, composeDisplay(insideCode, outsideCode));
+    }
+
+    private static ResolvedColorPair pairBelyiRal7016() {
+        return catalogPair(CAT_BELYI, "Белый", CAT_RAL7016, "RAL7016");
     }
 
     private static FakeColorApi matchedApi(Map<String, ResolvedColorPair> pairs) {
@@ -591,10 +621,10 @@ class ColorResolutionCoordinatorTest {
         @Override
         public List<ColorDto> listActiveColors() {
             return List.of(
-                    new ColorDto(INSIDE_A, "A", true, 1),
-                    new ColorDto(OUTSIDE_A, "A", true, 1),
-                    new ColorDto(INSIDE_B, "B", true, 1),
-                    new ColorDto(OUTSIDE_B, "B", true, 1));
+                    new ColorDto(CAT_BELYI, "Белый", true, 1),
+                    new ColorDto(CAT_RAL7016, "RAL7016", true, 1),
+                    new ColorDto(CAT_RAL7016_PIPE_30, "RAL7016|30", true, 1),
+                    new ColorDto(CAT_SERYY, "Серый", true, 1));
         }
 
         @Override
@@ -602,13 +632,19 @@ class ColorResolutionCoordinatorTest {
             if (composeThrows) {
                 throw new IllegalArgumentException("compose failed");
             }
-            if (insideColorId.equals(INSIDE_A) && outsideColorId.equals(OUTSIDE_A)) {
-                return pairDisplay("A|A");
+            if (insideColorId.equals(CAT_BELYI) && outsideColorId.equals(CAT_RAL7016)) {
+                return pairBelyiRal7016();
             }
-            if (insideColorId.equals(INSIDE_B) && outsideColorId.equals(OUTSIDE_B)) {
-                return pairDisplay("B|B");
+            if (insideColorId.equals(CAT_RAL7016) && outsideColorId.equals(CAT_BELYI)) {
+                return catalogPair(CAT_RAL7016, "RAL7016", CAT_BELYI, "Белый");
             }
-            return new ResolvedColorPair(insideColorId, outsideColorId, "X", "Y", "X|Y");
+            if (insideColorId.equals(CAT_BELYI) && outsideColorId.equals(CAT_BELYI)) {
+                return catalogPair(CAT_BELYI, "Белый", CAT_BELYI, "Белый");
+            }
+            if (insideColorId.equals(CAT_BELYI) && outsideColorId.equals(CAT_RAL7016_PIPE_30)) {
+                return catalogPair(CAT_BELYI, "Белый", CAT_RAL7016_PIPE_30, "RAL7016|30");
+            }
+            throw new IllegalArgumentException("unknown catalog pair for test fake");
         }
 
         @Override

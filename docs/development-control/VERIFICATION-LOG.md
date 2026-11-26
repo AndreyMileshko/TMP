@@ -1,3 +1,21 @@
+## COL-040B — Post-commit review corrections — 2026-11-26
+
+**Scope:** COL-040B review fix — `applyCatalogPair` exception propagation + test pair display (TMP-SPEC-015 §6.3)
+**Base:** `5af1fe0d12793278e02cb992d31a6b3d5225a558`
+**Working tree:** corrective diff only; **no commit / no push**
+**Overall:** **PASS**
+
+| Check | Result |
+|---|---|
+| `composePair` failure propagates (no silent swallow) | PASS — `ColorResolutionSession.applyCatalogPair` |
+| Scenario 26 + session unchanged on exception | PASS — `assertThrows`; row state unchanged |
+| Test pairs use `/` inside-outside; `\|` only in catalog modification | PASS — `Белый/RAL7016`, `Белый/RAL7016\|30`, collapsed `Белый` |
+| Realistic `ColorDto` unique codes per UUID | PASS |
+| `mvn -pl :tmp-ui-shell verify -DskipITs` | PASS — `ColorResolutionCoordinatorTest` 33/33 |
+| `mvn -pl :tmp-architecture-tests test` | PASS — 165 tests |
+| `git diff --check` | PASS |
+
+---
 ## COL-040B — Import resolution orchestration — 2026-11-26
 
 **Scope:** COL-040B only — ui-shell coordinator + session + row + tests
