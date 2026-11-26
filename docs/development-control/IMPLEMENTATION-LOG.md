@@ -1,3 +1,51 @@
+## COL-041B — Import integration and post-confirm mapping save — 2026-11-26
+
+**Status:** VERIFYING (automated checks in progress; manual GUI acceptance pending PO)
+**Module:** `tmp-ui-shell`, `tmp-bootstrap-app`
+
+### Delivered
+
+- `OrderImportViewModel` — color resolution pipeline (OFF identical to legacy 3-arg path; ON via `ColorResolutionCoordinator`; dialog callback; «Проверить цвета» with atomic preview swap; post-confirm `saveMappingsFromImport`).
+- `OrderImportController` / `OrderImportScreen.fxml` — «Проверить цвета» button; `ColorResolutionDialog.show` wired as opener.
+- `UiShellAutoConfiguration` — `ColorResolutionCoordinator` + extended import ViewModel bean.
+- `ImportMappingSaveMessages` — TMP-SPEC-015 §11 user texts.
+- Tests: `OrderImportColorResolutionViewModelTest`, `OrderImportColorResolutionControllerFxTest`; existing `OrderImportViewModelTest` unchanged.
+
+### Manual acceptance
+
+- `tmp_pilot`; COL-AC scenarios per Plan §4.3; matching OFF unless PO enables for scenario.
+
+### Next
+
+- Product Owner GUI acceptance; then COL-041B → DONE. No commit / no push unless requested.
+
+---
+## COL-041A — Unified resolution dialog — 2026-11-26
+
+**Status:** DONE
+**Module:** `tmp-ui-shell`
+**Base HEAD:** `7627343d3fa0b29da19d576188217c77a9b8fc99` (uncommitted)
+
+### Delivered
+
+- `ColorResolutionDialog` — modal JavaFX window (toolbar, table Spec §8.2, conflict warning, Apply/Cancel; nested `Result` with `rebuild()` on apply only).
+- `ColorResolutionDialogViewModel` — filter/search, checkbox selection via `session.withSelection`, pair drafts, mass commands delegated to `ColorResolutionSession`, labels/errors from session state.
+- `ColorPairCellEditors` — searchable catalog `ComboBox` (on-demand per cell edit), inside/outside columns.
+- `ColorResolutionDialogViewModelTest` (17) + `ColorResolutionDialogFxTest` (13).
+
+### Explicitly not changed
+
+- `ColorResolutionCoordinator`, `ColorResolutionSession`, `ColorResolutionRow`, import VM/controller/FXML, Spring wiring, OM/Reference Data internals, global mapping save.
+
+### Manual acceptance
+
+- Deferred to **COL-041B** (dialog not connected to import on COL-041A).
+
+### Next
+
+- **COL-041B READY** — await explicit execute. No commit / no push.
+
+---
 ## COL-040B — Import resolution orchestration — 2026-11-26
 
 **Status:** DONE

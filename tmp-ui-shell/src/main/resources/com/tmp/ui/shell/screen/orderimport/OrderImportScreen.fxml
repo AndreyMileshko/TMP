@@ -64,6 +64,7 @@
                 </TableView>
             </VBox>
             <HBox spacing="8">
+                <Button fx:id="checkColorsButton" text="Проверить цвета" styleClass="tmp-button-secondary"/>
                 <Button fx:id="importButton" text="Импортировать заказ"/>
             </HBox>
         </VBox>

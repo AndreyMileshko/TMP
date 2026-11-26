@@ -1,3 +1,43 @@
+## COL-041B — Import integration and post-confirm mapping save — 2026-11-26
+
+**Scope:** COL-041B — `OrderImportViewModel` / controller / FXML / bootstrap wiring / mapping messages / new tests
+**Base:** `7627343d3fa0b29da19d576188217c77a9b8fc99`
+**Working tree:** uncommitted; **no commit / no push**
+**Overall:** **PARTIAL** (automated COL-041B gates PASS; manual GUI pending PO)
+
+| Check | Result |
+|---|---|
+| `mvn -pl :tmp-ui-shell verify -DskipITs` | PASS — Checkstyle 0 / SpotBugs 0 (SpotBugs suppress on `ColorResolutionDialog.Result`) |
+| `mvn -pl :tmp-order-management -am verify` | PASS — BUILD SUCCESS (~10 min) |
+| `mvn -pl :tmp-architecture-tests test` | PASS — 165 tests, 0 failures |
+| `OrderImportViewModelTest` (unchanged) | PASS — included in ui-shell suite |
+| `OrderImportColorResolutionViewModelTest` | PASS — 11/11 |
+| `OrderImportColorResolutionControllerFxTest` | PASS — 1/1 |
+| `mvn -pl :tmp-bootstrap-app -am verify -DskipITs` | PASS — BUILD SUCCESS (~21 min) |
+| `mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests` | PASS — BUILD SUCCESS (~26 s) |
+| `git diff --check` | PASS |
+| Manual GUI `tmp_pilot` COL-AC-03 … 23, 32 | PENDING — PO |
+
+---
+## COL-041A — Unified resolution dialog — 2026-11-26
+
+**Scope:** COL-041A only — dialog + ViewModel + cell editors + tests (`tmp-ui-shell`)
+**Base:** `7627343d3fa0b29da19d576188217c77a9b8fc99`
+**Working tree:** uncommitted; **no commit / no push**
+**Overall:** **PASS** (Review Gate)
+
+| Check | Result |
+|---|---|
+| `mvn -pl :tmp-ui-shell verify -DskipITs` | PASS — Checkstyle 0 / SpotBugs 0; `ColorResolutionDialogViewModelTest` 17/17; `ColorResolutionDialogFxTest` 13/13 (~80 s) |
+| `mvn -pl :tmp-ui-shell -am verify -DskipITs` | PASS — exit 0 (~22 min wall; background run completed) |
+| `mvn -pl :tmp-architecture-tests test` | PASS — 165 tests, 0 failures (~12 s) |
+| `mvn -pl :tmp-architecture-tests -am test` | PASS — BUILD SUCCESS (~20 min; background run completed) |
+| `git diff --check` | PASS |
+| COL-040B session/coordinator unchanged | PASS |
+| No `OrderImportService` / confirm / mapping save from dialog | PASS (source guard + architecture) |
+| Manual GUI dialog acceptance | DEFERRED — COL-041B |
+
+---
 ## COL-040B — Post-commit review corrections — 2026-11-26
 
 **Scope:** COL-040B review fix — `applyCatalogPair` exception propagation + test pair display (TMP-SPEC-015 §6.3)

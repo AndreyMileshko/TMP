@@ -1,6 +1,7 @@
 package com.tmp.ui.shell.screen.orderimport;
 
 import com.tmp.ui.shell.navigation.ViewModelAware;
+import com.tmp.ui.shell.screen.orderimport.colors.ColorResolutionDialog;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.util.Objects;
@@ -102,6 +103,9 @@ public final class OrderImportController implements ViewModelAware<OrderImportVi
     private Button importButton;
 
     @FXML
+    private Button checkColorsButton;
+
+    @FXML
     private Label statusLabel;
 
     @FXML
@@ -128,6 +132,10 @@ public final class OrderImportController implements ViewModelAware<OrderImportVi
     private OrderImportViewModel viewModel;
     private Supplier<File> fileChooserOpener = this::showOpenDialog;
     private Supplier<Boolean> confirmDialogOpener;
+    private java.util.function.Function<
+                    com.tmp.ui.shell.screen.orderimport.colors.ColorResolutionSession,
+                    java.util.Optional<ColorResolutionDialog.Result>>
+            colorResolutionDialogOpener;
 
     @Override
     public void setViewModel(OrderImportViewModel viewModel) {
@@ -140,6 +148,9 @@ public final class OrderImportController implements ViewModelAware<OrderImportVi
                                         viewModel.confirmationBody(),
                                         viewModel.confirmationConfirmLabel())
                                 .orElse(false);
+        this.colorResolutionDialogOpener =
+                session -> ColorResolutionDialog.show(ownerWindow(), session);
+        viewModel.setColorResolutionDialogOpener(this.colorResolutionDialogOpener);
 
         titleLabel.textProperty().bind(viewModel.titleProperty());
         subtitleLabel.textProperty().bind(viewModel.subtitleProperty());
@@ -241,8 +252,13 @@ public final class OrderImportController implements ViewModelAware<OrderImportVi
         importButton.disableProperty().bind(viewModel.canImportProperty().not()
                 .or(viewModel.loadingProperty()));
 
+        checkColorsButton.visibleProperty().bind(viewModel.checkColorsButtonVisibleProperty());
+        checkColorsButton.managedProperty().bind(checkColorsButton.visibleProperty());
+        checkColorsButton.disableProperty().bind(viewModel.loadingProperty());
+
         selectFileButton.setOnAction(e -> chooseFile());
         selectOtherFileButton.setOnAction(e -> chooseFile());
+        checkColorsButton.setOnAction(e -> viewModel.reviewColors());
         importButton.setOnAction(e -> onImportClicked());
 
         statusLabel.textProperty().bind(viewModel.statusMessageProperty());
@@ -281,6 +297,19 @@ public final class OrderImportController implements ViewModelAware<OrderImportVi
     void setConfirmDialogOpenerForTest(Supplier<Boolean> confirmDialogOpener) {
         this.confirmDialogOpener =
                 Objects.requireNonNull(confirmDialogOpener, "confirmDialogOpener");
+    }
+
+    /** Test hook: replaces unified color resolution dialog. */
+    void setColorResolutionDialogOpenerForTest(
+            java.util.function.Function<
+                            com.tmp.ui.shell.screen.orderimport.colors.ColorResolutionSession,
+                            java.util.Optional<ColorResolutionDialog.Result>>
+                    colorResolutionDialogOpener) {
+        this.colorResolutionDialogOpener =
+                Objects.requireNonNull(colorResolutionDialogOpener, "colorResolutionDialogOpener");
+        if (viewModel != null) {
+            viewModel.setColorResolutionDialogOpener(this.colorResolutionDialogOpener);
+        }
     }
 
     void chooseFileForTest() {

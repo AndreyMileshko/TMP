@@ -7,7 +7,9 @@ import com.tmp.order.api.OrderQueryService;
 import com.tmp.order.api.OrderStatus;
 import com.tmp.order.api.OrderWorklistQuery;
 import com.tmp.order.api.imports.OrderImportService;
+import com.tmp.order.api.imports.SpecificationColorConstraint;
 import com.tmp.order.api.imports.StxtOrderFileParser;
+import com.tmp.reference.api.ColorImportResolutionApi;
 import com.tmp.order.api.ui.CurrentOrderItemSpecificationUiService;
 import com.tmp.order.api.ui.OrderDocumentUiService;
 import com.tmp.order.api.ui.OrderItemDocumentUiService;
@@ -36,6 +38,7 @@ import com.tmp.ui.shell.screen.login.LoginViewModel;
 import com.tmp.ui.shell.screen.main.MainWindowViewModel;
 import com.tmp.ui.shell.screen.ordereditor.OrderEditorViewModel;
 import com.tmp.ui.shell.screen.orderimport.OrderImportViewModel;
+import com.tmp.ui.shell.screen.orderimport.colors.ColorResolutionCoordinator;
 import com.tmp.ui.shell.screen.orderitemeditor.OrderItemEditorViewModel;
 import com.tmp.ui.shell.screen.orderitemlist.OrderItemListMemento;
 import com.tmp.ui.shell.screen.orderitemlist.OrderItemListViewModel;
@@ -166,11 +169,25 @@ public class UiShellAutoConfiguration {
     }
 
     @Bean
+    ColorResolutionCoordinator colorResolutionCoordinator(
+            ColorImportResolutionApi colorImportResolutionApi,
+            SpecificationColorConstraint specificationColorConstraint) {
+        return new ColorResolutionCoordinator(colorImportResolutionApi, specificationColorConstraint);
+    }
+
+    @Bean
     OrderImportViewModel orderImportViewModel(
             OrderImportService orderImportService,
             StxtOrderFileParser stxtOrderFileParser,
-            AuthorizationService authorizationService) {
-        return new OrderImportViewModel(orderImportService, stxtOrderFileParser, authorizationService);
+            AuthorizationService authorizationService,
+            ColorResolutionCoordinator colorResolutionCoordinator,
+            So7ColorMappingCommandApi so7ColorMappingCommandApi) {
+        return new OrderImportViewModel(
+                orderImportService,
+                stxtOrderFileParser,
+                authorizationService,
+                colorResolutionCoordinator,
+                so7ColorMappingCommandApi);
     }
 
     @Bean

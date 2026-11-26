@@ -835,8 +835,8 @@ COL-005 (DONE)
 | COL-030B | UI: «Сопоставления СО7» | ui-shell | да | — | DONE |
 | COL-040A | OM color constraint contract | order-management | нет | — | DONE |
 | COL-040B | Import resolution coordinator | ui-shell | нет | — | DONE |
-| COL-041A | Unified resolution dialog | ui-shell | нет | — | READY |
-| COL-041B | Import integration + post-confirm save | ui-shell | да | — | PLANNED |
+| COL-041A | Unified resolution dialog | ui-shell | нет (FX-тесты; ручная — COL-041B) | — | DONE |
+| COL-041B | Import integration + post-confirm save | ui-shell | да | — | READY |
 | COL-050A | Warehouse regression | warehouse (tests) | нет | — | PLANNED |
 | COL-050B | Production regression | production (tests) | нет | — | PLANNED |
 | COL-060A | Acceptance environment (Q-01) | — | нет | destructive по разрешению | PLANNED |

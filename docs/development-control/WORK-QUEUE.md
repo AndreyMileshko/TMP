@@ -13096,7 +13096,7 @@ git diff --check
 
 ## COL-041A — Unified resolution dialog
 
-**Status:** READY
+**Status:** DONE
 **Stage:** COL
 **Depends on:** COL-040B
 **Module:** `tmp-ui-shell`
@@ -13121,7 +13121,7 @@ git diff --check
 
 ## COL-041B — Import integration and post-confirm mapping save
 
-**Status:** PLANNED
+**Status:** VERIFYING
 **Stage:** COL
 **Depends on:** COL-041A, COL-030B
 **Module:** `tmp-ui-shell` (+ wiring `tmp-bootstrap-app`)
@@ -13145,7 +13145,7 @@ mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests
 git diff --check
 ```
 
-**GUI:** да (Plan §4.3). **DB:** нет миграций; тестовые заказы только в `tmp_col_acceptance`.
+**GUI:** да (Plan §4.3). **DB:** нет миграций; ручная приёмка на `tmp_pilot` (штатные pilot scripts; без `tmp_col_acceptance`).
 
 ## COL-050A — Warehouse regression
 

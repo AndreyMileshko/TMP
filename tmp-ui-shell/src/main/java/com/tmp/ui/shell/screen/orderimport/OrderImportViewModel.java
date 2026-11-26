@@ -1,6 +1,7 @@
 package com.tmp.ui.shell.screen.orderimport;
 
 import com.tmp.order.api.OrderId;
+import com.tmp.order.api.imports.OrderImportBatch;
 import com.tmp.order.api.imports.OrderImportConfirmResult;
 import com.tmp.order.api.imports.OrderImportConflictException;
 import com.tmp.order.api.imports.OrderImportFileParseResult;
@@ -15,9 +16,15 @@ import com.tmp.order.api.imports.StxtOrderFileParser;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
 import com.tmp.security.api.PermissionId;
+import com.tmp.reference.api.ImportMappingSaveReport;
+import com.tmp.reference.api.So7ColorMappingCommandApi;
 import com.tmp.ui.shell.UiShellScreens;
 import com.tmp.ui.shell.order.error.OrderUiErrorMapper;
 import com.tmp.ui.shell.order.error.OrderUiOperation;
+import com.tmp.ui.shell.screen.orderimport.colors.ColorResolutionCoordinator;
+import com.tmp.ui.shell.screen.orderimport.colors.ColorResolutionDialog;
+import com.tmp.ui.shell.screen.orderimport.colors.ColorResolutionSession;
+import com.tmp.ui.shell.screen.orderimport.colors.ImportMappingSaveMessages;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
 import java.nio.file.Path;
@@ -25,7 +32,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -50,6 +59,8 @@ public final class OrderImportViewModel {
     static final String MSG_FILE_UNREADABLE = "Не удалось прочитать файл выгрузки.";
     static final String MSG_NO_PROBLEMS = "Ошибок и предупреждений нет.";
     static final String MSG_CHECKING = "Проверка файла...";
+    static final String MSG_REVIEW_PREVIEW_FAILED =
+            "Не удалось обновить проверку после разрешения цветов. Прежний результат импорта сохранён.";
     static final String SUBTITLE =
             "Загрузка заказов и спецификаций из файла расчётной программы";
     static final String FORMAT_HINT = "Поддерживаются файлы STXT/TXT";
@@ -57,6 +68,8 @@ public final class OrderImportViewModel {
     private final OrderImportService orderImportService;
     private final StxtOrderFileParser stxtOrderFileParser;
     private final AuthorizationService authorizationService;
+    private final ColorResolutionCoordinator colorResolutionCoordinator;
+    private final So7ColorMappingCommandApi mappingCommandApi;
 
     private final StringProperty title = new SimpleStringProperty("Импорт заказа");
     private final StringProperty subtitle = new SimpleStringProperty(SUBTITLE);
@@ -86,7 +99,14 @@ public final class OrderImportViewModel {
     private final BooleanProperty successVisible = new SimpleBooleanProperty(false);
     private final BooleanProperty canOpenImportedOrder = new SimpleBooleanProperty(false);
     private final BooleanProperty workingVisible = new SimpleBooleanProperty(true);
+    private final BooleanProperty checkColorsButtonVisible = new SimpleBooleanProperty(false);
     private final ObservableList<OrderImportProblemRow> problems = FXCollections.observableArrayList();
+
+    private Function<ColorResolutionSession, Optional<ColorResolutionDialog.Result>> colorResolutionDialogOpener =
+            session -> Optional.empty();
+    private ColorResolutionSession appliedColorSession;
+    private boolean automaticMatchingActive;
+    private boolean coloredLinesInImport;
 
     private Path selectedFile;
     private PreparedOrderImportPlan preparedPlan;
@@ -107,13 +127,34 @@ public final class OrderImportViewModel {
             OrderImportService orderImportService,
             StxtOrderFileParser stxtOrderFileParser,
             AuthorizationService authorizationService) {
+        this(orderImportService, stxtOrderFileParser, authorizationService, null, null);
+    }
+
+    public OrderImportViewModel(
+            OrderImportService orderImportService,
+            StxtOrderFileParser stxtOrderFileParser,
+            AuthorizationService authorizationService,
+            ColorResolutionCoordinator colorResolutionCoordinator,
+            So7ColorMappingCommandApi mappingCommandApi) {
         this.orderImportService = Objects.requireNonNull(orderImportService, "orderImportService");
         this.stxtOrderFileParser =
                 Objects.requireNonNull(stxtOrderFileParser, "stxtOrderFileParser");
         this.authorizationService =
                 Objects.requireNonNull(authorizationService, "authorizationService");
+        this.colorResolutionCoordinator = colorResolutionCoordinator;
+        this.mappingCommandApi = mappingCommandApi;
         refreshPermissions();
         updateImportAvailability();
+        updateCheckColorsVisibility();
+    }
+
+    /**
+     * Opens the unified color resolution dialog. Installed by the controller; ViewModel stays free
+     * of direct JavaFX dialog calls during import logic tests.
+     */
+    public void setColorResolutionDialogOpener(
+            Function<ColorResolutionSession, Optional<ColorResolutionDialog.Result>> opener) {
+        this.colorResolutionDialogOpener = Objects.requireNonNull(opener, "opener");
     }
 
     public void setOnCancel(Runnable onCancel) {
@@ -199,9 +240,7 @@ public final class OrderImportViewModel {
                 applyAdapterFailure(parse);
                 return;
             }
-            List<OrderImportProblem> adapterWarnings = new ArrayList<>(parse.warnings());
-            OrderImportPreview preview = orderImportService.preview(parse.batches());
-            applyPreview(preview, adapterWarnings);
+            previewAfterParse(parse);
         } catch (OrderImportConflictException ex) {
             applyBlockingException(OrderImportConflictException.USER_MESSAGE);
         } catch (AccessDeniedException ex) {
@@ -219,6 +258,44 @@ public final class OrderImportViewModel {
      * Confirms import through Import Core using the prepared plan from preview. Does not create
      * documents directly.
      */
+    /** Re-opens color resolution for the current preview without reparsing the STXT file. */
+    public void reviewColors() {
+        refreshPermissions();
+        if (!canSelectFile.get() || loading.get() || appliedColorSession == null) {
+            return;
+        }
+        if (!checkColorsButtonVisible.get()) {
+            return;
+        }
+        PreviewSnapshot snapshot = capturePreviewSnapshot();
+        Optional<ColorResolutionDialog.Result> dialogResult =
+                colorResolutionDialogOpener.apply(appliedColorSession);
+        if (dialogResult.isEmpty() || !dialogResult.get().applied()) {
+            return;
+        }
+        loading.set(true);
+        errorMessage.set("");
+        try {
+            OrderImportPreview preview =
+                    orderImportService.preview(dialogResult.get().rebuiltBatches());
+            if (!canReplacePreview(preview)) {
+                restorePreviewSnapshot(snapshot);
+                errorMessage.set(MSG_REVIEW_PREVIEW_FAILED);
+                return;
+            }
+            applyPreview(preview, List.of());
+            appliedColorSession = dialogResult.get().session();
+            updateCheckColorsVisibility();
+        } catch (RuntimeException ex) {
+            restorePreviewSnapshot(snapshot);
+            errorMessage.set(MSG_REVIEW_PREVIEW_FAILED);
+        } finally {
+            loading.set(false);
+            updateImportAvailability();
+            updateVisibility();
+        }
+    }
+
     public void confirmImport() {
         if (successVisible.get()) {
             return;
@@ -235,15 +312,17 @@ public final class OrderImportViewModel {
             return;
         }
         PreparedOrderImportPlan plan = preparedPlan;
+        ColorResolutionSession sessionForMappingSave = appliedColorSession;
         loading.set(true);
         errorMessage.set("");
         try {
             OrderImportConfirmResult result = orderImportService.confirm(plan);
             preparedPlan = null;
             previewSucceededWithoutErrors = false;
+            clearColorResolutionState();
             canSelectFile.set(false);
             lastConfirmResult = result;
-            applySuccess(result);
+            applySuccess(result, saveMappingsAfterConfirm(sessionForMappingSave));
             updateImportAvailability();
             onImportSuccess.run();
         } catch (OrderImportConflictException ex) {
@@ -426,6 +505,10 @@ public final class OrderImportViewModel {
         return workingVisible;
     }
 
+    public BooleanProperty checkColorsButtonVisibleProperty() {
+        return checkColorsButtonVisible;
+    }
+
     public ObservableList<OrderImportProblemRow> problems() {
         return problems;
     }
@@ -470,34 +553,178 @@ public final class OrderImportViewModel {
         return previewOrderCount;
     }
 
-    private void applySuccess(OrderImportConfirmResult result) {
+    ColorResolutionSession appliedColorSessionForTest() {
+        return appliedColorSession;
+    }
+
+    boolean automaticMatchingActiveForTest() {
+        return automaticMatchingActive;
+    }
+
+    private void applySuccess(OrderImportConfirmResult result, String mappingOutcomeSuffix) {
         successVisible.set(true);
         workingVisible.set(false);
         canOpenImportedOrder.set(result.createdOrderCount() == 1);
         successTitle.set("Импорт завершён");
+        String base;
         if (result.createdOrderCount() > 1) {
-            successMessage.set(
+            base =
                     "Импортировано заказов: "
                             + result.createdOrderCount()
                             + "\nВсе заказы переданы в работу.\nПозиций создано: "
                             + result.createdPositionCount()
                             + "\nСтрок спецификации: "
-                            + result.createdSpecificationLineCount());
+                            + result.createdSpecificationLineCount();
         } else {
-            successMessage.set(
+            base =
                     "Заказ №"
                             + result.orderNumber()
                             + " создан и передан в работу.\nПозиций создано: "
                             + result.createdPositionCount()
                             + "\nСтрок спецификации: "
-                            + result.createdSpecificationLineCount());
+                            + result.createdSpecificationLineCount();
+        }
+        if (mappingOutcomeSuffix != null && !mappingOutcomeSuffix.isBlank()) {
+            successMessage.set(base + "\n\n" + mappingOutcomeSuffix);
+        } else {
+            successMessage.set(base);
         }
         statusMessage.set("");
+    }
+
+    private void previewAfterParse(OrderImportFileParseResult parse) {
+        resetColorResolutionForNewParse();
+        List<OrderImportBatch> batchesForPreview = parse.batches();
+        if (colorResolutionCoordinator != null) {
+            ColorResolutionCoordinator.Preparation preparation =
+                    colorResolutionCoordinator.prepare(parse.batches());
+            automaticMatchingActive = preparation.automaticMatchingEnabled();
+            if (preparation.automaticMatchingEnabled()) {
+                appliedColorSession = preparation.session();
+                coloredLinesInImport =
+                        preparation.session() != null && !preparation.session().rows().isEmpty();
+                if (preparation.needsResolutionWindow()) {
+                    Optional<ColorResolutionDialog.Result> dialogResult =
+                            colorResolutionDialogOpener.apply(preparation.session());
+                    if (dialogResult.isEmpty() || !dialogResult.get().applied()) {
+                        abortPreviewAfterResolutionCancel();
+                        return;
+                    }
+                    appliedColorSession = dialogResult.get().session();
+                    batchesForPreview = dialogResult.get().rebuiltBatches();
+                } else if (preparation.readyBatches() != null) {
+                    batchesForPreview = preparation.readyBatches();
+                }
+            }
+        }
+        List<OrderImportProblem> adapterWarnings = new ArrayList<>(parse.warnings());
+        OrderImportPreview preview = orderImportService.preview(batchesForPreview);
+        applyPreview(preview, adapterWarnings);
+        updateCheckColorsVisibility();
+    }
+
+    private void abortPreviewAfterResolutionCancel() {
+        appliedColorSession = null;
+        coloredLinesInImport = false;
+        automaticMatchingActive = colorResolutionCoordinator != null && automaticMatchingActive;
+        clearPreviewOnly();
+        statusMessage.set("");
+        errorMessage.set("");
+        updateCheckColorsVisibility();
+    }
+
+    private String saveMappingsAfterConfirm(ColorResolutionSession session) {
+        if (session == null || mappingCommandApi == null || !session.globalSaveAllowed()) {
+            return null;
+        }
+        List<ImportMappingSaveReport.Candidate> candidates = session.mappingSaveCandidates();
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        try {
+            ImportMappingSaveReport report = mappingCommandApi.saveMappingsFromImport(candidates);
+            return ImportMappingSaveMessages.formatSuccessfulSaveSummary(report, session);
+        } catch (RuntimeException error) {
+            return ImportMappingSaveMessages.technicalFailureAppendix(error);
+        }
+    }
+
+    private boolean canReplacePreview(OrderImportPreview preview) {
+        return preview.canConfirm()
+                && preview.preparedPlan().isPresent()
+                && preview.errors().isEmpty();
+    }
+
+    private PreviewSnapshot capturePreviewSnapshot() {
+        return new PreviewSnapshot(
+                preparedPlan,
+                previewSucceededWithoutErrors,
+                previewOrderCount,
+                previewOrderNumberRaw,
+                previewOrdersText.get(),
+                previewOrderNumbersText.get(),
+                previewPositionCount.get(),
+                previewProductQuantity.get(),
+                previewSpecificationLineCount.get(),
+                previewStatusText.get(),
+                previewErrorCountText.get(),
+                previewWarningCountText.get(),
+                problemsEmptyText.get(),
+                problemsTableVisible.get(),
+                previewVisible.get(),
+                importButtonText.get(),
+                new ArrayList<>(problems),
+                appliedColorSession);
+    }
+
+    private void restorePreviewSnapshot(PreviewSnapshot snapshot) {
+        preparedPlan = snapshot.preparedPlan();
+        previewSucceededWithoutErrors = snapshot.previewSucceededWithoutErrors();
+        previewOrderCount = snapshot.previewOrderCount();
+        previewOrderNumberRaw = snapshot.previewOrderNumberRaw();
+        previewOrdersText.set(snapshot.previewOrdersText());
+        previewOrderNumbersText.set(snapshot.previewOrderNumbersText());
+        previewPositionCount.set(snapshot.previewPositionCount());
+        previewProductQuantity.set(snapshot.previewProductQuantity());
+        previewSpecificationLineCount.set(snapshot.previewSpecificationLineCount());
+        previewStatusText.set(snapshot.previewStatusText());
+        previewErrorCountText.set(snapshot.previewErrorCountText());
+        previewWarningCountText.set(snapshot.previewWarningCountText());
+        problemsEmptyText.set(snapshot.problemsEmptyText());
+        problemsTableVisible.set(snapshot.problemsTableVisible());
+        previewVisible.set(snapshot.previewVisible());
+        importButtonText.set(snapshot.importButtonText());
+        problems.setAll(snapshot.problems());
+        appliedColorSession = snapshot.appliedColorSession();
+    }
+
+    private void resetColorResolutionForNewParse() {
+        automaticMatchingActive = false;
+        coloredLinesInImport = false;
+        appliedColorSession = null;
+        checkColorsButtonVisible.set(false);
+    }
+
+    private void clearColorResolutionState() {
+        automaticMatchingActive = false;
+        coloredLinesInImport = false;
+        appliedColorSession = null;
+        updateCheckColorsVisibility();
+    }
+
+    private void updateCheckColorsVisibility() {
+        checkColorsButtonVisible.set(
+                colorResolutionCoordinator != null
+                        && automaticMatchingActive
+                        && previewVisible.get()
+                        && coloredLinesInImport
+                        && appliedColorSession != null);
     }
 
     private void applyConfirmFailure(String message, List<OrderImportProblem> problemList) {
         preparedPlan = null;
         previewSucceededWithoutErrors = false;
+        clearColorResolutionState();
         if (!problemList.isEmpty()) {
             setProblems(problemList);
         }
@@ -507,6 +734,7 @@ public final class OrderImportViewModel {
     }
 
     private void applyAdapterFailure(OrderImportFileParseResult parse) {
+        clearColorResolutionState();
         preparedPlan = null;
         previewSucceededWithoutErrors = false;
         previewOrderCount = 0;
@@ -572,6 +800,7 @@ public final class OrderImportViewModel {
     }
 
     private void applyBlockingException(String message) {
+        clearColorResolutionState();
         preparedPlan = null;
         previewSucceededWithoutErrors = false;
         previewOrderCount = 0;
@@ -667,6 +896,7 @@ public final class OrderImportViewModel {
     }
 
     private void clearPreviewOnly() {
+        clearColorResolutionState();
         preparedPlan = null;
         previewSucceededWithoutErrors = false;
         previewOrderCount = 0;
@@ -735,4 +965,24 @@ public final class OrderImportViewModel {
         }
         return OrderImportProcessingException.USER_MESSAGE;
     }
+
+    private record PreviewSnapshot(
+            PreparedOrderImportPlan preparedPlan,
+            boolean previewSucceededWithoutErrors,
+            int previewOrderCount,
+            String previewOrderNumberRaw,
+            String previewOrdersText,
+            String previewOrderNumbersText,
+            String previewPositionCount,
+            String previewProductQuantity,
+            String previewSpecificationLineCount,
+            String previewStatusText,
+            String previewErrorCountText,
+            String previewWarningCountText,
+            String problemsEmptyText,
+            boolean problemsTableVisible,
+            boolean previewVisible,
+            String importButtonText,
+            List<OrderImportProblemRow> problems,
+            ColorResolutionSession appliedColorSession) {}
 }
