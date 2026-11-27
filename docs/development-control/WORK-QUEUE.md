@@ -13147,6 +13147,8 @@ git diff --check
 
 **GUI:** да (Plan §4.3). **DB:** нет миграций; ручная приёмка на `tmp_pilot` (штатные pilot scripts; без `tmp_col_acceptance`).
 
+**UX refinement (2026-11-27):** диалог «Разрешение цветов СО7» + TMP-UI-Standard **1.3**. **Status:** **VERIFYING** (не DONE). **GUI-приёмка UX** окна «Разрешение цветов СО7» — **PASS**, Product Owner, **2026-11-27**. **Функциональная приёмка** COL-AC-03 … 23, COL-AC-32 на `tmp_pilot` — **PENDING**. COL-041B **MUST NOT** переводиться в DONE до закрытия обязательных COL-AC.
+
 ## COL-050A — Warehouse regression
 
 **Status:** PLANNED

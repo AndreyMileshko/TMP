@@ -316,9 +316,56 @@ public final class ColorResolutionDialogViewModel {
 
     public String productLineLabel(ColorResolutionRow row) {
         String pos = nullToEmpty(row.externalPositionNumber());
-        String code = nullToEmpty(row.productCode());
         String name = nullToEmpty(row.productName());
-        return pos + " / " + code + " / " + name;
+        if (pos.isEmpty()) {
+            return name;
+        }
+        if (name.isEmpty()) {
+            return pos;
+        }
+        return pos + " · " + name;
+    }
+
+    /** Full product identity for ToolTip (not shown in the compact table cell). */
+    public String productLineTooltip(ColorResolutionRow row) {
+        StringBuilder tip = new StringBuilder();
+        appendTooltipPart(tip, "Заказ", row.orderNumber());
+        appendTooltipPart(tip, "Изделие", row.externalPositionNumber());
+        appendTooltipPart(tip, "Код", row.productCode());
+        appendTooltipPart(tip, "Наименование", row.productName());
+        return tip.toString();
+    }
+
+    public int countNeedsChoice() {
+        return countByState(ColorResolutionRow.UserState.NEEDS_CHOICE);
+    }
+
+    public int countMatched() {
+        return countByState(ColorResolutionRow.UserState.MATCHED);
+    }
+
+    public int countManuallyChanged() {
+        return countByState(ColorResolutionRow.UserState.MANUALLY_CHANGED);
+    }
+
+    private int countByState(ColorResolutionRow.UserState state) {
+        int count = 0;
+        for (ColorResolutionRow row : session.rows()) {
+            if (row.userState() == state) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static void appendTooltipPart(StringBuilder tip, String label, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        if (!tip.isEmpty()) {
+            tip.append('\n');
+        }
+        tip.append(label).append(": ").append(value.trim());
     }
 
     private void applyPairToSingleRow(ColorResolutionRow.Id rowId, UUID insideColorId, UUID outsideColorId) {

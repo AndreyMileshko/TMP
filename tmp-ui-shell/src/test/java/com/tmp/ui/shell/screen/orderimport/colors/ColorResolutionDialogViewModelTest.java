@@ -31,6 +31,33 @@ class ColorResolutionDialogViewModelTest {
     private static final UUID CAT_RAL7016_PIPE_30 = UUID.fromString("00000000-0000-0000-0000-000000000003");
 
     @Test
+    void sessionCountersIgnoreFilterAndSearch() {
+        FakeColorApi api = matchedApi(Map.of("Белый", pairBelyiRal7016()));
+        api.resolutions.put("Цвет", SourceColorResolution.noMapping("Цвет", "цвет"));
+        ColorResolutionCoordinator coordinator = new ColorResolutionCoordinator(api, new FakeConstraint());
+        OrderImportBatch batch =
+                batchWithPositions(
+                        "ORD",
+                        List.of(positionWithColor("1", "P1", "Белый"), positionWithColor("2", "P2", "Цвет")));
+        ColorResolutionDialogViewModel vm = new ColorResolutionDialogViewModel(coordinator.prepare(List.of(batch)).session());
+        assertEquals(1, vm.countMatched());
+        assertEquals(1, vm.countNeedsChoice());
+        vm.setFilter(ColorResolutionDialogViewModel.DisplayFilter.NEEDS_CHOICE);
+        vm.setSearchText("missing");
+        assertEquals(1, vm.countMatched());
+        assertEquals(1, vm.countNeedsChoice());
+    }
+
+    @Test
+    void productLineLabelUsesPositionDotNameWithoutProductCode() {
+        ColorResolutionDialogViewModel vm = vmForUnmatched("Цвет");
+        ColorResolutionRow row = vm.session().rows().get(0);
+        assertEquals("1 · Item 1", vm.productLineLabel(row));
+        assertTrue(vm.productLineTooltip(row).contains("Код: P1"));
+        assertFalse(vm.productLineLabel(row).contains("/"));
+    }
+
+    @Test
     void filterNeedsChoiceHidesMatchedRowsOnlyInDisplay() {
         FakeColorApi api = matchedApi(Map.of("Белый", pairBelyiRal7016()));
         api.resolutions.put("Цвет", SourceColorResolution.noMapping("Цвет", "цвет"));

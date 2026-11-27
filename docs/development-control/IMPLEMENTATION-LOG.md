@@ -1,3 +1,35 @@
+## COL-041B — UX refinement «Разрешение цветов СО7» + TMP UI Standard 1.3 — 2026-11-27
+
+**Status:** VERIFYING (automated gates PASS; GUI-приёмка UX — PASS PO 2026-11-27; функциональная COL-AC — PENDING; не DONE)
+**Module:** `tmp-ui-shell`; docs `TMP-UI-Standard.md` v1.3
+**Base HEAD:** `bdac916b89a27151e112c7619bfdcb732bf53b4e`
+
+### Delivered (UI only)
+
+- `ColorResolutionDialog` — two-level toolbar (`tmp-toolbar` + FlowPane), status row tints + blue checkbox stripe, legend/counters, column layout (§PO 4.x), screen-relative sizing (~90%×85%).
+- `tmp-color-resolution-dialog.css` — scoped table styles (pattern: `tmp-warehouse-tasks.css`).
+- `ColorResolutionDialogViewModel` — compact «Изделие», ToolTip, session counters independent of filter.
+- `TMP-UI-Standard.md` **1.3** — §12.4, §16.4, §21.1, §39.9.1, §39.10 qualified.
+
+### Verification (automated)
+
+- `mvn -pl :tmp-ui-shell verify -DskipITs`; `tmp-architecture-tests`; bootstrap verify + package — PASS (см. VERIFICATION-LOG 2026-11-27).
+- `ColorResolutionDialogFxTest` — 17/17; `ColorResolutionDialogViewModelTest` — counters + compact «Изделие».
+
+### Manual acceptance
+
+- **GUI UX** окна «Разрешение цветов СО7» — **PASS**, Product Owner, **2026-11-27**.
+- **Функциональная приёмка импорта** COL-AC-03 … 23, COL-AC-32 — **PENDING** on `tmp_pilot` (matching ON per scenario; локальные `COL041B_*` STXT в `docs/Input`, не в репозитории).
+
+### Explicitly not changed
+
+- `ColorResolutionCoordinator`, `ColorResolutionSession`, `ColorResolutionRow`, import confirm/save pipeline, Reference Data services, migrations.
+
+### Next
+
+- Закрыть обязательные COL-AC на `tmp_pilot`; затем Review Gate COL-041B → DONE. Перевод в DONE до COL-AC **запрещён**.
+
+---
 ## COL-041B — Import integration and post-confirm mapping save — 2026-11-26
 
 **Status:** VERIFYING (automated checks in progress; manual GUI acceptance pending PO)

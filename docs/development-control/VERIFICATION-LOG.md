@@ -1,3 +1,24 @@
+## COL-041B — UX refinement «Разрешение цветов СО7» — 2026-11-27
+
+**Scope:** COL-041B UX (dialog + ViewModel presentation + `tmp-color-resolution-dialog.css` + TMP-UI-Standard 1.3 + tests)
+**Base:** `bdac916b89a27151e112c7619bfdcb732bf53b4e`
+**Working tree:** uncommitted; **no commit / no push**
+**Overall:** **PARTIAL** (automated gates PASS; GUI-приёмка UX окна — PASS PO; функциональная приёмка импорта COL-AC — PENDING PO)
+
+| Check | Result |
+|---|---|
+| `mvn -pl :tmp-ui-shell verify -DskipITs` | PASS — 959 tests; Checkstyle / SpotBugs 0 |
+| `mvn -pl :tmp-architecture-tests test` | PASS — exit 0 |
+| `mvn -pl :tmp-bootstrap-app -am verify -DskipITs` | PASS — exit 0 (~22 min) |
+| `mvn -pl :tmp-bootstrap-app -am pre-integration-test -Ppackage -DskipTests` | PASS — exit 0 (`[exec] Result: 128` in log, chain exit 0) |
+| `dist/jpackage/TMP/TMP.exe` SHA-256 | PASS — `AFF58A34EAF0E0246EF9F4C3D716CA3EC7D1AC0C78150A78C5DC98186C1805B7` (UTC mtime **2026-11-27 04:57:33**) |
+| `ColorResolutionDialogViewModelTest` | PASS — counters + compact «Изделие» |
+| `ColorResolutionDialogFxTest` | PASS — **17**/17 |
+| `git diff --check` | PASS |
+| Manual GUI — окно «Разрешение цветов СО7» (UX / layout PO brief) | PASS — PO (2026-11-27) |
+| Manual GUI — COL-AC-03 … 23, 32 (импорт, matching, mapping) | PENDING — PO |
+
+---
 ## COL-041B — Import integration and post-confirm mapping save — 2026-11-26
 
 **Scope:** COL-041B — `OrderImportViewModel` / controller / FXML / bootstrap wiring / mapping messages / new tests

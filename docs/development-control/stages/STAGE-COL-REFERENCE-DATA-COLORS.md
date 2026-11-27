@@ -13,7 +13,7 @@
 ## Status
 
 **START GATE PASSED (COL-005, 2026-11-08)**
-**Implementation: IN PROGRESS** — COL-010 … COL-041A = DONE (COL-041A 2026-11-26). COL-041B VERIFYING (import wired 2026-11-26; PO GUI pending). COL-040A/B: OM constraint + coordinator/session; COL-041A: unified dialog (not wired to import until COL-041B). Pilot: V59; seed 860 + RAL9999; mappings 245; matching OFF. UI-NAV-001 remains PLANNED outside COL track.
+**Implementation: IN PROGRESS** — COL-010 … COL-041A = DONE (COL-041A 2026-11-26). **COL-041B VERIFYING** — import integration в коммите `bdac916` (2026-11-26): диалог подключён к импорту, post-confirm mapping save; UX refinement + TMP UI Standard 1.3 в незакоммиченной рабочей копии (2026-11-27). **GUI-приёмка UX** окна «Разрешение цветов СО7» — PASS PO (2026-11-27). **Функциональная приёмка COL-AC-03 … 23, 32** — PENDING PO (не DONE). Pilot: V59; seed 860 + RAL9999; mappings 245; matching OFF. UI-NAV-001 remains PLANNED outside COL track.
 **Active blockers:** NONE
 
 ## Start Gate

@@ -1,0 +1,121 @@
+/*
+ * SO7 color resolution dialog — row status tints + checkbox highlight stripe.
+ * Scoped to .table-view.tmp-color-resolution-table; depends on tmp-theme.css tokens.
+ */
+
+.table-view.tmp-color-resolution-table {
+    -tmp-col-res-matched-tint: -tmp-success-soft;
+    -tmp-col-res-needs-tint: -tmp-danger-soft;
+    -tmp-col-res-manual-tint: -tmp-warning-soft;
+    -tmp-col-res-highlight-stripe: -tmp-primary;
+}
+
+.table-view.tmp-color-resolution-table .table-row-cell .table-cell {
+    -fx-background-color: transparent;
+}
+
+.table-view.tmp-color-resolution-table .table-row-cell.tmp-col-res-row-matched,
+.table-view.tmp-color-resolution-table .table-row-cell.tmp-col-res-row-matched:odd {
+    -fx-background-color: -tmp-col-res-matched-tint;
+    -fx-border-color: transparent transparent -tmp-table-row-separator transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.table-view.tmp-color-resolution-table .table-row-cell.tmp-col-res-row-needs,
+.table-view.tmp-color-resolution-table .table-row-cell.tmp-col-res-row-needs:odd {
+    -fx-background-color: -tmp-col-res-needs-tint;
+    -fx-border-color: transparent transparent -tmp-table-row-separator transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.table-view.tmp-color-resolution-table .table-row-cell.tmp-col-res-row-manual,
+.table-view.tmp-color-resolution-table .table-row-cell.tmp-col-res-row-manual:odd {
+    -fx-background-color: -tmp-col-res-manual-tint;
+    -fx-border-color: transparent transparent -tmp-table-row-separator transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.table-view.tmp-color-resolution-table .table-row-cell.tmp-col-res-row-matched:hover,
+.table-view.tmp-color-resolution-table .table-row-cell.tmp-col-res-row-needs:hover,
+.table-view.tmp-color-resolution-table .table-row-cell.tmp-col-res-row-manual:hover {
+    -fx-background-color: -tmp-surface-hover;
+}
+
+/* Checkbox highlight: blue left stripe; status tint stays visible (no green TableView selection). */
+.table-view.tmp-color-resolution-table .table-row-cell.tmp-col-res-row-highlighted {
+    -fx-border-color: transparent transparent -tmp-table-row-separator -tmp-col-res-highlight-stripe;
+    -fx-border-width: 0 0 1 4;
+}
+
+.table-view.tmp-color-resolution-table .table-row-cell:filled:selected,
+.table-view.tmp-color-resolution-table:focused .table-row-cell:filled:selected,
+.table-view.tmp-color-resolution-table .table-row-cell:filled:selected:hover,
+.table-view.tmp-color-resolution-table:focused .table-row-cell:filled:selected:hover {
+    -fx-background-color: inherit;
+    -fx-background-insets: 0;
+}
+
+.table-view.tmp-color-resolution-table .table-row-cell:filled:selected .text,
+.table-view.tmp-color-resolution-table:focused .table-row-cell:filled:selected .text {
+    -fx-fill: -tmp-text;
+}
+
+.tmp-col-res-legend-swatch {
+    -fx-min-width: 14;
+    -fx-pref-width: 14;
+    -fx-max-width: 14;
+    -fx-min-height: 14;
+    -fx-pref-height: 14;
+    -fx-max-height: 14;
+    -fx-background-radius: 2;
+    -fx-border-radius: 2;
+    -fx-border-color: -tmp-border;
+    -fx-border-width: 1;
+}
+
+.tmp-col-res-legend-swatch-matched {
+    -fx-background-color: -tmp-success-soft;
+}
+
+.tmp-col-res-legend-swatch-needs {
+    -fx-background-color: -tmp-danger-soft;
+}
+
+.tmp-col-res-legend-swatch-manual {
+    -fx-background-color: -tmp-warning-soft;
+}
+
+.tmp-col-res-toolbar-group {
+    -fx-spacing: 8;
+    -fx-alignment: center-left;
+}
+
+.tmp-col-res-counters {
+    -fx-text-fill: -tmp-text-secondary;
+    -fx-font-size: 12px;
+}
+
+/* Column headers: avoid default Label ellipsis in narrow utility columns. */
+.table-view.tmp-color-resolution-table .column-header .label.tmp-col-res-column-header {
+    -fx-text-overrun: clip;
+    -fx-padding: 0 2 0 2;
+}
+
+.table-view.tmp-color-resolution-table .column-header .label.tmp-col-res-header-wrap {
+    -fx-wrap-text: false;
+    -fx-text-overrun: clip;
+    -fx-text-alignment: CENTER;
+    -fx-alignment: center;
+    -fx-padding: 0 2 0 2;
+    -fx-max-width: infinity;
+}
+
+.table-view.tmp-color-resolution-table .tmp-col-res-header-empty {
+    -fx-min-width: 0;
+    -fx-pref-width: 0;
+    -fx-max-width: 0;
+    -fx-min-height: 0;
+    -fx-pref-height: 0;
+    -fx-padding: 0;
+    -fx-opacity: 0;
+}

@@ -2,7 +2,9 @@
 
 **Document ID:** TMP-UI-STD-001  
 **Status:** Accepted  
-**Version:** 1.2
+**Version:** 1.3
+
+**Changelog 1.3 (2026-11-27):** §12.4 row semantic status vs selection; §16.4 large data modals; §21.1 toolbar grouping; §39.9 SO7 color resolution dialog (COL-041B UX); §39.10 qualified for checkbox batch highlight.
 
 ---
 
@@ -311,6 +313,16 @@ Table header **MUST** have a distinct neutral background darker than normal/alte
 
 **MUST NOT** дублировать одно действие через ContextMenu, column actions и toolbar одновременно.
 
+## 12.4 Row semantic status vs user highlight
+
+Для таблиц, где строка несёт **бизнес-статус** (успех / требует внимания / ручное изменение), статус **MUST** кодироваться мягкой фоновой семантикой (`-tmp-success-soft`, `-tmp-danger-soft`, `-tmp-warning-soft` или screen-scoped tokens в отдельном CSS-листе).
+
+Пользовательское **выделение для пакетных операций** (чекбокс, не TableView selection) **MUST** визуально отличаться от статуса: предпочтительно **синяя полоса слева** (`-tmp-primary`), без зелёной TableView selection.
+
+Глобальная зелёная TableView selection (§39.10) **MUST** применяться к фокусу редактирования; для экранов со статусными фонами допускается локальное подавление зелёной заливки при сохранении статусного tint (документировать в Implementation Log).
+
+Легенда статусов и счётчики по всей сессии **SHOULD** располагаться над таблицей; счётчики **MUST NOT** зависеть от фильтра отображения.
+
 ---
 
 # 13. Status Badges
@@ -401,6 +413,15 @@ Dialog **MUST**: autosize, сохранять buttons visible, переноси�
 
 Dialog **MUST** применять `TmpTheme.apply(dialogPane)`.
 
+## 16.4 Large data modals
+
+Для модальных окон с большими таблицами (импорт, пакетное редактирование):
+
+- начальный размер **SHOULD** быть ~85–90% visual bounds доступного экрана; **MUST** оставаться `resizable`;
+- **MUST NOT** принуждать fullscreen;
+- primary actions **MUST** оставаться вне прокручиваемой области содержимого (в `buttonBar` или фиксированной нижней зоне);
+- горизонтальная прокрутка таблицы допустима при `UNCONSTRAINED_RESIZE_POLICY` и разумных min/pref колонок.
+
 ---
 
 # 17. Confirmation
@@ -467,6 +488,15 @@ Padding card: **16–24 px**.
 Toolbar **SHOULD** содержать: primary actions, filters, search, batch actions.
 
 **MUST NOT** смешивать в одной полосе несвязанные команды, фильтры и destructive actions без grouping (spacing / separators).
+
+## 21.1 Two-level action panels
+
+Когда toolbar содержит фильтры, параметры массовой операции и альтернативные способы завершения:
+
+- **уровень 1:** просмотр / фильтр, параметры операции, основные apply-кнопки (`tmp-button-primary`);
+- **уровень 2:** вспомогательные и альтернативные сценарии (`tmp-button-secondary`);
+- группы **MUST** разделяться spacing и вертикальными `Separator`;
+- подписи кнопок **MUST NOT** обрезаться до `…` из-за нехватки ширины — предпочтительны `FlowPane` / перенос на второй ряд.
 
 ---
 
@@ -874,9 +904,22 @@ After preview: readiness status (**Готов к импорту** / warnings / b
 
 Import confirmation explains existing ACTIVE / immutable landing (business semantics unchanged). Success state: single order → **Открыть заказ** / **К списку заказов** / **Импортировать ещё**; multi-order → list + import another (no arbitrary open-first). Shell **← Назад** replaces a duplicate local Cancel when history is available.
 
+### 39.9.1 SO7 color resolution dialog
+
+Модальное окно **«Разрешение цветов СО7»** (COL-041B UX) следует §12.4, §16.4, §21.1:
+
+- двухуровневая панель: фильтр + пара TMP + apply; ниже — альтернативные способы разрешения;
+- статус строки — фон (сопоставлено / требует выбора / изменено вручную); колонка «Состояние» **MUST NOT** дублировать статус;
+- мультивыбор — чекбокс + синяя полоса; зелёная TableView selection не используется как индикатор пакетного выделения;
+- колонка «Изделие»: `{externalPositionNumber} · {productName}` без повторения заказа и внутреннего кода в ячейке (полные идентификаторы — ToolTip);
+- вложенный заголовок **«Цветовая пара»** для «Внутри TMP» / «Снаружи TMP»;
+- компактные служебные колонки («Стр.», заголовок сохранения в справочник — две строки: **«Сохр. в»** / **«справ.»**; смысл — сохранение соответствия исходного текста СО7 паре TMP после успешного импорта; ToolTip заголовка раскрывает полную формулировку), «Ошибка») с ToolTip где нужно.
+
 ## 39.10 Global selection and status presentation
 
 TableView selection uses soft translucent green (`-tmp-table-selection-bg`) from the global theme for both focused and unfocused tables. Screen-specific selection colors are prohibited.
+
+Исключение: экраны §12.4 **MAY** подавлять зелёную заливку selected row, если строка несёт семантический статусный фон; пакетное выделение кодируется отдельно (полоса / чекбокс).
 
 Operational status cells and headers reuse `OperationalStatusIndicator` (Circle radius 6 + caption) with dedicated `tmp-status-dot-*` classes. Do not reuse/brighten the generic `-tmp-success` / `-tmp-danger` / `-tmp-warning` / `-tmp-info` message/button palette for status dots.
 

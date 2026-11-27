@@ -836,11 +836,13 @@ COL-005 (DONE)
 | COL-040A | OM color constraint contract | order-management | нет | — | DONE |
 | COL-040B | Import resolution coordinator | ui-shell | нет | — | DONE |
 | COL-041A | Unified resolution dialog | ui-shell | нет (FX-тесты; ручная — COL-041B) | — | DONE |
-| COL-041B | Import integration + post-confirm save | ui-shell | да | — | READY |
+| COL-041B | Import integration + post-confirm save | ui-shell | да | — | VERIFYING |
 | COL-050A | Warehouse regression | warehouse (tests) | нет | — | PLANNED |
 | COL-050B | Production regression | production (tests) | нет | — | PLANNED |
 | COL-060A | Acceptance environment (Q-01) | — | нет | destructive по разрешению | PLANNED |
 | COL-060B | Packaged acceptance | — | да | — | PLANNED |
+
+**COL-041B (VERIFYING):** код импорта в коммите `bdac916` (2026-11-26); UX refinement и TMP UI Standard 1.3 — в незакоммиченной рабочей копии. GUI-приёмка окна «Разрешение цветов СО7» (UX) — PASS PO (2026-11-27). Переход в **DONE** — только после ручной приёмки сценариев **COL-AC-03 … 23, 32** на `tmp_pilot` (§4.3); до закрытия COL-AC статус **VERIFYING**.
 
 Итого задач реализации: **19** (COL-010 … COL-060B).
 
