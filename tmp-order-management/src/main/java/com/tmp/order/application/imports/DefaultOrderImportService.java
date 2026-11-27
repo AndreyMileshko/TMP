@@ -36,6 +36,7 @@ import com.tmp.order.application.processing.ProcessingRecordPort;
 import com.tmp.order.application.processing.ResultReference;
 import com.tmp.order.capability.OrderManagementPermissions;
 import com.tmp.order.domain.ItemCommercialData;
+import com.tmp.security.api.PermissionId;
 import com.tmp.order.domain.OrderCommercialData;
 import com.tmp.order.domain.OrderNumber;
 import com.tmp.order.domain.OrderedQuantity;
@@ -133,7 +134,7 @@ public final class DefaultOrderImportService implements OrderImportService {
     @Override
     public OrderImportPreview preview(List<OrderImportBatch> batches) {
         Objects.requireNonNull(batches, "batches");
-        authorizationService.requirePermission(OrderManagementPermissions.ORDER_CREATE);
+        requireOrderImportPermissions();
 
         List<OrderImportProblem> structural = validator.validateAll(batches);
         List<OrderImportProblem> errors = new ArrayList<>();
@@ -196,11 +197,7 @@ public final class DefaultOrderImportService implements OrderImportService {
                                     null,
                                     "План импорта недействителен. Выполните предварительный просмотр.")));
         }
-        authorizationService.requirePermission(OrderManagementPermissions.ORDER_CREATE);
-        authorizationService.requirePermission(OrderManagementPermissions.ITEM_CREATE);
-        authorizationService.requirePermission(OrderManagementPermissions.REVISION_EDIT);
-        authorizationService.requirePermission(OrderManagementPermissions.ITEM_APPROVE);
-        authorizationService.requirePermission(OrderManagementPermissions.ORDER_APPROVE);
+        requireOrderImportPermissions();
 
         List<OrderImportBatch> batches = plan.batches();
         List<OrderImportProblem> structural = validator.validateAll(batches);
@@ -262,6 +259,12 @@ public final class DefaultOrderImportService implements OrderImportService {
         }
 
         return OrderImportConfirmResult.of(imported, totalPositions, totalLines);
+    }
+
+    private void requireOrderImportPermissions() {
+        for (PermissionId permission : OrderManagementPermissions.ORDER_IMPORT_REQUIRED) {
+            authorizationService.requirePermission(permission);
+        }
     }
 
     private void assertOrderNumbersAvailable(List<OrderImportBatch> batches) {

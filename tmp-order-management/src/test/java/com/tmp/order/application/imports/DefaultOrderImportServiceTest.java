@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -41,6 +40,7 @@ import com.tmp.order.domain.repository.CustomerOrderRepository;
 import com.tmp.order.domain.repository.OrderItemRepository;
 import com.tmp.security.api.AccessDeniedException;
 import com.tmp.security.api.AuthorizationService;
+import com.tmp.security.api.PermissionId;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -52,6 +52,8 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -440,6 +442,31 @@ class DefaultOrderImportServiceTest {
         assertInstanceOf(DefaultPreparedOrderImportPlan.class, preview.preparedPlan().orElseThrow());
     }
 
+    @ParameterizedTest
+    @MethodSource("orderImportPermissions")
+    void previewDeniesWhenImportPermissionMissing(PermissionId missing) {
+        stubPreviewDeniesAtMissingImportPermission(missing);
+
+        assertThrows(AccessDeniedException.class, () -> service.preview(validBatch()));
+
+        verify(authorizationService).requirePermission(missing);
+        verify(customerOrderRepository, never()).existsByOrderNumber(any());
+        verify(documentEngine, never()).createDocument(any());
+        verifyNoInteractions(draftPayloads);
+    }
+
+    @Test
+    void previewRequiresFullImportPermissionSet() {
+        stubPreviewReadOnlyOk();
+
+        OrderImportPreview preview = service.preview(validBatch());
+
+        assertTrue(preview.canConfirm());
+        for (PermissionId permission : OrderManagementPermissions.ORDER_IMPORT_REQUIRED) {
+            verify(authorizationService).requirePermission(permission);
+        }
+    }
+
     @Test
     void confirmDeniesWhenItemApprovePermissionMissing() {
         stubPreviewReadOnlyOk();
@@ -657,6 +684,23 @@ class DefaultOrderImportServiceTest {
     @Test
     void importedLineUsesDefaultUnitOfMeasureConstant() {
         assertEquals("шт", OrderImportDefaults.UNIT_OF_MEASURE);
+    }
+
+    private static java.util.stream.Stream<PermissionId> orderImportPermissions() {
+        return OrderManagementPermissions.ORDER_IMPORT_REQUIRED.stream();
+    }
+
+    private void stubPreviewDeniesAtMissingImportPermission(PermissionId denied) {
+        org.mockito.Mockito.doAnswer(
+                        invocation -> {
+                            PermissionId requested = invocation.getArgument(0);
+                            if (denied.equals(requested)) {
+                                throw new AccessDeniedException("missing " + denied.value());
+                            }
+                            return null;
+                        })
+                .when(authorizationService)
+                .requirePermission(any());
     }
 
     private void stubPreviewReadOnlyOk() {

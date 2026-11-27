@@ -1,3 +1,41 @@
+## COL-041B — AC-18: серверная авторизация `OrderImportService.preview()` — 2026-11-27
+
+**Scope:** AC-18 security alignment — `DefaultOrderImportService.preview()` + `OrderManagementPermissions.ORDER_IMPORT_REQUIRED` + `DefaultOrderImportServiceTest` + `ReferenceImportPermissionSetConsistencyTest`
+**Working tree:** uncommitted; **no commit / no push**
+**COL-041B status:** **VERIFYING** (не DONE)
+**Git HEAD:** `570726cd96756030e18c43576a5b74c3e23afdc4`
+
+### Прогон 1 (14:28 +07) — BUILD FAILURE
+
+| Check | Result |
+|---|---|
+| `mvn -pl :tmp-order-management,:tmp-bootstrap-app -am verify -DskipITs` | **FAIL** на `tmp-order-management` surefire |
+| `DefaultOrderImportServiceTest.previewDeniesWhenImportPermissionMissing` (×5) | **FAIL/ERROR** — Mockito strict stubbing (`PotentialStubbingProblem`, `UnnecessaryStubbingException`); production не виноват |
+| Причина | `doThrow` только на одном `PermissionId` + лишний `stubPreviewReadOnlyOk()` при раннем отказе |
+
+### Исправление тестов (только `DefaultOrderImportServiceTest`)
+
+- `stubPreviewDeniesAtMissingImportPermission`: `doAnswer` на `requirePermission(any())` — предшествующие права пропускаются, на `denied` → `AccessDeniedException`.
+- Убран `stubPreviewReadOnlyOk()` из отрицательных сценариев.
+
+### Прогон 2 (14:42–15:04 +07) — BUILD SUCCESS
+
+**Maven:** `C:\Users\1\apache-maven-3.9.6\bin\mvn.cmd` 3.9.6, Java 21.0.11
+
+| Check | Result |
+|---|---|
+| `DefaultOrderImportServiceTest` (41 incl. ×5 negative + positive) | **PASS** 41/0/0 |
+| `DefaultOrderDocumentUiServiceTest` | **PASS** 10/0/0 |
+| `ReferenceImportPermissionSetConsistencyTest` | **PASS** 1/0/0 |
+| `tmp-order-management` surefire | **422** tests, 0 failures, 0 errors |
+| `tmp-order-management` Checkstyle | **0 violations** |
+| `tmp-order-management` SpotBugs | **BugInstance 0** |
+| Reactor `:tmp-order-management,:tmp-bootstrap-app -am verify -DskipITs` | **BUILD SUCCESS** (~21:53) — все 12 модулей SUCCESS |
+| `git diff --check` | PASS (CRLF warnings) |
+
+**AC-18:** `AC-18 SECURITY FIX — READY FOR ACCEPTANCE` (automated gates).
+
+---
 ## COL-041B — UX refinement «Разрешение цветов СО7» — 2026-11-27
 
 **Scope:** COL-041B UX (dialog + ViewModel presentation + `tmp-color-resolution-dialog.css` + TMP-UI-Standard 1.3 + tests)

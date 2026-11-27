@@ -1,3 +1,27 @@
+## COL-041B — AC-18: выравнивание серверной авторизации `OrderImportService.preview()` — 2026-11-27
+
+**Status:** COL-041B остаётся **VERIFYING** (не DONE)
+**Module:** `tmp-order-management` (+ composition test `tmp-bootstrap-app`)
+
+### Problem
+
+Security Verification AC-18: UI, `ColorImportResolutionApi` и `confirm()` требуют полный набор из пяти полномочий импорта; `preview()` проверял только `order.order.create`, обходя UI-ограничение для опытного клиента.
+
+### Change
+
+- Канонический список `OrderManagementPermissions.ORDER_IMPORT_REQUIRED` (те же пять `PermissionId`, что у UI `ORDER_IMPORT_REQUIRED_PERMISSIONS`).
+- `DefaultOrderImportService.requireOrderImportPermissions()` — единая проверка в начале `preview()` и `confirm()` до валидации и побочных эффектов.
+- Тесты: параметризованный отказ по каждому из пяти полномочий; позитивный сценарий с верификацией всех вызовов.
+
+### Not changed
+
+- `DefaultOrderDocumentUiService` (ручное создание — по-прежнему `order.order.create`); UI; миграции; Confirm pipeline.
+
+### Next
+
+- Повторная приёмка Security AC-18; COL-041B — по-прежнему до закрытия COL-AC.
+
+---
 ## COL-041B — UX refinement «Разрешение цветов СО7» + TMP UI Standard 1.3 — 2026-11-27
 
 **Status:** VERIFYING (automated gates PASS; GUI-приёмка UX — PASS PO 2026-11-27; функциональная COL-AC — PENDING; не DONE)

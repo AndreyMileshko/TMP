@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * COL-022B: composition proof that Reference Data's duplicated OM import permission strings match
- * the permissions required by {@code DefaultOrderImportService#confirm}.
+ * the permissions required by {@code DefaultOrderImportService} preview and confirm paths.
  *
  * <p>Keeps {@code tmp-reference-data} free of a compile-time Order Management dependency while
  * still detecting drift of the five-permission import set.
@@ -20,12 +20,9 @@ class ReferenceImportPermissionSetConsistencyTest {
     @Test
     void referenceImportPermissionSetMatchesOrderImportConfirmRequirements() {
         List<String> expectedFromOrderManagement =
-                List.of(
-                        OrderManagementPermissions.ORDER_CREATE.value(),
-                        OrderManagementPermissions.ITEM_CREATE.value(),
-                        OrderManagementPermissions.REVISION_EDIT.value(),
-                        OrderManagementPermissions.ITEM_APPROVE.value(),
-                        OrderManagementPermissions.ORDER_APPROVE.value());
+                OrderManagementPermissions.ORDER_IMPORT_REQUIRED.stream()
+                        .map(PermissionId::value)
+                        .toList();
 
         assertEquals(
                 expectedFromOrderManagement,

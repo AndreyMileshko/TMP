@@ -18,7 +18,7 @@ public final class ReferenceImportAccessPolicy {
 
     /**
      * Full Order Management import permission set required by {@code DefaultOrderImportService}
-     * confirm path, in declaration order.
+     * preview and confirm paths, in declaration order.
      */
     public static final List<String> ORDER_IMPORT_PERMISSION_IDS =
             List.of(

@@ -30,6 +30,18 @@ public final class OrderManagementPermissions {
 
     public static final PermissionId SPECIFICATION_VIEW = PermissionId.of("order.specification.view");
 
+    /**
+     * Full STXT import permission set required by {@code OrderImportService#preview} and
+     * {@code OrderImportService#confirm} (matches UI {@code ORDER_IMPORT_REQUIRED_PERMISSIONS}).
+     */
+    public static final List<PermissionId> ORDER_IMPORT_REQUIRED =
+            List.of(
+                    ORDER_CREATE,
+                    ITEM_CREATE,
+                    REVISION_EDIT,
+                    ITEM_APPROVE,
+                    ORDER_APPROVE);
+
     private static final List<PermissionId> ALL =
             List.of(
                     ORDER_VIEW,
